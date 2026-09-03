@@ -1,0 +1,10 @@
+{
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true,
+    "modern-go-guidelines@goland-claude-marketplace": true,
+    "github@claude-plugins-official": true
+  },
+  "permissions": {
+    "defaultMode": "auto"
+  }
+}

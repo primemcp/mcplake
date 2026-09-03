@@ -1,0 +1,34 @@
+{
+    "name": "Golang dev container",
+    "build": {
+        "dockerfile": "Containerfile",
+        "context": "."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.go",
+                "anthropic.claude-code"
+            ],
+            "mcp": {
+                "servers": {
+                    "filesystem": {
+                        "command": "npx",
+                        "args": [
+                            "-y",
+                            "@modelcontextprotocol/server-filesystem",
+                            "/app"
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "workspaceFolder": "/app",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind",
+    "mounts": [
+        "source=${localWorkspaceFolderBasename}_claude,target=/root/.claude,type=volume",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind,readonly",
+        "source=${localWorkspaceFolderBasename}_gh,target=/root/.config/gh,type=volume"
+    ]
+}

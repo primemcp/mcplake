@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mcp add *)",
+      "Bash(git init *)",
+      "Bash(sh \"/root/.claude/plugins/cache/goland-claude-marketplace/modern-go-guidelines/1.1.1/scripts/run-tool.sh\" list --go-version 1.27.1)",
+      "Bash(ls -la /root/.claude/plugins/cache/ 2>/dev/null | head -20 || echo \"Cache directory not found\")",
+      "Read(//root/.claude/plugins/cache/**)",
+      "Bash(sh \"/root/.claude/plugins/cache/goland-claude-marketplace/modern-go-guidelines/1.1.1/skills/use-modern-go/scripts/run-tool.sh\" list --go-version 1.27.1)",
+      "Bash(git add *)",
+      "Bash(go mod *)",
+      "Bash(go work *)",
+      "Bash(git commit -m *)",
+      "Bash(make  *)"
+    ],
+    "defaultMode": "auto"
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "filesystem"
+  ]
+}
