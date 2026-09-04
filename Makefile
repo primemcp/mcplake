@@ -25,23 +25,23 @@ build:
 
 test:
 	@echo "Running tests (all modules)..."
-	go test -v -cover ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./gateway/... ./cmd/gateway/...
+	go test -v -cover ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/...
 
 test-race:
 	@echo "Running tests with race detector..."
-	go test -race ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./gateway/... ./cmd/gateway/...
+	go test -race ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/...
 
 lint:
 	@echo "Running go vet..."
-	go vet ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./gateway/... ./cmd/gateway/...
+	go vet ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/...
 
 fmt:
 	@echo "Formatting code..."
-	gofmt -w auth/ router/ cache/ filter/ mcp/ config/ gateway/ cmd/
+	gofmt -w auth/ router/ cache/ filter/ mcp/ config/ persistence/ gateway/ cmd/
 
 vet:
 	@echo "Running go vet..."
-	go vet ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./gateway/... ./cmd/gateway/...
+	go vet ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/...
 
 tidy:
 	@echo "Syncing workspace..."

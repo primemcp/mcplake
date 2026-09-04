@@ -8,5 +8,6 @@ use (
 	./filter
 	./gateway
 	./mcp
+	./persistence
 	./router
 )

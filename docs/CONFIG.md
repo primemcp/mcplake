@@ -59,7 +59,32 @@ Every JWT validation failure (bad signature, expired, wrong `iss`/`aud`,
 malformed token) is reported the same way — as `auth.ErrUnauthorized` — and
 maps to a 401 at the gateway's tool-call endpoint.
 
-### 3. MCP Servers
+### 3. Persistence
+
+Configures the control-plane's durable store for MCP registrations and
+access/filter policies. See
+[ADR-0006](architecture/decisions/0006-gorm-sqlite-postgres-persistence.md).
+
+```yaml
+persistence:
+  driver: sqlite       # sqlite (default) | postgres
+  dsn: "gateway.db"     # SQLite file path, or a Postgres connection string
+```
+
+**Fields:**
+- `driver` — `sqlite` (default) or `postgres`. SQLite runs embedded via a
+  pure-Go driver (no CGO, no external service) — the default for a
+  single-instance, air-gapped deployment. `postgres` is for distributed
+  deployments sharing one control-plane store.
+- `dsn` — the SQLite file path when `driver: sqlite`, or a PostgreSQL
+  connection string when `driver: postgres`.
+
+At startup, this section's entries plus `mcps:`/`access_policies:`/
+`filter_policies:` below are upserted into this store by name — the database
+becomes the source of truth from then on; `config.yaml` is a seed mechanism,
+not a parallel state store.
+
+### 4. MCP Servers
 
 Defines all MCP servers the gateway connects to.
 
@@ -89,7 +114,7 @@ mcps:
 - `arguments` — Command-line arguments
 - `env` — Environment variables
 
-### 4. Access Policies
+### 5. Access Policies
 
 Grants access to `(mcp, tool)` pairs based on JWT claims. See
 [ADR-0002](architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)
@@ -132,7 +157,7 @@ access_policies:
 4. A malformed `path` or `pattern` is rejected by `Config.Validate()` at
    startup, not discovered per-request
 
-### 5. Filter Policies
+### 6. Filter Policies
 
 Strips response fields for a specific `(mcp, tool)` call when the caller's
 claims match. Reuses the exact same `match` rule syntax as access policies —
