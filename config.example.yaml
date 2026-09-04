@@ -10,6 +10,12 @@ oidc:
   audience: "mcp-gateway"
   # jwks_cache_ttl: 1h
 
+# Control-plane persistence (ADR-0006). Defaults to embedded SQLite — no
+# external service required for a single-instance, air-gapped deployment.
+persistence:
+  driver: sqlite       # sqlite (default) | postgres
+  dsn: "gateway.db"     # SQLite file path, or a Postgres connection string
+
 mcps:
   - name: postgres-ro
     type: stdio
