@@ -4,6 +4,7 @@ import { Card } from "../primitives/Card";
 import { Input } from "../primitives/Input";
 import { statusFromString, statusTextColor } from "../primitives/StatusDot";
 import type { MCPRegistration, RegisterMCPRequest } from "../../api/types";
+import { TransportPicker } from "./TransportPicker";
 
 export type EndpointDetailProps = {
   endpoint: MCPRegistration;
@@ -19,13 +20,14 @@ export type EndpointDetailProps = {
  * endpoint here means unregistering it (DELETE /admin/mcps/:name), not
  * suspending it.
  *
- * Transport is fixed to stdio: cache.Registry.Register on the real backend
- * rejects anything else with "unsupported transport (only stdio is
- * implemented)" — sse/http aren't wired up in the mcp package yet, even
- * though the DTO/config shape already has room for a URL. Offering a
- * transport picker or a URL field here would just be UI for a capability
- * that doesn't exist; command+arguments is the only connect shape that
- * actually works today.
+ * Transport is fixed to stdio when saving: cache.Registry.Register on the
+ * real backend rejects anything else with "unsupported transport (only
+ * stdio is implemented)" — sse/http aren't wired up in the mcp package
+ * yet. TransportPicker shows all three explicitly, with sse/http visibly
+ * disabled, rather than hiding the fact that they exist but don't work —
+ * an explicit UX request over silently defaulting in code. A URL field is
+ * still omitted; unlike transport, the DTO having a `url` slot doesn't
+ * make showing it as a live option honest when nothing consumes it.
  */
 export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailProps) {
   const [editing, setEditing] = useState(false);
@@ -81,10 +83,7 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
 
         {editing && (
           <div className="p-[14px_16px] border-b border-border-soft bg-accent-soft flex flex-col gap-2">
-            <p className="text-[10.5px] text-subtle leading-normal">
-              Only stdio transport is implemented by the gateway today — sse/http aren't wired up
-              yet, so this always registers as a subprocess command.
-            </p>
+            <TransportPicker />
             <Input value={command} onChange={(e) => setCommand(e.target.value)} placeholder="command" mono />
             <Input
               value={args}

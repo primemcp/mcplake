@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "../primitives/Button";
 import { Input } from "../primitives/Input";
+import { TransportPicker } from "./TransportPicker";
 
 export type AddEndpointFormProps = {
   onCreate: (name: string, command: string, args: string[]) => Promise<void>;
@@ -49,8 +50,9 @@ export function AddEndpointForm({ onCreate, onCancel }: AddEndpointFormProps) {
 
   return (
     <div className="flex flex-col gap-3.5">
-      <p className="text-[11.5px] text-subtle leading-normal">
-        Only stdio (subprocess command) transport is implemented today.
+      <TransportPicker />
+      <p className="text-[10.5px] text-subtle -mt-2">
+        sse/http are shown for reference but aren't implemented by the gateway yet.
       </p>
       <Field label="Display name">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="postgres-ro" mono />
