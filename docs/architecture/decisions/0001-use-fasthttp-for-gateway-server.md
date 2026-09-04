@@ -137,9 +137,38 @@ same as choosing `net/http` while getting the performance benefit.
 
 ## Validation
 
-Benchmark the tool-call handler (auth + policy evaluation + a no-op mock MCP call)
-under load once implemented, and confirm p50/p99 gateway overhead against the
-~1-2ms target before closing out this milestone.
+Benchmarked in ticket #11 (`gateway/internal/pipeline_benchmark_test.go`,
+`BenchmarkToolCall`): the full `/v1/call` handler with **real** JWT validation
+(RSA-2048 signature check against a local JWKS server) and **real** policy
+evaluation (JSONPath+regexp `ClaimRule` matching through `router.Engine`) —
+only the downstream MCP call itself is a no-op mock, isolating gateway overhead
+from real tool latency per the ticket's scope.
+
+Run: `go test ./gateway/... -bench=BenchmarkToolCall -benchmem -run=^$ -benchtime=3s -count=3`,
+on a 16-thread dev machine (AMD Ryzen 7 PRO 7840HS), 16-way parallel load:
+
+| Run | p50      | p99      | allocs/op |
+|-----|----------|----------|-----------|
+| 1   | 382 µs   | 1666 µs  | 258       |
+| 2   | 402 µs   | 1727 µs  | 258       |
+| 3   | 382 µs   | 1650 µs  | 257       |
+
+**Result: target met.** p50 is well under 1ms (~0.4ms); p99 lands at the upper
+half of the stated 1-2ms range (~1.6-1.7ms) but within it, consistently across
+repeated runs. (Note: under `testing.B.RunParallel`, the standard `ns/op` figure
+divides total wall time by total iterations across all parallel workers, so it
+reads far lower than real per-request latency — e.g. ~31µs — and is not a
+useful number on its own for this kind of concurrent-load benchmark; the
+p50/p99 custom metrics, computed from wall-clock time recorded around each
+individual request, are the numbers that matter here.)
+
+The likely dominant fixed costs, based on what each stage does (not separately
+profiled): RSA-2048 signature verification in `ValidateToken` and JSON
+marshal/unmarshal at several stages (claim payload, tool response, filtered
+response) — JSONPath/regexp evaluation over a small claim document is
+comparatively cheap. If a future change pushes p99 outside the target,
+`go test -cpuprofile`/`-memprofile` against this same benchmark is the place to
+start, before assuming which stage is responsible.
 
 ## References
 

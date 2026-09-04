@@ -14,8 +14,9 @@ import (
 
 // startTestGateway starts a Gateway on an ephemeral loopback port and returns
 // its bound address plus a cleanup func that gracefully stops it and asserts
-// Start returned cleanly.
-func startTestGateway(t *testing.T) (addr string, cleanup func()) {
+// Start returned cleanly. Takes testing.TB (not *testing.T) so it doubles as
+// setup for benchmarks (ticket #11), not just tests.
+func startTestGateway(t testing.TB) (addr string, cleanup func()) {
 	t.Helper()
 	return startTestGatewayWithConfig(t, internal.Config{})
 }
@@ -23,7 +24,7 @@ func startTestGateway(t *testing.T) (addr string, cleanup func()) {
 // startTestGatewayWithConfig is startTestGateway but lets the caller supply
 // pipeline dependencies (Authenticator/Policy/Resolver/CallTimeout);
 // DataPlaneAddr is always overridden to an ephemeral loopback port.
-func startTestGatewayWithConfig(t *testing.T, cfg internal.Config) (addr string, cleanup func()) {
+func startTestGatewayWithConfig(t testing.TB, cfg internal.Config) (addr string, cleanup func()) {
 	t.Helper()
 
 	cfg.DataPlaneAddr = "127.0.0.1:0"
