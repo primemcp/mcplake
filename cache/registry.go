@@ -75,37 +75,74 @@ func NewRegistry() *Registry {
 	return &Registry{byName: make(map[string]MCPRegistration)}
 }
 
-// Get returns the registration stored under name, if any.
+// Get returns the registration stored under name, if any. The returned
+// value's Tools map is a defensive copy (see MCPRegistration.clone) — the
+// caller cannot mutate Registry-internal state through it.
 func (r *Registry) Get(name string) (MCPRegistration, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	reg, ok := r.byName[name]
-	return reg, ok
+	return reg.clone(), ok
 }
 
-// HasTool reports whether mcp is registered and advertises tool. It does not
-// (yet) distinguish an Active registration from an Unreachable one with a
-// stale tool list — that visibility distinction is ticket #20's job.
+// HasTool reports whether mcp is currently active and advertises tool. An
+// MCP that isn't StatusActive never returns true here, even if it has a
+// tool list left over from a previous successful registration — a stale
+// tool list on an unreachable MCP must not be treated as callable.
 func (r *Registry) HasTool(mcp, tool string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	reg, ok := r.byName[mcp]
-	if !ok {
+	if !ok || reg.Status != StatusActive {
 		return false
 	}
 	_, ok = reg.Tools[tool]
 	return ok
 }
 
-// List returns a defensive copy of every registration currently stored.
+// Resolve returns the live client for mcp, but only if it is currently
+// StatusActive — the gateway pipeline uses this to get a client to call
+// through, and must never be handed a client for an unreachable or unknown
+// MCP.
+func (r *Registry) Resolve(mcp string) (MCPClient, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	reg, ok := r.byName[mcp]
+	if !ok || reg.Status != StatusActive {
+		return nil, false
+	}
+	return reg.Client, true
+}
+
+// List returns a defensive copy of every registration currently stored:
+// callers cannot mutate Registry-internal state through the returned slice
+// or its elements' Tools maps.
 func (r *Registry) List() []MCPRegistration {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]MCPRegistration, 0, len(r.byName))
 	for _, reg := range r.byName {
-		out = append(out, reg)
+		out = append(out, reg.clone())
 	}
 	return out
+}
+
+// clone returns a copy of reg safe to hand to callers outside the lock:
+// the Tools map is copied, since a map is a reference type and a plain
+// struct copy would otherwise still share the same underlying map with
+// Registry-internal state. Client is intentionally left shared — callers
+// that get a client via Resolve need the actual live connection, not a
+// copy of it.
+func (reg MCPRegistration) clone() MCPRegistration {
+	if reg.Tools == nil {
+		return reg
+	}
+	tools := make(map[string]ToolSchema, len(reg.Tools))
+	for name, schema := range reg.Tools {
+		tools[name] = schema
+	}
+	reg.Tools = tools
+	return reg
 }
 
 // set stores reg under its Name, replacing any existing entry in a single
