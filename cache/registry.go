@@ -4,8 +4,11 @@
 package cache
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
+
+	"github.com/atsokha/mcplake/mcp"
 )
 
 // Registration status values. See ADR-0003 for the state machine: a
@@ -32,15 +35,29 @@ type ToolSchema struct {
 	OutputSchema json.RawMessage // nil when the MCP doesn't provide one
 }
 
+// MCPClient is the connection surface Registry needs from a downstream MCP
+// client, satisfied by *mcp.Client. Defined here (consumer-side, per the
+// project's small-interfaces convention) so tests can substitute a fake
+// without spawning a real subprocess; see Register in register.go.
+type MCPClient interface {
+	ListTools(ctx context.Context) ([]mcp.ToolSchema, error)
+	CallTool(ctx context.Context, tool string, args map[string]any) (*mcp.ToolResponse, error)
+	Close() error
+}
+
 // MCPRegistration is a downstream MCP the gateway knows about: how to reach
 // it, its current status, and (once Status is StatusActive) the tools it
-// advertised at last successful discovery.
+// advertised at last successful discovery plus the live client to call
+// through.
 type MCPRegistration struct {
 	Name      string
 	Transport string // "stdio" | "sse" | "http"
 	Connect   ConnectConfig
 	Status    string
 	Tools     map[string]ToolSchema
+	// Client is the live connection for this registration, non-nil only
+	// when Status is StatusActive.
+	Client MCPClient
 }
 
 // Registry is the gateway's concurrency-safe, in-memory table of
