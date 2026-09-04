@@ -8,18 +8,27 @@ The MCP Gateway is configured via YAML files. This guide covers all available co
 
 ### 1. Server Configuration
 
-Controls the gateway's HTTP server settings.
+Controls the gateway's two HTTP surfaces — see
+[`docs/architecture/overview.md`](architecture/overview.md) for why they're
+separate.
 
 ```yaml
 server:
-  port: 8080           # Main gateway port (default: 8080)
-  ui_port: 8081        # Admin UI port (default: 8081)
+  data_plane_addr: ":8080"    # fasthttp tool-call proxy (ADR-0001)
+  control_plane_addr: ":8081" # Gin admin API (ADR-0005)
   # tls:
   #   cert_file: /path/to/cert.pem
   #   key_file: /path/to/key.pem
   # read_timeout: 30s
   # write_timeout: 30s
 ```
+
+**Fields:**
+- `data_plane_addr` — listen address for the tool-call endpoint used by agents
+  (`POST /v1/call`, `GET /healthz`). Required.
+- `control_plane_addr` — listen address for the admin API used to manage MCP
+  registrations and policies (`/admin/*`). Bind this to a trusted network/interface
+  only — see [ADR-0005](architecture/decisions/0005-use-gin-for-control-plane-api.md).
 
 ### 2. OIDC Configuration
 
@@ -143,8 +152,8 @@ You can override configuration values with environment variables:
 
 ```bash
 # Server
-GATEWAY_SERVER_PORT=9000
-GATEWAY_SERVER_UI_PORT=9001
+GATEWAY_SERVER_DATA_PLANE_ADDR=:9000
+GATEWAY_SERVER_CONTROL_PLANE_ADDR=:9001
 
 # OIDC
 GATEWAY_OIDC_PROVIDER_URL=https://auth.example.com

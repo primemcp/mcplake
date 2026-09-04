@@ -1,8 +1,8 @@
 # MCP Gateway Configuration Example
 
 server:
-  port: 8080
-  ui_port: 8081
+  data_plane_addr: ":8080"    # fasthttp tool-call proxy (ADR-0001)
+  control_plane_addr: ":8081" # Gin admin API (ADR-0005)
 
 oidc:
   jwks_url: "https://auth.example.com/.well-known/jwks.json"
