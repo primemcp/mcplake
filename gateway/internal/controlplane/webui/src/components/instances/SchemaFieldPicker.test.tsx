@@ -61,9 +61,9 @@ describe("SchemaFieldPicker", () => {
     expect(screen.getByText(/All 3 fields pass through/)).toBeInTheDocument();
   });
 
-  it("summarizes pass-through vs stripped once fields are toggled off", () => {
+  it("reports how many fields are removed once some are toggled off", () => {
     render(<SchemaFieldPicker schema={SCHEMA} selected={["$.email"]} onToggle={vi.fn()} />);
-    expect(screen.getByText("2 of 3 fields pass through — 1 stripped")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 fields removed from the response")).toBeInTheDocument();
   });
 
   it("shows a fallback when the schema itself has no fields", () => {

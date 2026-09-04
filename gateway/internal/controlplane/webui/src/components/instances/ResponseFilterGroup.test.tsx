@@ -166,7 +166,7 @@ describe("ResponseFilterGroup", () => {
     await user.click(screen.getByRole("button", { name: "Show 2 more filters" }));
 
     expect(screen.getAllByText(/^filter-/)).toHaveLength(5);
-    expect(screen.getByRole("button", { name: "Show fewer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide 2 filters" })).toBeInTheDocument();
   });
 
   it("disables adding a filter when the endpoint has no discovered tools", () => {

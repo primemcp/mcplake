@@ -36,6 +36,15 @@
   --color-danger-bg: #fdecea;
   --color-danger-border: #f3c9c5;
   --color-success: #0b7a4b;
+  --color-success-soft: #e9f6ef;
+  /* Sensitive-field flag color (schema field annotations) and the
+     endpoint on/off toggle's "in between" state — from the mockup's
+     `const C = {...}`: warn: '#9a5b06', warnSoft: '#fdf4e5'. */
+  --color-warn: #9a5b06;
+  --color-warn-soft: #fdf4e5;
+  /* The schema-field toggle's "off" (dropped) track color — distinct from
+     --color-line, per the source's literal '#dfe3ea'. */
+  --color-track-off: #dfe3ea;
 
   --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;

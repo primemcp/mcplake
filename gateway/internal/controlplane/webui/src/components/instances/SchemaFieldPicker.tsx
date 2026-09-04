@@ -20,7 +20,7 @@ export function SchemaFieldPicker({ schema, selected, onToggle, meta }: SchemaFi
   const [query, setQuery] = useState("");
   const rows = useMemo(() => flattenSchema(schema), [schema]);
   const hasHits = useMemo(() => rows.some((r) => matchesFieldQuery(r, query)), [rows, query]);
-  const passThroughCount = rows.length - selected.filter((p) => rows.some((r) => r.path === p)).length;
+  const droppedCount = selected.filter((p) => rows.some((r) => r.path === p)).length;
 
   if (rows.length === 0) {
     return <p className="text-[11px] text-muted px-1">This tool doesn't advertise any fields.</p>;
@@ -44,10 +44,12 @@ export function SchemaFieldPicker({ schema, selected, onToggle, meta }: SchemaFi
       ) : (
         <p className="text-[11px] text-muted px-1">No field matches that.</p>
       )}
-      <p className="text-[10.5px] text-muted">
-        {selected.length === 0
+      {/* Exact mockup phrasing (schemaSummary/schemaSummaryFg): amber once
+          anything's dropped, muted while everything still passes through. */}
+      <p className={`text-[10.5px] ${droppedCount > 0 ? "text-warn" : "text-muted"}`}>
+        {droppedCount === 0
           ? `All ${rows.length} ${rows.length === 1 ? "field" : "fields"} pass through — toggle a field off to strip it`
-          : `${passThroughCount} of ${rows.length} fields pass through — ${rows.length - passThroughCount} stripped`}
+          : `${droppedCount} of ${rows.length} fields removed from the response`}
       </p>
     </div>
   );

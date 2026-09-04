@@ -21,6 +21,17 @@ export type ResponseFilterGroupProps = {
 // How many filter rows show before "Show N more filters" collapses the rest.
 const VISIBLE_LIMIT = 3;
 
+// Matches the mockup's own row summary exactly: first 3 dropped fields
+// joined by " · ", "+N" for the rest, "full response" when nothing's
+// dropped. Our model needs the tool name prefixed (the mockup assumes one
+// schema per endpoint; a real endpoint can expose several tools).
+function filterSummary(f: FilterPolicy): string {
+  if (f.drop_fields.length === 0) return `${f.tool} · full response`;
+  const shown = f.drop_fields.slice(0, 3).join(" · ");
+  const rest = f.drop_fields.length > 3 ? ` +${f.drop_fields.length - 3}` : "";
+  return `${f.tool} · ${shown}${rest} removed`;
+}
+
 function EditFilterForm({
   filter,
   endpoint,
@@ -168,7 +179,7 @@ export function ResponseFilterGroup({
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <div className="text-[12.5px] font-medium truncate">{f.name}</div>
                       <div className="text-[10.5px] font-mono text-subtle truncate">
-                        {f.tool}: {f.drop_fields.join(", ")} removed
+                        {filterSummary(f)}
                       </div>
                     </div>
                     {/* Always "not used yet" until #80 (Users & access) exists to
@@ -203,7 +214,7 @@ export function ResponseFilterGroup({
                 onClick={() => setExpanded(false)}
                 className="self-start border-0 bg-transparent cursor-pointer text-[11.5px] font-medium text-accent p-0"
               >
-                Show fewer
+                Hide {visible.length - VISIBLE_LIMIT} {visible.length - VISIBLE_LIMIT === 1 ? "filter" : "filters"}
               </button>
             )}
           </>

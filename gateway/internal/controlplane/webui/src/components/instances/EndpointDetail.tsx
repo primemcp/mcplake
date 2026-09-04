@@ -15,10 +15,14 @@ export type EndpointDetailProps = {
 /**
  * There is no PUT/PATCH for MCPs in the real admin API (see #77's design
  * doc) — "edit" re-registers with the same name, which the backend treats
- * as an upsert. There's likewise no soft enable/disable: the mockup's
- * toggle doesn't map onto anything the backend supports, so "removing" an
- * endpoint here means unregistering it (DELETE /admin/mcps/:name), not
- * suspending it.
+ * as an upsert.
+ *
+ * The mockup's Enabled/Disabled toggle IS fully specified there (colors,
+ * layout) and is reproduced here exactly -- but the real backend has no
+ * soft-disable state (only registered/not, via DELETE /admin/mcps/:name),
+ * so switching it to "Disabled" is, honestly, unregistering the endpoint
+ * (confirmed first) rather than a reversible pause. There's no "Enabled"
+ * direction to wire up after that, since the endpoint is simply gone.
  *
  * Transport is fixed to stdio when saving: cache.Registry.Register on the
  * real backend rejects anything else with "unsupported transport (only
@@ -72,13 +76,32 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
               {endpoint.connect.arguments?.length ? ` ${endpoint.connect.arguments.join(" ")}` : ""}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setEditing((v) => !v)}
-            className="flex items-center gap-1.5 px-[11px] py-[6px] border border-border rounded-[9px] bg-surface cursor-pointer shrink-0 text-xs font-medium text-body hover:border-accent hover:text-accent"
-          >
-            {editing ? "Close" : "Edit endpoint"}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              className="flex items-center gap-1.5 px-[11px] py-[6px] border border-border rounded-[9px] bg-surface cursor-pointer text-xs font-medium text-body hover:border-accent hover:text-accent"
+            >
+              {editing ? "Close" : "Edit endpoint"}
+            </button>
+            <button
+              type="button"
+              disabled={removing}
+              onClick={async () => {
+                if (!window.confirm(`Remove ${endpoint.name}? There is no soft-disable — this unregisters it.`)) {
+                  return;
+                }
+                setRemoving(true);
+                await onRemove(endpoint.name);
+              }}
+              className="flex items-center gap-2 py-[5px] pl-2 pr-2.5 rounded-full border border-border cursor-pointer bg-success-soft"
+            >
+              <span className="flex w-[30px] h-[17px] rounded-full p-0.5 justify-end bg-success">
+                <span className="w-[13px] h-[13px] rounded-full bg-white" />
+              </span>
+              <span className="text-[11.5px] font-semibold text-success">Enabled</span>
+            </button>
+          </div>
         </div>
 
         {editing && (
@@ -98,17 +121,6 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
               </Button>
               <Button variant="secondary" onClick={() => setEditing(false)}>
                 Cancel
-              </Button>
-              <span className="flex-1" />
-              <Button
-                variant="danger"
-                disabled={removing}
-                onClick={async () => {
-                  setRemoving(true);
-                  await onRemove(endpoint.name);
-                }}
-              >
-                Remove endpoint
               </Button>
             </div>
           </div>
