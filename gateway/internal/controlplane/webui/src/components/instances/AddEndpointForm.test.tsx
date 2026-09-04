@@ -3,22 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AddEndpointForm } from "./AddEndpointForm";
 
-const NAME_PLACEHOLDER = "display name";
-const COMMAND_PLACEHOLDER = "command, e.g. mcp-server-postgres";
-const ARGS_PLACEHOLDER = "arguments (space-separated, optional)";
-
 describe("AddEndpointForm", () => {
   it("disables Add until both name and command are filled", async () => {
     const user = userEvent.setup();
     render(<AddEndpointForm onCreate={vi.fn()} onCancel={vi.fn()} />);
 
-    const addButton = screen.getByRole("button", { name: "Add" });
+    const addButton = screen.getByRole("button", { name: "Add endpoint" });
     expect(addButton).toBeDisabled();
 
-    await user.type(screen.getByPlaceholderText(NAME_PLACEHOLDER), "postgres-ro");
+    await user.type(screen.getByLabelText("Display name"), "postgres-ro");
     expect(addButton).toBeDisabled();
 
-    await user.type(screen.getByPlaceholderText(COMMAND_PLACEHOLDER), "mcp-server-postgres");
+    await user.type(screen.getByLabelText("Command"), "mcp-server-postgres");
     expect(addButton).toBeEnabled();
   });
 
@@ -27,10 +23,10 @@ describe("AddEndpointForm", () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<AddEndpointForm onCreate={onCreate} onCancel={vi.fn()} />);
 
-    await user.type(screen.getByPlaceholderText(NAME_PLACEHOLDER), "  postgres-ro  ");
-    await user.type(screen.getByPlaceholderText(COMMAND_PLACEHOLDER), "  mcp-server-postgres  ");
-    await user.type(screen.getByPlaceholderText(ARGS_PLACEHOLDER), "--read-only --db mcp");
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    await user.type(screen.getByLabelText("Display name"), "  postgres-ro  ");
+    await user.type(screen.getByLabelText("Command"), "  mcp-server-postgres  ");
+    await user.type(screen.getByLabelText(/Arguments/), "--read-only --db mcp");
+    await user.click(screen.getByRole("button", { name: "Add endpoint" }));
 
     expect(onCreate).toHaveBeenCalledWith("postgres-ro", "mcp-server-postgres", [
       "--read-only",
@@ -44,9 +40,9 @@ describe("AddEndpointForm", () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<AddEndpointForm onCreate={onCreate} onCancel={vi.fn()} />);
 
-    await user.type(screen.getByPlaceholderText(NAME_PLACEHOLDER), "postgres-ro");
-    await user.type(screen.getByPlaceholderText(COMMAND_PLACEHOLDER), "mcp-server-postgres");
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    await user.type(screen.getByLabelText("Display name"), "postgres-ro");
+    await user.type(screen.getByLabelText("Command"), "mcp-server-postgres");
+    await user.click(screen.getByRole("button", { name: "Add endpoint" }));
 
     expect(onCreate).toHaveBeenCalledWith("postgres-ro", "mcp-server-postgres", []);
   });
@@ -56,9 +52,9 @@ describe("AddEndpointForm", () => {
     const onCreate = vi.fn().mockRejectedValue(new Error("name already registered"));
     render(<AddEndpointForm onCreate={onCreate} onCancel={vi.fn()} />);
 
-    await user.type(screen.getByPlaceholderText(NAME_PLACEHOLDER), "postgres-ro");
-    await user.type(screen.getByPlaceholderText(COMMAND_PLACEHOLDER), "mcp-server-postgres");
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    await user.type(screen.getByLabelText("Display name"), "postgres-ro");
+    await user.type(screen.getByLabelText("Command"), "mcp-server-postgres");
+    await user.click(screen.getByRole("button", { name: "Add endpoint" }));
 
     expect(await screen.findByText("name already registered")).toBeInTheDocument();
   });

@@ -52,4 +52,32 @@ describe("EndpointList", () => {
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
+
+  it("opens the add-endpoint dialog centered, not inline, and closes it after a successful add", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <EndpointList
+        endpoints={ENDPOINTS}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        selectedName={null}
+        onSelect={vi.fn()}
+        onCreate={onCreate}
+      />,
+    );
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Add MCP endpoint/ }));
+    expect(screen.getByRole("dialog", { name: "Add MCP endpoint" })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Display name"), "new-mcp");
+    await user.type(screen.getByLabelText("Command"), "mcp-server-new");
+    await user.click(screen.getByRole("button", { name: "Add endpoint" }));
+
+    expect(onCreate).toHaveBeenCalledWith("new-mcp", "mcp-server-new", []);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });

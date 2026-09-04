@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ErrorNotice } from "../primitives/ErrorNotice";
+import { Modal } from "../primitives/Modal";
 import { SearchInput } from "../primitives/SearchInput";
 import { statusFromString, statusTextColor } from "../primitives/StatusDot";
 import type { MCPRegistration } from "../../api/types";
@@ -95,7 +96,21 @@ export function EndpointList({
         </>
       )}
 
-      {adding ? (
+      <button
+        type="button"
+        onClick={() => setAdding(true)}
+        className="flex items-center gap-2.5 p-3 border border-dashed border-border rounded-[10px] bg-surface cursor-pointer text-left"
+      >
+        <span className="w-4 h-4 rounded border border-dashed border-muted grid place-items-center text-[11px] text-muted">
+          +
+        </span>
+        <span className="flex flex-col gap-0.5">
+          <span className="text-[12.5px] font-semibold">Add MCP endpoint</span>
+          <span className="text-[10.5px] text-muted">a command is all the gateway needs</span>
+        </span>
+      </button>
+
+      <Modal open={adding} onClose={() => setAdding(false)} title="Add MCP endpoint">
         <AddEndpointForm
           onCancel={() => setAdding(false)}
           onCreate={async (name, command, args) => {
@@ -103,21 +118,7 @@ export function EndpointList({
             setAdding(false);
           }}
         />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="flex items-center gap-2.5 p-3 border border-dashed border-border rounded-[10px] bg-surface cursor-pointer text-left"
-        >
-          <span className="w-4 h-4 rounded border border-dashed border-muted grid place-items-center text-[11px] text-muted">
-            +
-          </span>
-          <span className="flex flex-col gap-0.5">
-            <span className="text-[12.5px] font-semibold">Add MCP endpoint</span>
-            <span className="text-[10.5px] text-muted">a URL is all the gateway needs</span>
-          </span>
-        </button>
-      )}
+      </Modal>
     </div>
   );
 }
