@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "../primitives/Button";
 import { Card } from "../primitives/Card";
 import { ErrorNotice } from "../primitives/ErrorNotice";
 import { Input } from "../primitives/Input";
+import { SearchInput } from "../primitives/SearchInput";
 import type { FilterPolicy, MCPRegistration } from "../../api/types";
 import { SchemaFieldPicker } from "./SchemaFieldPicker";
 
@@ -89,10 +90,25 @@ export function ResponseFilterGroup({
   const [tool, setTool] = useState("");
   const [fields, setFields] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [listQuery, setListQuery] = useState("");
 
   const tools = Object.keys(endpoint.tools ?? {});
   const scoped = filters.filter((f) => f.mcp === endpoint.name);
   const editingFilter = scoped.find((f) => f.name === editingName) ?? null;
+
+  // Mirrors the mockup's single "Search filters or fields" box above the
+  // list — distinct from SchemaFieldPicker's own per-form field search,
+  // which narrows one filter's candidate schema fields while building it.
+  const visible = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    if (q === "") return scoped;
+    return scoped.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        f.tool.toLowerCase().includes(q) ||
+        f.drop_fields.some((field) => field.toLowerCase().includes(q)),
+    );
+  }, [scoped, listQuery]);
 
   const submit = async () => {
     setSubmitError(null);
@@ -124,8 +140,13 @@ export function ResponseFilterGroup({
           agent.
         </p>
       ) : (
-        <ul className="flex flex-col gap-1.5">
-          {scoped.map((f) =>
+        <>
+          <SearchInput value={listQuery} onChange={setListQuery} placeholder="Search filters or fields" />
+          {visible.length === 0 && (
+            <p className="text-[11.5px] text-subtle">No filter matches that.</p>
+          )}
+          <ul className="flex flex-col gap-1.5">
+          {visible.map((f) =>
             editingFilter?.name === f.name ? (
               <li key={f.name}>
                 <EditFilterForm
@@ -163,7 +184,8 @@ export function ResponseFilterGroup({
               </li>
             ),
           )}
-        </ul>
+          </ul>
+        </>
       )}
 
       {adding ? (

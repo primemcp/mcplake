@@ -118,6 +118,38 @@ describe("ResponseFilterGroup", () => {
     expect(onDelete).toHaveBeenCalledWith("hide-pii");
   });
 
+  it("the list search narrows filters by name, tool, or dropped field — separate from the per-form field picker search", async () => {
+    const user = userEvent.setup();
+    const twoFilters: FilterPolicy[] = [
+      { name: "hide-pii", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
+      { name: "hide-email", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.email"] },
+    ];
+    render(
+      <ResponseFilterGroup
+        endpoint={ENDPOINT}
+        filters={twoFilters}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        onCreate={vi.fn()}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("hide-pii")).toBeInTheDocument();
+    expect(screen.getByText("hide-email")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("Search filters or fields"), "salary");
+
+    expect(screen.getByText("hide-pii")).toBeInTheDocument();
+    expect(screen.queryByText("hide-email")).not.toBeInTheDocument();
+
+    await user.clear(screen.getByPlaceholderText("Search filters or fields"));
+    await user.type(screen.getByPlaceholderText("Search filters or fields"), "nope");
+    expect(screen.getByText("No filter matches that.")).toBeInTheDocument();
+  });
+
   it("disables adding a filter when the endpoint has no discovered tools", () => {
     render(
       <ResponseFilterGroup
