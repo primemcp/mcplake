@@ -5,10 +5,10 @@ server:
   control_plane_addr: ":8081" # Gin admin API (ADR-0005)
 
 oidc:
-  provider_url: "https://auth.example.com"
-  client_id: "mcp-gateway"
+  jwks_url: "https://auth.example.com/.well-known/jwks.json"
+  issuer: "https://auth.example.com"
   audience: "mcp-gateway"
-  # JWKS will be automatically fetched and cached from provider
+  # jwks_cache_ttl: 1h
 
 mcps:
   - name: postgres-ro

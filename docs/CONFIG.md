@@ -36,21 +36,28 @@ Configures JWT validation and OIDC provider integration.
 
 ```yaml
 oidc:
-  provider_url: "https://auth.example.com"
-  client_id: "mcp-gateway"
+  jwks_url: "https://auth.example.com/.well-known/jwks.json"
+  issuer: "https://auth.example.com"
   audience: "mcp-gateway"
   # jwks_cache_ttl: 1h
-  # offline_mode: false
-  # offline_jwks_file: /etc/mcp-gateway/jwks.json
 ```
 
 **Fields:**
-- `provider_url` — URL of your OIDC provider (required)
-- `client_id` — Client ID from your OIDC provider (required)
-- `audience` — Expected audience claim in JWT (required)
-- `jwks_cache_ttl` — How long to cache JWKS (default: 1h)
-- `offline_mode` — Use pre-loaded JWKS instead of fetching (default: false)
-- `offline_jwks_file` — Path to cached JWKS for offline mode
+- `jwks_url` — the OIDC provider's JWKS endpoint (required). The gateway
+  currently requires this exact URL; it does not yet perform OIDC discovery
+  from a provider/issuer URL (`/.well-known/openid-configuration`) — that's
+  tracked as future work, not implemented in `auth.Validator` yet.
+- `issuer` — required `iss` claim value (required)
+- `audience` — required `aud` claim value (required)
+- `jwks_cache_ttl` — how long fetched keys are cached before a background
+  refresh (default: `1h`). The cache is also refreshed out-of-band, rate-limited
+  to once per minute, whenever a token references an unrecognized key ID
+  (e.g. right after the provider rotates its signing key) — see
+  [`auth.Validator`](../auth/validator.go).
+
+Every JWT validation failure (bad signature, expired, wrong `iss`/`aud`,
+malformed token) is reported the same way — as `auth.ErrUnauthorized` — and
+maps to a 401 at the gateway's tool-call endpoint.
 
 ### 3. MCP Servers
 

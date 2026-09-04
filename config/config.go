@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"time"
 )
 
 type Config struct {
@@ -23,10 +24,16 @@ type ServerConfig struct {
 }
 
 type OIDCConfig struct {
-	ProviderURL string
-	ClientID    string
-	Audience    string
-	// TODO: Add JWKS caching configuration
+	// JWKSURL is the OIDC provider's JWKS endpoint. See auth.Config.JWKSURL;
+	// OIDC discovery from a provider/issuer URL is not yet implemented.
+	JWKSURL string
+	// Issuer is the required `iss` claim value. See auth.Config.Issuer.
+	Issuer string
+	// Audience is the required `aud` claim value. See auth.Config.Audience.
+	Audience string
+	// JWKSCacheTTL is how long fetched keys are cached before a background
+	// refresh. See auth.Config.JWKSCacheTTL.
+	JWKSCacheTTL time.Duration
 }
 
 type MCPConfig struct {
