@@ -13,7 +13,10 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/atsokha/mcplake/internal/controlplane/docs"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // idleTimeout bounds how long a keep-alive connection may sit idle, so a
@@ -54,9 +57,8 @@ func NewServer(cfg Config) *Server {
 	engine.Use(gin.Recovery())
 
 	admin := engine.Group("/admin")
-	admin.GET("/healthz", func(c *gin.Context) {
-		c.String(http.StatusOK, "ok")
-	})
+	admin.GET("/healthz", healthz)
+	admin.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	s := &Server{
 		addr:   cfg.ControlPlaneAddr,
@@ -125,4 +127,13 @@ func (s *Server) Stop(ctx context.Context) error {
 		return fmt.Errorf("controlplane: shutdown: %w", err)
 	}
 	return nil
+}
+
+// @Summary  Control-plane health check
+// @Tags     health
+// @Produce  plain
+// @Success  200  {string}  string  "ok"
+// @Router   /healthz [get]
+func healthz(c *gin.Context) {
+	c.String(http.StatusOK, "ok")
 }

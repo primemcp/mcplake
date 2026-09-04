@@ -56,8 +56,8 @@ type connectConfigDTO struct {
 
 type toolSchemaDTO struct {
 	Name         string          `json:"name"`
-	InputSchema  json.RawMessage `json:"input_schema,omitempty"`
-	OutputSchema json.RawMessage `json:"output_schema,omitempty"`
+	InputSchema  json.RawMessage `json:"input_schema,omitempty" swaggertype:"object"`
+	OutputSchema json.RawMessage `json:"output_schema,omitempty" swaggertype:"object"`
 }
 
 type mcpRegistrationDTO struct {
@@ -103,6 +103,17 @@ type registerMCPRequest struct {
 // new MCP (via registry.Register), then persists the result. If Register
 // fails, nothing is persisted and the MCP is not made visible to the data
 // plane as callable — see ADR-0003.
+//
+// @Summary      Register an MCP
+// @Description  Connects to the MCP, discovers its tools, and makes it immediately callable via the data plane. Persisted only on success.
+// @Tags         mcps
+// @Accept       json
+// @Produce      json
+// @Param        request  body      registerMCPRequest  true  "MCP registration"
+// @Success      201      {object}  mcpRegistrationDTO
+// @Failure      400      {object}  errorResponse
+// @Failure      502      {object}  errorResponse
+// @Router       /mcps [post]
 func (h *mcpHandlers) register(c *gin.Context) {
 	var req registerMCPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -147,6 +158,12 @@ func (h *mcpHandlers) register(c *gin.Context) {
 
 // list handles GET /admin/mcps: the live registry state, not the DB — the
 // registry is already the read-optimized cache the data plane itself uses.
+//
+// @Summary      List registered MCPs
+// @Tags         mcps
+// @Produce      json
+// @Success      200  {array}  mcpRegistrationDTO
+// @Router       /mcps [get]
 func (h *mcpHandlers) list(c *gin.Context) {
 	regs := h.registry.List()
 	dtos := make([]mcpRegistrationDTO, 0, len(regs))
@@ -157,6 +174,14 @@ func (h *mcpHandlers) list(c *gin.Context) {
 }
 
 // unregister handles DELETE /admin/mcps/:name.
+//
+// @Summary      Unregister an MCP
+// @Tags         mcps
+// @Produce      json
+// @Param        name  path  string  true  "MCP name"
+// @Success      204
+// @Failure      404  {object}  errorResponse
+// @Router       /mcps/{name} [delete]
 func (h *mcpHandlers) unregister(c *gin.Context) {
 	name := c.Param("name")
 

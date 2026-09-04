@@ -70,6 +70,14 @@ func RegisterFilterPolicyRoutes(admin *gin.RouterGroup, repo filterPolicyReposit
 	admin.DELETE("/filter-policies/:name", h.delete)
 }
 
+// @Summary      Create a filter policy
+// @Tags         filter-policies
+// @Accept       json
+// @Produce      json
+// @Param        request  body      filterPolicyRequest  true  "Filter policy"
+// @Success      201      {object}  filterPolicyDTO
+// @Failure      400      {object}  errorResponse
+// @Router       /filter-policies [post]
 func (h *filterPolicyHandlers) create(c *gin.Context) {
 	var req filterPolicyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -84,6 +92,16 @@ func (h *filterPolicyHandlers) create(c *gin.Context) {
 	h.upsertAndRespond(c, req.toFilterPolicy(req.Name), http.StatusCreated)
 }
 
+// @Summary      Replace a filter policy
+// @Description  Creates it if absent.
+// @Tags         filter-policies
+// @Accept       json
+// @Produce      json
+// @Param        name     path      string                true  "Policy name"
+// @Param        request  body      filterPolicyRequest  true  "Filter policy"
+// @Success      200      {object}  filterPolicyDTO
+// @Failure      400      {object}  errorResponse
+// @Router       /filter-policies/{name} [put]
 func (h *filterPolicyHandlers) update(c *gin.Context) {
 	name := c.Param("name")
 	var req filterPolicyRequest
@@ -110,6 +128,11 @@ func (h *filterPolicyHandlers) upsertAndRespond(c *gin.Context, policy router.Fi
 	c.JSON(successStatus, filterPolicyDTOFrom(policy))
 }
 
+// @Summary      List filter policies
+// @Tags         filter-policies
+// @Produce      json
+// @Success      200  {array}  filterPolicyDTO
+// @Router       /filter-policies [get]
 func (h *filterPolicyHandlers) list(c *gin.Context) {
 	policies, err := h.repo.List(c.Request.Context())
 	if err != nil {
@@ -123,6 +146,13 @@ func (h *filterPolicyHandlers) list(c *gin.Context) {
 	c.JSON(http.StatusOK, dtos)
 }
 
+// @Summary      Get a filter policy
+// @Tags         filter-policies
+// @Produce      json
+// @Param        name  path      string  true  "Policy name"
+// @Success      200   {object}  filterPolicyDTO
+// @Failure      404   {object}  errorResponse
+// @Router       /filter-policies/{name} [get]
 func (h *filterPolicyHandlers) get(c *gin.Context) {
 	name := c.Param("name")
 	policy, ok, err := h.repo.Get(c.Request.Context(), name)
@@ -137,6 +167,13 @@ func (h *filterPolicyHandlers) get(c *gin.Context) {
 	c.JSON(http.StatusOK, filterPolicyDTOFrom(policy))
 }
 
+// @Summary      Delete a filter policy
+// @Tags         filter-policies
+// @Produce      json
+// @Param        name  path  string  true  "Policy name"
+// @Success      204
+// @Failure      404  {object}  errorResponse
+// @Router       /filter-policies/{name} [delete]
 func (h *filterPolicyHandlers) delete(c *gin.Context) {
 	name := c.Param("name")
 	ctx := c.Request.Context()
