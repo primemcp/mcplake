@@ -29,23 +29,37 @@ const FILTERS: FilterPolicy[] = [
   { name: "other", match: [], mcp: "postgres-rw", tool: "get_user", drop_fields: ["$.x"] },
 ];
 
+function noopProps() {
+  return { onRetry: vi.fn(), onCreate: vi.fn(), onUpdate: vi.fn(), onDelete: vi.fn() };
+}
+
 describe("ResponseFilterGroup", () => {
   it("lists only the filters scoped to this endpoint", () => {
     render(
-      <ResponseFilterGroup
-        endpoint={ENDPOINT}
-        filters={FILTERS}
-        loading={false}
-        error={null}
-        onRetry={vi.fn()}
-        onCreate={vi.fn()}
-        onUpdate={vi.fn()}
-        onDelete={vi.fn()}
-      />,
+      <ResponseFilterGroup endpoint={ENDPOINT} filters={FILTERS} loading={false} error={null} {...noopProps()} />,
     );
 
     expect(screen.getByText("hide-pii")).toBeInTheDocument();
     expect(screen.queryByText("other")).not.toBeInTheDocument();
+  });
+
+  it("shows a 'not used yet' badge on every filter (no Users screen exists to compute real usage)", () => {
+    render(
+      <ResponseFilterGroup endpoint={ENDPOINT} filters={FILTERS} loading={false} error={null} {...noopProps()} />,
+    );
+    expect(screen.getByText("not used yet")).toBeInTheDocument();
+  });
+
+  it("opens the creation form automatically when the endpoint has no filters yet", () => {
+    render(<ResponseFilterGroup endpoint={ENDPOINT} filters={[]} loading={false} error={null} {...noopProps()} />);
+
+    expect(screen.getByPlaceholderText("filter name")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add response filter/ })).not.toBeInTheDocument();
+  });
+
+  it("does not force the form open while filters are still loading", () => {
+    render(<ResponseFilterGroup endpoint={ENDPOINT} filters={[]} loading={true} error={null} {...noopProps()} />);
+    expect(screen.queryByPlaceholderText("filter name")).not.toBeInTheDocument();
   });
 
   it("creates a filter from schema fields toggled on in the picker", async () => {
@@ -57,14 +71,12 @@ describe("ResponseFilterGroup", () => {
         filters={[]}
         loading={false}
         error={null}
-        onRetry={vi.fn()}
+        {...noopProps()}
         onCreate={onCreate}
-        onUpdate={vi.fn()}
-        onDelete={vi.fn()}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /Add response filter/ }));
+    // Form is already open (no filters yet) -- no button to click first.
     await user.type(screen.getByPlaceholderText("filter name"), "hide-pii");
     await user.selectOptions(screen.getByRole("combobox"), "get_user");
     await user.click(screen.getByRole("button", { name: "Hide $.salary" }));
@@ -82,10 +94,8 @@ describe("ResponseFilterGroup", () => {
         filters={FILTERS}
         loading={false}
         error={null}
-        onRetry={vi.fn()}
-        onCreate={vi.fn()}
+        {...noopProps()}
         onUpdate={onUpdate}
-        onDelete={vi.fn()}
       />,
     );
 
@@ -106,9 +116,7 @@ describe("ResponseFilterGroup", () => {
         filters={FILTERS}
         loading={false}
         error={null}
-        onRetry={vi.fn()}
-        onCreate={vi.fn()}
-        onUpdate={vi.fn()}
+        {...noopProps()}
         onDelete={onDelete}
       />,
     );
@@ -125,16 +133,7 @@ describe("ResponseFilterGroup", () => {
       { name: "hide-email", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.email"] },
     ];
     render(
-      <ResponseFilterGroup
-        endpoint={ENDPOINT}
-        filters={twoFilters}
-        loading={false}
-        error={null}
-        onRetry={vi.fn()}
-        onCreate={vi.fn()}
-        onUpdate={vi.fn()}
-        onDelete={vi.fn()}
-      />,
+      <ResponseFilterGroup endpoint={ENDPOINT} filters={twoFilters} loading={false} error={null} {...noopProps()} />,
     );
 
     expect(screen.getByText("hide-pii")).toBeInTheDocument();
@@ -150,6 +149,26 @@ describe("ResponseFilterGroup", () => {
     expect(screen.getByText("No filter matches that.")).toBeInTheDocument();
   });
 
+  it("collapses long filter lists behind 'Show N more filters'", async () => {
+    const user = userEvent.setup();
+    const many: FilterPolicy[] = Array.from({ length: 5 }, (_, i) => ({
+      name: `filter-${i}`,
+      match: [],
+      mcp: "postgres-ro",
+      tool: "get_user",
+      drop_fields: ["$.salary"],
+    }));
+    render(<ResponseFilterGroup endpoint={ENDPOINT} filters={many} loading={false} error={null} {...noopProps()} />);
+
+    expect(screen.getAllByText(/^filter-/)).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Show 2 more filters" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show 2 more filters" }));
+
+    expect(screen.getAllByText(/^filter-/)).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "Show fewer" })).toBeInTheDocument();
+  });
+
   it("disables adding a filter when the endpoint has no discovered tools", () => {
     render(
       <ResponseFilterGroup
@@ -157,10 +176,7 @@ describe("ResponseFilterGroup", () => {
         filters={[]}
         loading={false}
         error={null}
-        onRetry={vi.fn()}
-        onCreate={vi.fn()}
-        onUpdate={vi.fn()}
-        onDelete={vi.fn()}
+        {...noopProps()}
       />,
     );
 

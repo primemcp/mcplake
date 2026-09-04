@@ -18,6 +18,9 @@ export type ResponseFilterGroupProps = {
   onDelete: (name: string) => Promise<void>;
 };
 
+// How many filter rows show before "Show N more filters" collapses the rest.
+const VISIBLE_LIMIT = 3;
+
 function EditFilterForm({
   filter,
   endpoint,
@@ -44,8 +47,8 @@ function EditFilterForm({
         onToggle={(path) =>
           setFields((prev) => (prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]))
         }
+        meta={`tools/list · ${endpoint.name}`}
       />
-      <p className="text-[10.5px] text-subtle">{fields.length} field(s) will be dropped from {filter.tool}.</p>
       <div className="flex flex-wrap items-center gap-1.5">
         <Button
           onClick={async () => {
@@ -68,12 +71,6 @@ function EditFilterForm({
   );
 }
 
-/**
- * Filter list matches the mockup's row layout exactly (name + fields on
- * one line, edit button on the right). The "used by N users" badge from
- * the mockup is omitted — there's no Users & access screen yet (#80/#81)
- * to source that count from, not a style choice.
- */
 export function ResponseFilterGroup({
   endpoint,
   filters,
@@ -85,6 +82,7 @@ export function ResponseFilterGroup({
   onDelete,
 }: ResponseFilterGroupProps) {
   const [adding, setAdding] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [tool, setTool] = useState("");
@@ -95,6 +93,9 @@ export function ResponseFilterGroup({
   const tools = Object.keys(endpoint.tools ?? {});
   const scoped = filters.filter((f) => f.mcp === endpoint.name);
   const editingFilter = scoped.find((f) => f.name === editingName) ?? null;
+  // No filters yet: skip the empty-state message and go straight to an
+  // open creation form instead of making the operator click "+" first.
+  const formOpen = tools.length > 0 && (adding || (scoped.length === 0 && !loading && !error));
 
   // Mirrors the mockup's single "Search filters or fields" box above the
   // list — distinct from SchemaFieldPicker's own per-form field search,
@@ -109,6 +110,8 @@ export function ResponseFilterGroup({
         f.drop_fields.some((field) => field.toLowerCase().includes(q)),
     );
   }, [scoped, listQuery]);
+  const shown = expanded ? visible : visible.slice(0, VISIBLE_LIMIT);
+  const hiddenCount = visible.length - shown.length;
 
   const submit = async () => {
     setSubmitError(null);
@@ -134,61 +137,80 @@ export function ResponseFilterGroup({
         <ErrorNotice onRetry={onRetry} />
       ) : loading ? (
         <p className="text-[11.5px] text-subtle">Loading…</p>
-      ) : scoped.length === 0 ? (
-        <p className="text-[11.5px] text-subtle">
-          No response filter on this endpoint yet — every field of its response reaches the
-          agent.
-        </p>
       ) : (
-        <>
-          <SearchInput value={listQuery} onChange={setListQuery} placeholder="Search filters or fields" />
-          {visible.length === 0 && (
-            <p className="text-[11.5px] text-subtle">No filter matches that.</p>
-          )}
-          <ul className="flex flex-col gap-1.5">
-          {visible.map((f) =>
-            editingFilter?.name === f.name ? (
-              <li key={f.name}>
-                <EditFilterForm
-                  filter={f}
-                  endpoint={endpoint}
-                  onCancel={() => setEditingName(null)}
-                  onSave={async (dropFields) => {
-                    await onUpdate(f.name, f.tool, dropFields);
-                    setEditingName(null);
-                  }}
-                  onDelete={async () => {
-                    await onDelete(f.name);
-                    setEditingName(null);
-                  }}
-                />
-              </li>
-            ) : (
-              <li
-                key={f.name}
-                className="flex items-center gap-3 p-2.5 border border-border rounded-[10px]"
+        scoped.length > 0 && (
+          <>
+            <SearchInput value={listQuery} onChange={setListQuery} placeholder="Search filters or fields" />
+            {visible.length === 0 && <p className="text-[11.5px] text-subtle">No filter matches that.</p>}
+            <ul className="flex flex-col gap-1.5">
+              {shown.map((f) =>
+                editingFilter?.name === f.name ? (
+                  <li key={f.name}>
+                    <EditFilterForm
+                      filter={f}
+                      endpoint={endpoint}
+                      onCancel={() => setEditingName(null)}
+                      onSave={async (dropFields) => {
+                        await onUpdate(f.name, f.tool, dropFields);
+                        setEditingName(null);
+                      }}
+                      onDelete={async () => {
+                        await onDelete(f.name);
+                        setEditingName(null);
+                      }}
+                    />
+                  </li>
+                ) : (
+                  <li
+                    key={f.name}
+                    className="flex items-center gap-3 p-2.5 border border-border rounded-[10px]"
+                  >
+                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <div className="text-[12.5px] font-medium truncate">{f.name}</div>
+                      <div className="text-[10.5px] font-mono text-subtle truncate">
+                        {f.tool}: {f.drop_fields.join(", ")} removed
+                      </div>
+                    </div>
+                    {/* Always "not used yet" until #80 (Users & access) exists to
+                        compute a real per-filter usage count from access grants —
+                        not a fabricated number in the meantime. */}
+                    <span className="shrink-0 text-[10.5px] text-muted whitespace-nowrap">
+                      not used yet
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingName(f.name)}
+                      className="shrink-0 px-2.5 py-1 border border-border rounded-md bg-surface cursor-pointer text-[11px] font-medium text-body hover:border-accent hover:text-accent"
+                    >
+                      Edit
+                    </button>
+                  </li>
+                ),
+              )}
+            </ul>
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="self-start border-0 bg-transparent cursor-pointer text-[11.5px] font-medium text-accent p-0"
               >
-                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <div className="text-[12.5px] font-medium truncate">{f.name}</div>
-                  <div className="text-[10.5px] font-mono text-subtle truncate">
-                    {f.tool}: {f.drop_fields.join(", ")}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditingName(f.name)}
-                  className="shrink-0 px-2.5 py-1 border border-border rounded-md bg-surface cursor-pointer text-[11px] font-medium text-body hover:border-accent hover:text-accent"
-                >
-                  Edit
-                </button>
-              </li>
-            ),
-          )}
-          </ul>
-        </>
+                Show {hiddenCount} more {hiddenCount === 1 ? "filter" : "filters"}
+              </button>
+            )}
+            {expanded && visible.length > VISIBLE_LIMIT && (
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                className="self-start border-0 bg-transparent cursor-pointer text-[11.5px] font-medium text-accent p-0"
+              >
+                Show fewer
+              </button>
+            )}
+          </>
+        )
       )}
 
-      {adding ? (
+      {formOpen ? (
         <div className="p-3 border border-accent rounded-lg bg-form-soft flex flex-col gap-2">
           <div className="text-xs font-semibold">New response filter</div>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="filter name" />
@@ -216,6 +238,7 @@ export function ResponseFilterGroup({
                   prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
                 )
               }
+              meta={`tools/list · ${endpoint.name}`}
             />
           )}
           {submitError && <p className="text-[10.5px] text-danger">{submitError}</p>}

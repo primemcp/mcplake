@@ -4,7 +4,6 @@ import { Card } from "../primitives/Card";
 import { Input } from "../primitives/Input";
 import { statusFromString, statusTextColor } from "../primitives/StatusDot";
 import type { MCPRegistration, RegisterMCPRequest } from "../../api/types";
-import { DiscoveredTools } from "./DiscoveredTools";
 import { TransportPicker } from "./TransportPicker";
 
 export type EndpointDetailProps = {
@@ -124,8 +123,6 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
           </span>
         </div>
       </Card>
-
-      <DiscoveredTools tools={tools} />
     </div>
   );
 }

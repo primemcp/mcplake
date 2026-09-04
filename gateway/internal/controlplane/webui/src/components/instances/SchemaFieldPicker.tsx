@@ -5,22 +5,22 @@ import { SchemaFieldRows } from "./SchemaFieldRows";
 
 export type SchemaFieldPickerProps = {
   schema: unknown;
-  /** Omit both selected/onToggle for a read-only listing — no toggle is
-   * rendered and nothing is clickable, but search/scroll behave
-   * identically either way. */
-  selected?: string[];
-  onToggle?: (path: string) => void;
+  selected: string[];
+  onToggle: (path: string) => void;
+  /** e.g. "tools/list · postgres-ro" — shown next to the field count. */
+  meta?: string;
 };
 
-/** One schema, its own search box: used when building/editing a single
- * response filter, where the field list belongs to exactly one selected
- * tool. For browsing many schemas' fields under one shared search instead
- * (Discovered tools), use SchemaFieldRows directly with an externally-owned
- * query. */
-export function SchemaFieldPicker({ schema, selected, onToggle }: SchemaFieldPickerProps) {
+/**
+ * The mockup's schema browser: a heading + meta line, a search box, the
+ * toggleable field list, and a "N fields pass through" summary — used when
+ * building/editing a single response filter.
+ */
+export function SchemaFieldPicker({ schema, selected, onToggle, meta }: SchemaFieldPickerProps) {
   const [query, setQuery] = useState("");
   const rows = useMemo(() => flattenSchema(schema), [schema]);
   const hasHits = useMemo(() => rows.some((r) => matchesFieldQuery(r, query)), [rows, query]);
+  const passThroughCount = rows.length - selected.filter((p) => rows.some((r) => r.path === p)).length;
 
   if (rows.length === 0) {
     return <p className="text-[11px] text-muted px-1">This tool doesn't advertise any fields.</p>;
@@ -28,12 +28,27 @@ export function SchemaFieldPicker({ schema, selected, onToggle }: SchemaFieldPic
 
   return (
     <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="text-[10.5px] font-semibold tracking-wide uppercase text-muted">
+          Discovered response fields
+        </span>
+        <span className="flex-1" />
+        {meta && <span className="text-[10px] text-muted font-mono">{meta}</span>}
+        <span className="text-[10px] text-muted">
+          {rows.length} {rows.length === 1 ? "field" : "fields"}
+        </span>
+      </div>
       <SearchInput value={query} onChange={setQuery} placeholder="Search fields, e.g. email or PII" />
       {hasHits ? (
         <SchemaFieldRows schema={schema} query={query} selected={selected} onToggle={onToggle} />
       ) : (
         <p className="text-[11px] text-muted px-1">No field matches that.</p>
       )}
+      <p className="text-[10.5px] text-muted">
+        {selected.length === 0
+          ? `All ${rows.length} ${rows.length === 1 ? "field" : "fields"} pass through — toggle a field off to strip it`
+          : `${passThroughCount} of ${rows.length} fields pass through — ${rows.length - passThroughCount} stripped`}
+      </p>
     </div>
   );
 }
