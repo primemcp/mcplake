@@ -1,61 +1,40 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
 	"log"
-	"os"
+	"log/slog"
 	"os/signal"
 	"syscall"
+
+	"github.com/atsokha/mcplake/cmd/gateway/app"
+	"github.com/atsokha/mcplake/config"
 )
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "Path to configuration file")
-	port := flag.Int("port", 8080, "Port for the gateway to listen on")
-	uiPort := flag.Int("ui-port", 8081, "Port for the admin UI")
 	flag.Parse()
 
-	log.Printf("mcplake gateway starting...")
-	log.Printf("Configuration: %s", *configPath)
-	log.Printf("Gateway listening on: %d", *port)
-	log.Printf("Admin UI listening on: %d", *uiPort)
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		log.Fatalf("mcplake: load config %s: %v", *configPath, err)
+	}
 
-	// TODO: Initialize configuration
-	// cfg, err := config.Load(*configPath)
-	// if err != nil {
-	//     log.Fatalf("Failed to load configuration: %v", err)
-	// }
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	// TODO: Initialize OIDC provider and cache JWKS
-	// oidcValidator, err := auth.NewValidator(cfg.OIDC)
+	a, err := app.New(ctx, cfg)
+	if err != nil {
+		log.Fatalf("mcplake: initialize: %v", err)
+	}
 
-	// TODO: Initialize MCP schema cache
-	// schemaCache, err := cache.NewSchemaCache(cfg.MCPs)
+	slog.Info("mcplake gateway starting",
+		"data_plane_addr", cfg.Server.DataPlaneAddr,
+		"control_plane_addr", cfg.Server.ControlPlaneAddr,
+	)
 
-	// TODO: Initialize router
-	// routerInstance, err := router.NewRouter(cfg.Routing)
-
-	// TODO: Initialize response filter
-	// filterInstance, err := filter.NewFilter(cfg.Filtering)
-
-	// TODO: Start gateway server
-	// gw, err := gateway.NewGateway(cfg, oidcValidator, schemaCache, routerInstance, filterInstance)
-
-	// TODO: Start admin UI
-	// ui, err := ui.NewServer(cfg.UI, gw)
-
-	// Setup graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigChan
-		fmt.Printf("\nReceived signal: %v, shutting down...\n", sig)
-		// TODO: Gracefully shutdown gateway
-		// TODO: Gracefully shutdown UI
-		os.Exit(0)
-	}()
-
-	// Block until shutdown
-	select {}
+	if err := a.Run(ctx); err != nil {
+		log.Fatalf("mcplake: %v", err)
+	}
 }

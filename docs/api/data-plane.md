@@ -71,7 +71,3 @@ registry currently has anything registered under them.
 ### Current limitations (tracked, not bugs)
 
 - No request size limit or rate limiting is documented yet.
-- `cmd/gateway`'s `main.go` does not yet wire a real `Config` into the gateway —
-  that depends on `config.Load()` (YAML parsing), which isn't implemented by any
-  ticket yet. The pipeline itself (this document) is fully implemented and tested
-  independently of that wiring.
