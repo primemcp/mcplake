@@ -71,6 +71,14 @@ func RegisterAccessPolicyRoutes(admin *gin.RouterGroup, repo accessPolicyReposit
 	admin.DELETE("/access-policies/:name", h.delete)
 }
 
+// @Summary      Create an access policy
+// @Tags         access-policies
+// @Accept       json
+// @Produce      json
+// @Param        request  body      accessPolicyRequest  true  "Access policy"
+// @Success      201      {object}  accessPolicyDTO
+// @Failure      400      {object}  errorResponse
+// @Router       /access-policies [post]
 func (h *accessPolicyHandlers) create(c *gin.Context) {
 	var req accessPolicyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -85,6 +93,16 @@ func (h *accessPolicyHandlers) create(c *gin.Context) {
 	h.upsertAndRespond(c, req.toAccessPolicy(req.Name), http.StatusCreated)
 }
 
+// @Summary      Replace an access policy
+// @Description  Creates it if absent.
+// @Tags         access-policies
+// @Accept       json
+// @Produce      json
+// @Param        name     path      string                true  "Policy name"
+// @Param        request  body      accessPolicyRequest  true  "Access policy"
+// @Success      200      {object}  accessPolicyDTO
+// @Failure      400      {object}  errorResponse
+// @Router       /access-policies/{name} [put]
 func (h *accessPolicyHandlers) update(c *gin.Context) {
 	name := c.Param("name")
 	var req accessPolicyRequest
@@ -111,6 +129,11 @@ func (h *accessPolicyHandlers) upsertAndRespond(c *gin.Context, policy router.Ac
 	c.JSON(successStatus, accessPolicyDTOFrom(policy))
 }
 
+// @Summary      List access policies
+// @Tags         access-policies
+// @Produce      json
+// @Success      200  {array}  accessPolicyDTO
+// @Router       /access-policies [get]
 func (h *accessPolicyHandlers) list(c *gin.Context) {
 	policies, err := h.repo.List(c.Request.Context())
 	if err != nil {
@@ -124,6 +147,13 @@ func (h *accessPolicyHandlers) list(c *gin.Context) {
 	c.JSON(http.StatusOK, dtos)
 }
 
+// @Summary      Get an access policy
+// @Tags         access-policies
+// @Produce      json
+// @Param        name  path      string  true  "Policy name"
+// @Success      200   {object}  accessPolicyDTO
+// @Failure      404   {object}  errorResponse
+// @Router       /access-policies/{name} [get]
 func (h *accessPolicyHandlers) get(c *gin.Context) {
 	name := c.Param("name")
 	policy, ok, err := h.repo.Get(c.Request.Context(), name)
@@ -138,6 +168,13 @@ func (h *accessPolicyHandlers) get(c *gin.Context) {
 	c.JSON(http.StatusOK, accessPolicyDTOFrom(policy))
 }
 
+// @Summary      Delete an access policy
+// @Tags         access-policies
+// @Produce      json
+// @Param        name  path  string  true  "Policy name"
+// @Success      204
+// @Failure      404  {object}  errorResponse
+// @Router       /access-policies/{name} [delete]
 func (h *accessPolicyHandlers) delete(c *gin.Context) {
 	name := c.Param("name")
 	ctx := c.Request.Context()

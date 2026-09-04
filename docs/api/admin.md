@@ -18,6 +18,18 @@ Every error body has the shape `{"error": "<code>", "message": "<human-readable>
 Returns `200 OK` with body `ok` once the control-plane server has bound its
 listener. No authentication required.
 
+## Interactive API Reference
+
+The full OpenAPI (Swagger 2.0) spec for this API is generated from the `@`
+doc-comment annotations above each handler in `gateway/internal/controlplane`
+via `swaggo/swag` (see
+[ADR-0007](../architecture/decisions/0007-swaggo-for-control-plane-api-docs.md)),
+and served interactively at `GET /admin/swagger/index.html` on the control-plane
+port — same trust boundary as the rest of `/admin/*`. Regenerate it after
+changing a handler's annotations with `make swagger` (requires the `swag` CLI:
+`go install github.com/swaggo/swag/cmd/swag@latest`); `make swagger-check` fails
+if the committed spec is stale.
+
 ## MCP Registrations
 
 ### `POST /admin/mcps`
