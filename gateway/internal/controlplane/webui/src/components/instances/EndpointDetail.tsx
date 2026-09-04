@@ -4,7 +4,7 @@ import { Card } from "../primitives/Card";
 import { Input } from "../primitives/Input";
 import { statusFromString, statusTextColor } from "../primitives/StatusDot";
 import type { MCPRegistration, RegisterMCPRequest } from "../../api/types";
-import { ToolFieldList } from "./ToolFieldList";
+import { SchemaFieldPicker } from "./SchemaFieldPicker";
 import { TransportPicker } from "./TransportPicker";
 
 export type EndpointDetailProps = {
@@ -141,7 +141,7 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
             {tools.map((tool) => (
               <li key={tool.name} className="p-2.5 border border-border rounded-[10px] flex flex-col gap-1.5">
                 <div className="text-[12.5px] font-semibold">{tool.name}</div>
-                <ToolFieldList schema={tool.input_schema} />
+                <SchemaFieldPicker schema={tool.input_schema} />
               </li>
             ))}
           </ul>
