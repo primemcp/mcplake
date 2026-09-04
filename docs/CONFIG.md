@@ -89,58 +89,81 @@ mcps:
 - `arguments` — Command-line arguments
 - `env` — Environment variables
 
-### 4. Routing Rules
+### 4. Access Policies
 
-Routes requests to specific MCP instances based on JWT claims.
-
-```yaml
-routing:
-  - claim_key: role           # JWT claim to match
-    claim_value: "db-reader"  # Expected value
-    mcp_instance: postgres-ro # Target MCP instance
-    priority: 10              # Matching priority (lower = higher priority)
-
-  - claim_key: role
-    claim_value: "db-writer"
-    mcp_instance: postgres-rw
-    priority: 10
-```
-
-**How It Works:**
-1. Gateway extracts JWT and validates it
-2. For each request, the router checks all rules
-3. Rules are matched in priority order (lower number = checked first)
-4. First matching rule determines the target MCP instance
-
-### 5. Filtering Rules
-
-Controls field-level response filtering based on JWT claims.
+Grants access to `(mcp, tool)` pairs based on JWT claims. See
+[ADR-0002](architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)
+for the `match` rule syntax and
+[ADR-0004](architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.md)
+for policy semantics.
 
 ```yaml
-filtering:
-  - claim_key: role
-    claim_value: "user"
-    mcp_name: postgres-ro           # MCP to filter
-    tool_name: get_user             # Specific tool (or "*" for all)
-    hide_fields:
-      - hashed_password
-      - api_key
-      - internal_id
+access_policies:
+  - name: db-reader
+    match:
+      - path: "$.role"       # JSONPath into the decoded claim set
+        pattern: "^db-reader$" # regexp tested against the extracted value(s)
+    grants:
+      - mcp: postgres-ro      # "*" grants every registered MCP
+        tools: ["*"]          # "*" grants every tool on the matched MCP(s)
 
-  - claim_key: role
-    claim_value: "user"
-    mcp_name: postgres-ro
-    tool_name: list_users
-    hide_fields:
-      - email
-      - phone_number
+  - name: db-writer
+    match:
+      - path: "$.role"
+        pattern: "^db-writer$"
+    grants:
+      - mcp: postgres-rw
+        tools: ["*"]
 ```
 
+**Fields:**
+- `name` — unique identifier for the policy, used in error messages (required)
+- `match` — a list of `{path, pattern}` rules, ANDed together (all must match)
+- `grants` — a list of `{mcp, tools}`; a call is authorized if this policy's
+  `match` matches AND any grant covers the requested `(mcp, tool)`
+
 **How It Works:**
-1. After receiving a response from an MCP
-2. The filter checks all rules for the caller's claims
-3. Matching rules hide specified fields
-4. Filtered response is returned to caller
+1. Gateway validates the JWT and decodes its full claim set
+2. For each `access_policies` entry, `match`'s JSONPath rules are evaluated
+   against the claims and regexp-tested; if a rule's path resolves to a list
+   (e.g. `$.groups[*]`), it matches if *any* element satisfies the pattern
+3. A call is authorized if **any** policy matches and grants the requested
+   `(mcp, tool)` — policies are additive, there is no explicit deny yet
+4. A malformed `path` or `pattern` is rejected by `Config.Validate()` at
+   startup, not discovered per-request
+
+### 5. Filter Policies
+
+Strips response fields for a specific `(mcp, tool)` call when the caller's
+claims match. Reuses the exact same `match` rule syntax as access policies —
+see ADR-0004 for why one engine drives both.
+
+```yaml
+filter_policies:
+  - name: hide-pii-for-plain-users-get-user
+    match:
+      - path: "$.role"
+        pattern: "^user$"
+    mcp: postgres-ro   # exact match, no "*" — a filter targets one tool
+    tool: get_user
+    drop_fields:
+      - "$.hashed_password" # JSONPath into the tool's response body
+      - "$.api_key"
+      - "$.internal_id"
+```
+
+**Fields:**
+- `name` — unique identifier (required)
+- `match` — same `{path, pattern}` rule list as access policies
+- `mcp` / `tool` — the exact tool call this filter applies to (no wildcards)
+- `drop_fields` — JSONPath expressions identifying fields to remove from the
+  response; a path that doesn't exist in a given response is a no-op
+
+**How It Works:**
+1. After a tool call succeeds, the gateway re-evaluates the caller's claims
+   against `filter_policies`
+2. The union of `drop_fields` from every matching policy scoped to that
+   `(mcp, tool)` is removed from the response body before it's returned
 
 ## Complete Example
 
@@ -166,27 +189,35 @@ GATEWAY_LOG_LEVEL=debug
 
 ## Best Practices
 
-1. **Start Simple** — Use a basic routing configuration first, add filtering rules incrementally
-2. **Test Routes** — Verify routing rules before adding filtering
-3. **Use Priorities** — Set distinct priorities to avoid ambiguous rules
-4. **Secure Secrets** — Use environment variables or external secret management for sensitive values
-5. **Validate Config** — Run with `--validate-config` to check for errors before deploying
-6. **Monitor** — Enable debug logging during initial rollout
+1. **Start Simple** — start with one or two access policies, add filter policies incrementally
+2. **Test Policies** — verify access policies grant what you expect before layering filter policies on top
+3. **Secure Secrets** — use environment variables or external secret management for sensitive values
+4. **Validate Config** — `Config.Validate()` compiles every policy's JSONPath/regexp up front; a malformed rule fails at startup, not at request time
+5. **Monitor** — enable debug logging during initial rollout
 
 ## Troubleshooting
 
-### "No matching route"
-- Check that the request's JWT claims match a routing rule
-- Verify the `claim_key` and `claim_value` match exactly
-- Check priorities (lower number = higher priority)
+### "Access denied for a call I expected to be authorized"
+- Check that the caller's JWT claims actually satisfy every rule in the
+  policy's `match` list (all rules are ANDed)
+- If `path` targets a list claim (e.g. group membership), confirm you used
+  `$.groups[*]` (or the bare `$.groups` array form) — see ADR-0002
+- Confirm a `grants` entry actually covers the specific `(mcp, tool)` pair
+  being called, or uses `"*"` for the field(s) that should be wildcarded
 
-### "MCP instance not found"
-- Verify the MCP instance name in the routing rule matches a defined MCP
-- Check that the MCP is running and accessible
+### "MCP not found"
+- Verify the MCP name in `grants`/`filter_policies` matches a name under
+  `mcps:` (or a runtime-registered MCP, once the admin API exists)
 
 ### "Field filtering not working"
-- Ensure the filtering rule's `mcp_name` and `tool_name` match exactly
-- Verify the caller's JWT claims match the filtering rule's `claim_key` and `claim_value`
-- Check that the field names match the response schema
+- Ensure the filter policy's `mcp`/`tool` match exactly (no wildcards
+  supported here, unlike access policy grants)
+- Verify the caller's claims satisfy the filter policy's `match` rules
+- Check that `drop_fields` paths match the actual response shape (a
+  nonexistent path is silently a no-op, not an error)
+
+### Startup fails with "config: access_policies[N] ... match[M]: ..."
+- The named policy's JSONPath expression or regexp failed to compile;
+  fix the `path`/`pattern` at that index before restarting
 
 See `docs/DEBUG.md` for advanced debugging guidance.
