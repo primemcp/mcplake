@@ -45,16 +45,17 @@ See [docs/OVERVIEW.md](docs/OVERVIEW.md) for detailed architecture and design ra
 ## Phase 1 Roadmap
 
 - [x] Project scaffolding and architecture design
-- [ ] OIDC integration and JWT validation
-- [ ] Claims-based routing engine
-- [ ] Response filtering with schema inspection
+- [x] fasthttp data-plane gateway (OIDC/JWT validation, claims-based authorization, tool-call proxy)
+- [x] Dynamic MCP registration and schema discovery
+- [x] Unified JSONPath+regexp claim-rule engine (access policies and response filtering)
+- [x] GORM persistence (SQLite default, PostgreSQL-ready)
+- [x] Gin control-plane admin API with OpenAPI/Swagger docs
 - [ ] Web UI for pipeline visualization
-- [ ] Configuration management
 - [ ] Testing and CI/CD setup
 
 ## Configuration
 
-Configuration is managed via YAML files. See `docs/CONFIG.md` (coming soon) for detailed configuration options.
+Configuration is managed via YAML files. See [`docs/CONFIG.md`](docs/CONFIG.md) for detailed configuration options.
 
 ## Contributing
 
