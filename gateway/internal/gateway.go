@@ -8,11 +8,14 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/atsokha/mcplake/auth"
+	"github.com/atsokha/mcplake/cache"
 	"github.com/valyala/fasthttp"
 )
 
@@ -23,20 +26,64 @@ import (
 // graceful shutdown from ever completing.
 const idleTimeout = 60 * time.Second
 
+// defaultCallTimeout bounds a single downstream tool call when
+// Config.CallTimeout is unset.
+const defaultCallTimeout = 30 * time.Second
+
+// Authenticator verifies a caller's bearer token. Satisfied by
+// *auth.Validator; defined here (consumer-side) so it can be substituted
+// with a fake in tests.
+type Authenticator interface {
+	ValidateToken(ctx context.Context, token string) (*auth.Claims, error)
+}
+
+// PolicyEngine answers the two questions the pipeline needs per call:
+// whether it's authorized, and which response fields to strip. Satisfied by
+// *router.Engine.
+type PolicyEngine interface {
+	Authorize(claims json.RawMessage, mcp, tool string) (bool, error)
+	FieldsToRemove(claims json.RawMessage, mcp, tool string) ([]string, error)
+}
+
+// MCPResolver resolves a registered MCP name to a live client, and answers
+// whether a given tool exists on it. Satisfied by *cache.Registry.
+type MCPResolver interface {
+	Resolve(mcp string) (cache.MCPClient, bool)
+	HasTool(mcp, tool string) bool
+}
+
 // Config configures the data-plane Gateway.
 type Config struct {
 	// DataPlaneAddr is the listen address (host:port) for the tool-call
 	// proxy, e.g. ":8080". See config.ServerConfig.DataPlaneAddr.
 	DataPlaneAddr string
+
+	// Authenticator, Policy, and Resolver implement the auth -> authorize ->
+	// route stages of the pipeline (docs/architecture/data.md#request-lifecycle).
+	// A POST /v1/call whose request parses successfully but which reaches a
+	// stage with a nil dependency here fails closed with 501, rather than
+	// panicking — see handleToolCall.
+	Authenticator Authenticator
+	Policy        PolicyEngine
+	Resolver      MCPResolver
+
+	// CallTimeout bounds a single downstream tool call, independent of the
+	// inbound request's own lifecycle. Defaults to 30s.
+	CallTimeout time.Duration
 }
 
 // Gateway is the fasthttp-based data-plane server: it terminates tool-call
-// requests and (once the JWT policy pipeline and MCP registry are wired in by
-// later tickets) orchestrates auth -> authorize -> route -> call -> filter.
+// requests and orchestrates auth -> authorize -> route -> call -> filter.
 //
 // Gateway must not be copied after first use.
 type Gateway struct {
-	addr   string
+	addr string
+
+	authenticator Authenticator
+	policy        PolicyEngine
+	resolver      MCPResolver
+	callTimeout   time.Duration
+
 	server *fasthttp.Server
 
 	mu    sync.Mutex
@@ -48,9 +95,18 @@ type Gateway struct {
 // NewGateway constructs a Gateway bound to cfg.DataPlaneAddr. It does not
 // start listening; call Start to do that.
 func NewGateway(cfg Config) *Gateway {
+	callTimeout := cfg.CallTimeout
+	if callTimeout <= 0 {
+		callTimeout = defaultCallTimeout
+	}
+
 	g := &Gateway{
-		addr:  cfg.DataPlaneAddr,
-		ready: make(chan struct{}),
+		addr:          cfg.DataPlaneAddr,
+		authenticator: cfg.Authenticator,
+		policy:        cfg.Policy,
+		resolver:      cfg.Resolver,
+		callTimeout:   callTimeout,
+		ready:         make(chan struct{}),
 	}
 	g.server = &fasthttp.Server{
 		Handler:     g.handleRequest,

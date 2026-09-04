@@ -1,10 +1,12 @@
 package internal
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
 
+	"github.com/atsokha/mcplake/filter"
 	"github.com/valyala/fasthttp"
 )
 
@@ -35,6 +37,26 @@ func badRequest(code, message string) *requestError {
 
 func unauthorized(code, message string) *requestError {
 	return &requestError{status: fasthttp.StatusUnauthorized, code: code, message: message}
+}
+
+func forbidden(code, message string) *requestError {
+	return &requestError{status: fasthttp.StatusForbidden, code: code, message: message}
+}
+
+func notFound(code, message string) *requestError {
+	return &requestError{status: fasthttp.StatusNotFound, code: code, message: message}
+}
+
+func badGateway(code, message string) *requestError {
+	return &requestError{status: fasthttp.StatusBadGateway, code: code, message: message}
+}
+
+func gatewayTimeout(code, message string) *requestError {
+	return &requestError{status: fasthttp.StatusGatewayTimeout, code: code, message: message}
+}
+
+func internalError(message string) *requestError {
+	return &requestError{status: fasthttp.StatusInternalServerError, code: "internal_error", message: message}
 }
 
 // toolCallBody mirrors the wire shape of a POST /v1/call request body.
@@ -122,26 +144,98 @@ func writeJSON(ctx *fasthttp.RequestCtx, status int, v any) {
 	ctx.SetBody(body)
 }
 
-// handleToolCall implements POST /v1/call's request parsing and validation.
-// The pipeline behind a successfully-parsed request (auth -> authorize ->
-// route -> call -> filter) is wired in by #9; until then, a well-formed
-// request still receives 501, echoing back what was parsed.
+// handleToolCall implements POST /v1/call end to end: parse -> auth ->
+// authorize -> route -> call -> filter. See
+// docs/architecture/data.md#request-lifecycle for the sequence this
+// mirrors.
 func (g *Gateway) handleToolCall(ctx *fasthttp.RequestCtx) {
 	req, err := parseToolCallRequest(ctx)
 	if err != nil {
-		var reqErr *requestError
-		if errors.As(err, &reqErr) {
-			writeError(ctx, reqErr.status, reqErr.code, reqErr.message)
-			return
-		}
-		writeError(ctx, fasthttp.StatusInternalServerError, "internal_error", "unexpected error parsing request")
+		writeRequestError(ctx, err)
 		return
 	}
 
-	writeJSON(ctx, fasthttp.StatusNotImplemented, map[string]any{
-		"error":   "not_implemented",
-		"message": "tool-call pipeline not yet wired",
-		"mcp":     req.MCP,
-		"tool":    req.Tool,
-	})
+	// Detach from fasthttp's request lifecycle: RequestCtx is pooled and
+	// reused once this handler returns, so everything from here on runs
+	// under a fresh context with its own explicit deadline (see ADR-0001),
+	// not one derived from ctx.
+	callCtx, cancel := context.WithTimeout(context.Background(), g.callTimeout)
+	defer cancel()
+
+	body, err := g.runPipeline(callCtx, req)
+	if err != nil {
+		writeRequestError(ctx, err)
+		return
+	}
+
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	ctx.SetContentType("application/json")
+	ctx.SetBody(body)
+}
+
+// writeRequestError maps err to its HTTP response if it's a *requestError,
+// or falls back to a generic 500 for anything else.
+func writeRequestError(ctx *fasthttp.RequestCtx, err error) {
+	var reqErr *requestError
+	if errors.As(err, &reqErr) {
+		writeError(ctx, reqErr.status, reqErr.code, reqErr.message)
+		return
+	}
+	writeError(ctx, fasthttp.StatusInternalServerError, "internal_error", "unexpected error")
+}
+
+// runPipeline executes auth -> authorize -> route -> call -> filter for a
+// successfully-parsed request, returning the filtered response body. Every
+// error it returns is a *requestError, already mapped to the right status.
+func (g *Gateway) runPipeline(ctx context.Context, req ToolCallRequest) (json.RawMessage, error) {
+	if g.authenticator == nil || g.policy == nil || g.resolver == nil {
+		// Fails closed rather than nil-panicking when the gateway is
+		// constructed without the pipeline wired in (e.g. by an older
+		// caller, or a test that only cares about /healthz).
+		return nil, &requestError{
+			status:  fasthttp.StatusNotImplemented,
+			code:    "not_implemented",
+			message: "tool-call pipeline is not configured",
+		}
+	}
+
+	claims, err := g.authenticator.ValidateToken(ctx, req.Token)
+	if err != nil {
+		return nil, unauthorized("unauthorized", "token failed validation")
+	}
+
+	authorized, err := g.policy.Authorize(claims.Raw, req.MCP, req.Tool)
+	if err != nil {
+		return nil, internalError("policy evaluation failed")
+	}
+	if !authorized {
+		return nil, forbidden("forbidden", "not authorized to call this tool")
+	}
+
+	client, ok := g.resolver.Resolve(req.MCP)
+	if !ok {
+		return nil, notFound("mcp_not_found", "mcp not found or not active")
+	}
+	if !g.resolver.HasTool(req.MCP, req.Tool) {
+		return nil, notFound("tool_not_found", "tool not found on this mcp")
+	}
+
+	resp, err := client.CallTool(ctx, req.Tool, req.Arguments)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, gatewayTimeout("upstream_timeout", "downstream mcp call timed out")
+		}
+		return nil, badGateway("upstream_error", "downstream mcp call failed")
+	}
+
+	fields, err := g.policy.FieldsToRemove(claims.Raw, req.MCP, req.Tool)
+	if err != nil {
+		return nil, internalError("policy evaluation failed")
+	}
+
+	filtered, err := filter.Strip(resp.Raw, fields)
+	if err != nil {
+		return nil, internalError("response filtering failed")
+	}
+	return filtered, nil
 }
