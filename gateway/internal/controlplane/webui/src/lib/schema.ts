@@ -35,3 +35,13 @@ export function flattenSchema(schema: unknown, basePath = "$", indent = 0): Sche
   }
   return [];
 }
+
+/** Case-insensitive match against a field's path or type — shared by every
+ * schema-field search box (SchemaFieldPicker's own, and the single search
+ * that spans every tool card in Discovered tools) so "narrows by path or
+ * type" means the same thing everywhere. */
+export function matchesFieldQuery(field: SchemaField, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q === "") return true;
+  return field.path.toLowerCase().includes(q) || field.type.toLowerCase().includes(q);
+}
