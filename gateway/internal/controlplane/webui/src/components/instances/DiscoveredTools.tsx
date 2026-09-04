@@ -52,7 +52,10 @@ export function DiscoveredTools({ tools }: DiscoveredToolsProps) {
           {visible.length === 0 && <p className="text-[11.5px] text-subtle">No tool matches that.</p>}
           <ul className="flex flex-col gap-1.5">
             {visible.map(({ tool }) => (
-              <li key={tool.name} className="p-2.5 border border-border rounded-[10px] flex flex-col gap-1.5">
+              <li
+                key={tool.name}
+                className="p-2.5 border border-border rounded-[10px] bg-well flex flex-col gap-1.5"
+              >
                 <div className="text-[12.5px] font-semibold">{tool.name}</div>
                 <SchemaFieldRows
                   schema={tool.input_schema}

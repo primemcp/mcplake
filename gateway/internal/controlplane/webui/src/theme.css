@@ -25,6 +25,10 @@
   --color-border: #e4e7ec;
   --color-border-soft: #eef1f4;
   --color-line: #cfd6e0;
+  /* The mockup's recessed/inset gray: search boxes, and non-selectable
+     placeholder tiles. Distinct from --color-bg (page) and --color-surface
+     (cards) — see #fbfbfc in the source, used 9x for exactly this. */
+  --color-well: #fbfbfc;
   --color-muted: #98a2b3;
   --color-subtle: #667085;
   --color-body: #384252;
