@@ -1,9 +1,16 @@
 import { useMemo, useState } from "react";
 import { ErrorNotice } from "../primitives/ErrorNotice";
 import { SearchInput } from "../primitives/SearchInput";
-import { StatusDot, statusFromString } from "../primitives/StatusDot";
+import { statusFromString, statusTextColor } from "../primitives/StatusDot";
 import type { MCPRegistration } from "../../api/types";
 import { AddEndpointForm } from "./AddEndpointForm";
+
+const dotColor: Record<string, string> = {
+  active: "bg-success",
+  connecting: "bg-accent",
+  unreachable: "bg-danger",
+  unknown: "bg-muted",
+};
 
 export type EndpointListProps = {
   endpoints: MCPRegistration[];
@@ -60,22 +67,27 @@ export function EndpointList({
             {hits.map((e) => {
               const status = statusFromString(e.status);
               const selected = e.name === selectedName;
+              const toolCount = Object.keys(e.tools ?? {}).length;
               return (
                 <button
                   key={e.name}
                   type="button"
                   onClick={() => onSelect(e.name)}
-                  className={`text-left p-2.5 border rounded-[11px] cursor-pointer flex flex-col gap-0.5 ${
+                  className={`text-left p-[11px_12px] border rounded-[11px] cursor-pointer flex flex-col gap-[3px] ${
                     selected ? "border-accent bg-accent-soft" : "border-border bg-surface"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="flex items-center gap-[7px] min-w-0">
+                    <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${dotColor[status]}`} />
                     <span className="text-[12.5px] font-semibold truncate">{e.name}</span>
                   </div>
                   <div className="text-[10.5px] font-mono text-subtle truncate">
-                    {e.connect.url || e.connect.command || "—"}
+                    {e.connect.command || "—"}
                   </div>
-                  <StatusDot status={status} label={e.status} />
+                  <div className={`text-[10.5px] font-medium ${statusTextColor[status]}`}>{e.status}</div>
+                  <div className="text-[10.5px] text-subtle">
+                    stdio · {toolCount} {toolCount === 1 ? "tool" : "tools"}
+                  </div>
                 </button>
               );
             })}

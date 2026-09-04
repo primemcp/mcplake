@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "../primitives/Button";
 import { Card } from "../primitives/Card";
 import { Input } from "../primitives/Input";
-import { StatusDot, statusFromString } from "../primitives/StatusDot";
+import { statusFromString, statusTextColor } from "../primitives/StatusDot";
 import type { MCPRegistration, RegisterMCPRequest } from "../../api/types";
 
 export type EndpointDetailProps = {
@@ -57,28 +57,31 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
     }
   };
 
+  const status = statusFromString(endpoint.status);
+
   return (
     <div className="flex flex-col gap-4 p-5 overflow-y-auto">
-      <Card className="p-4 flex flex-col gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <div className="text-base font-semibold">{endpoint.name}</div>
+      <Card className="overflow-hidden">
+        <div className="p-[14px_16px] border-b border-border-soft flex flex-wrap items-center gap-[10px_14px]">
+          <div className="flex-[1_1_240px] min-w-0 flex flex-col gap-[3px]">
+            <div className="text-base font-semibold tracking-tight">{endpoint.name}</div>
             <div className="text-[11.5px] font-mono text-subtle truncate">
               {endpoint.connect.command}
               {endpoint.connect.arguments?.length ? ` ${endpoint.connect.arguments.join(" ")}` : ""}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <StatusDot status={statusFromString(endpoint.status)} label={endpoint.status} />
-            <Button variant="secondary" onClick={() => setEditing((v) => !v)}>
-              {editing ? "Close" : "Edit endpoint"}
-            </Button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className="flex items-center gap-1.5 px-[11px] py-[6px] border border-border rounded-[9px] bg-surface cursor-pointer shrink-0 text-xs font-medium text-body hover:border-accent hover:text-accent"
+          >
+            {editing ? "Close" : "Edit endpoint"}
+          </button>
         </div>
 
         {editing && (
-          <div className="flex flex-col gap-2 p-3 border border-accent rounded-lg bg-accent-soft">
-            <p className="text-[10.5px] text-subtle">
+          <div className="p-[14px_16px] border-b border-border-soft bg-accent-soft flex flex-col gap-2">
+            <p className="text-[10.5px] text-subtle leading-normal">
               Only stdio transport is implemented by the gateway today — sse/http aren't wired up
               yet, so this always registers as a subprocess command.
             </p>
@@ -111,6 +114,15 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
             </div>
           </div>
         )}
+
+        <div className="p-[12px_16px] flex flex-wrap items-center gap-[8px_14px]">
+          <span className={`text-[11.5px] font-medium ${statusTextColor[status]}`}>{endpoint.status}</span>
+          <span className="flex-1" />
+          <span className="text-[11.5px] text-subtle">stdio</span>
+          <span className="text-[11.5px] text-subtle">
+            {tools.length} {tools.length === 1 ? "tool" : "tools"}
+          </span>
+        </div>
       </Card>
 
       <Card className="p-4 flex flex-col gap-2.5">

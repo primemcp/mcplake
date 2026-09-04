@@ -7,6 +7,13 @@ const statusColor: Record<Status, string> = {
   unknown: "bg-muted",
 };
 
+export const statusTextColor: Record<Status, string> = {
+  active: "text-success",
+  connecting: "text-accent",
+  unreachable: "text-danger",
+  unknown: "text-muted",
+};
+
 export function statusFromString(raw: string): Status {
   if (raw === "active" || raw === "connecting" || raw === "unreachable") return raw;
   return "unknown";

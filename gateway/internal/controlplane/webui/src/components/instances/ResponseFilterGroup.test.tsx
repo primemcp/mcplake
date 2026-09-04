@@ -4,25 +4,27 @@ import { describe, expect, it, vi } from "vitest";
 import type { FilterPolicy, MCPRegistration } from "../../api/types";
 import { ResponseFilterGroup } from "./ResponseFilterGroup";
 
+const GET_USER_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string" },
+    salary: { type: "number" },
+  },
+};
+
 const ENDPOINT: MCPRegistration = {
   name: "postgres-ro",
   transport: "stdio",
   connect: { command: "pg-ro" },
   status: "active",
   tools: {
-    get_user: { name: "get_user" },
+    get_user: { name: "get_user", output_schema: GET_USER_SCHEMA },
     list_users: { name: "list_users" },
   },
 };
 
 const FILTERS: FilterPolicy[] = [
-  {
-    name: "hide-pii",
-    match: [],
-    mcp: "postgres-ro",
-    tool: "get_user",
-    drop_fields: ["$.salary", "$.ssn"],
-  },
+  { name: "hide-pii", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
   // A filter belonging to a different endpoint must not show up here.
   { name: "other", match: [], mcp: "postgres-rw", tool: "get_user", drop_fields: ["$.x"] },
 ];
@@ -37,6 +39,7 @@ describe("ResponseFilterGroup", () => {
         error={null}
         onRetry={vi.fn()}
         onCreate={vi.fn()}
+        onUpdate={vi.fn()}
         onDelete={vi.fn()}
       />,
     );
@@ -45,7 +48,7 @@ describe("ResponseFilterGroup", () => {
     expect(screen.queryByText("other")).not.toBeInTheDocument();
   });
 
-  it("creates a filter with comma-separated fields split into an array", async () => {
+  it("creates a filter from schema fields toggled on in the picker", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(
@@ -56,6 +59,7 @@ describe("ResponseFilterGroup", () => {
         error={null}
         onRetry={vi.fn()}
         onCreate={onCreate}
+        onUpdate={vi.fn()}
         onDelete={vi.fn()}
       />,
     );
@@ -63,16 +67,37 @@ describe("ResponseFilterGroup", () => {
     await user.click(screen.getByRole("button", { name: /Add response filter/ }));
     await user.type(screen.getByPlaceholderText("filter name"), "hide-pii");
     await user.selectOptions(screen.getByRole("combobox"), "get_user");
-    await user.type(
-      screen.getByPlaceholderText(/fields to drop/),
-      "$.salary, $.ssn",
-    );
+    await user.click(screen.getByRole("button", { name: "Hide $.salary" }));
     await user.click(screen.getByRole("button", { name: "Create filter" }));
 
-    expect(onCreate).toHaveBeenCalledWith("hide-pii", "get_user", ["$.salary", "$.ssn"]);
+    expect(onCreate).toHaveBeenCalledWith("hide-pii", "get_user", ["$.salary"]);
   });
 
-  it("deletes a filter by name", async () => {
+  it("edits an existing filter's fields and saves via onUpdate", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ResponseFilterGroup
+        endpoint={ENDPOINT}
+        filters={FILTERS}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        onCreate={vi.fn()}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    // hide-pii starts with $.salary toggled on; also toggle $.name on.
+    await user.click(screen.getByRole("button", { name: "Hide $.name" }));
+    await user.click(screen.getByRole("button", { name: "Save filter" }));
+
+    expect(onUpdate).toHaveBeenCalledWith("hide-pii", "get_user", ["$.salary", "$.name"]);
+  });
+
+  it("deletes a filter from within its edit panel", async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn().mockResolvedValue(undefined);
     render(
@@ -83,10 +108,12 @@ describe("ResponseFilterGroup", () => {
         error={null}
         onRetry={vi.fn()}
         onCreate={vi.fn()}
+        onUpdate={vi.fn()}
         onDelete={onDelete}
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(onDelete).toHaveBeenCalledWith("hide-pii");
   });
@@ -100,6 +127,7 @@ describe("ResponseFilterGroup", () => {
         error={null}
         onRetry={vi.fn()}
         onCreate={vi.fn()}
+        onUpdate={vi.fn()}
         onDelete={vi.fn()}
       />,
     );

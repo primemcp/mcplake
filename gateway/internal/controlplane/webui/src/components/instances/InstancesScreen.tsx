@@ -83,6 +83,15 @@ export function InstancesScreen() {
                       drop_fields: dropFields,
                     })
                   }
+                  onUpdate={(name, tool, dropFields) =>
+                    filterPolicies.update(name, {
+                      name,
+                      match: [],
+                      mcp: selected.name,
+                      tool,
+                      drop_fields: dropFields,
+                    })
+                  }
                   onDelete={(name) => filterPolicies.remove(name)}
                 />
               </div>
