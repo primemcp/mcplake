@@ -13,8 +13,12 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port   int
-	UIPort int
+	// DataPlaneAddr is the listen address (host:port) for the fasthttp
+	// tool-call proxy. See ADR-0001.
+	DataPlaneAddr string
+	// ControlPlaneAddr is the listen address (host:port) for the Gin admin
+	// API. See ADR-0005.
+	ControlPlaneAddr string
 	// TODO: Add TLS configuration
 }
 
