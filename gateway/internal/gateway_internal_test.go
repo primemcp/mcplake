@@ -76,6 +76,10 @@ func TestGateway_StopDrainsInFlightRequest(t *testing.T) {
 
 // TestGateway_HandleRequestRouting exercises the route switch directly
 // against a fasthttp.RequestCtx, without going over the network.
+//
+// POST /v1/call's own status-code branches (400/401/501) are covered in
+// toolcall_test.go; this table only checks that requests reach the right
+// handler at all.
 func TestGateway_HandleRequestRouting(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -84,7 +88,6 @@ func TestGateway_HandleRequestRouting(t *testing.T) {
 		wantStatus int
 	}{
 		{name: "healthz", method: fasthttp.MethodGet, path: "/healthz", wantStatus: fasthttp.StatusOK},
-		{name: "tool call stub", method: fasthttp.MethodPost, path: "/v1/call", wantStatus: fasthttp.StatusNotImplemented},
 		{name: "unknown path", method: fasthttp.MethodGet, path: "/nope", wantStatus: fasthttp.StatusNotFound},
 		{name: "wrong method on healthz", method: fasthttp.MethodPost, path: "/healthz", wantStatus: fasthttp.StatusNotFound},
 	}

@@ -11,9 +11,17 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/valyala/fasthttp"
 )
+
+// idleTimeout bounds how long a keep-alive connection may sit idle. fasthttp
+// documents that Shutdown/ShutdownWithContext deliberately does not close
+// keepalive connections itself, so without an IdleTimeout a client holding a
+// persistent connection open (as most HTTP clients do by default) could keep
+// graceful shutdown from ever completing.
+const idleTimeout = 60 * time.Second
 
 // Config configures the data-plane Gateway.
 type Config struct {
@@ -45,7 +53,8 @@ func NewGateway(cfg Config) *Gateway {
 		ready: make(chan struct{}),
 	}
 	g.server = &fasthttp.Server{
-		Handler: g.handleRequest,
+		Handler:     g.handleRequest,
+		IdleTimeout: idleTimeout,
 	}
 	return g
 }
@@ -110,12 +119,7 @@ func (g *Gateway) handleRequest(ctx *fasthttp.RequestCtx) {
 		ctx.SetContentType("text/plain; charset=utf-8")
 		ctx.SetBodyString("ok")
 	case method == fasthttp.MethodPost && path == "/v1/call":
-		// Stubbed pending the request-parsing (#8) and pipeline-wiring (#9)
-		// tickets. Deliberately not a 404: the route exists, the pipeline
-		// behind it doesn't yet.
-		ctx.SetStatusCode(fasthttp.StatusNotImplemented)
-		ctx.SetContentType("application/json")
-		ctx.SetBodyString(`{"error":"not_implemented","message":"tool-call pipeline not yet wired"}`)
+		g.handleToolCall(ctx)
 	default:
 		ctx.SetStatusCode(fasthttp.StatusNotFound)
 	}
