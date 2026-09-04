@@ -129,3 +129,50 @@ request body and `invalid_policy`/`invalid_request` responses as `POST`.
 ### `DELETE /admin/access-policies/:name`
 
 Removes the policy. `204` on success, `404 not_found` if no such policy exists.
+
+## Filter Policies
+
+Same shape and reload behavior as Access Policies above — a write here also
+refreshes the shared `router.PolicyStore` engine (both policy kinds, together).
+
+### `POST /admin/filter-policies`
+
+```
+POST /admin/filter-policies
+Content-Type: application/json
+
+{
+  "name": "hide-pii-for-plain-users-get-user",
+  "match": [{ "path": "$.role", "pattern": "^user$" }],
+  "mcp": "postgres-ro",
+  "tool": "get_user",
+  "drop_fields": ["$.hashed_password", "$.api_key", "$.internal_id"]
+}
+```
+
+`mcp`/`tool` are exact — no `"*"` wildcards, unlike access-policy grants (a filter
+always targets one specific tool response shape). `drop_fields` are JSONPath
+expressions into the tool's response body.
+
+| Status | Body `error` code | When                                                        |
+|--------|--------------------|--------------------------------------------------------------|
+| 201    | —                  | Created; body is the resulting policy.                       |
+| 400    | `invalid_request`  | Malformed JSON, or `name`/`mcp`/`tool` missing.               |
+| 400    | `invalid_policy`   | A `match` rule's `path`/`pattern` failed to compile — not persisted. |
+
+### `GET /admin/filter-policies`
+
+Lists every stored filter policy.
+
+### `GET /admin/filter-policies/:name`
+
+Returns one policy, or `404 not_found`.
+
+### `PUT /admin/filter-policies/:name`
+
+Replaces the named policy's `match`/`mcp`/`tool`/`drop_fields` in place (creates it
+if absent). Same request body and error responses as `POST`.
+
+### `DELETE /admin/filter-policies/:name`
+
+Removes the policy. `204` on success, `404 not_found` if no such policy exists.
