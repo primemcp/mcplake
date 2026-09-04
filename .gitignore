@@ -6,6 +6,7 @@
 *.so.*
 *.dylib
 mcp-gateway
+/cmd/gateway/gateway
 
 # Build artifacts
 dist/

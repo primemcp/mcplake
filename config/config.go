@@ -12,9 +12,18 @@ import (
 type Config struct {
 	Server         ServerConfig         `yaml:"server"`
 	OIDC           OIDCConfig           `yaml:"oidc"`
+	Persistence    PersistenceConfig    `yaml:"persistence"`
 	MCPs           []MCPConfig          `yaml:"mcps"`
 	AccessPolicies []AccessPolicyConfig `yaml:"access_policies"`
 	FilterPolicies []FilterPolicyConfig `yaml:"filter_policies"`
+}
+
+// PersistenceConfig is the YAML shape of a persistence.Config. See
+// ADR-0006: Driver is "sqlite" (default) or "postgres"; DSN is the SQLite
+// file path or the PostgreSQL connection string, depending on Driver.
+type PersistenceConfig struct {
+	Driver string `yaml:"driver"`
+	DSN    string `yaml:"dsn"`
 }
 
 type ServerConfig struct {
