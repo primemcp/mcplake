@@ -12,7 +12,7 @@ export type EndpointListProps = {
   onRetry: () => void;
   selectedName: string | null;
   onSelect: (name: string) => void;
-  onCreate: (name: string, url: string) => Promise<void>;
+  onCreate: (name: string, command: string, args: string[]) => Promise<void>;
 };
 
 export function EndpointList({
@@ -86,8 +86,8 @@ export function EndpointList({
       {adding ? (
         <AddEndpointForm
           onCancel={() => setAdding(false)}
-          onCreate={async (name, url) => {
-            await onCreate(name, url);
+          onCreate={async (name, command, args) => {
+            await onCreate(name, command, args);
             setAdding(false);
           }}
         />

@@ -43,8 +43,12 @@ export function InstancesScreen() {
           onRetry={retry}
           selectedName={selectedName}
           onSelect={setSelectedName}
-          onCreate={async (name, url) => {
-            await register({ name, connect: { url } });
+          onCreate={async (name, command, args) => {
+            await register({
+              name,
+              transport: "stdio",
+              connect: { command, arguments: args.length > 0 ? args : undefined },
+            });
             setSelectedName(name);
           }}
         />

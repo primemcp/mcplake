@@ -18,12 +18,19 @@ export type EndpointDetailProps = {
  * toggle doesn't map onto anything the backend supports, so "removing" an
  * endpoint here means unregistering it (DELETE /admin/mcps/:name), not
  * suspending it.
+ *
+ * Transport is fixed to stdio: cache.Registry.Register on the real backend
+ * rejects anything else with "unsupported transport (only stdio is
+ * implemented)" — sse/http aren't wired up in the mcp package yet, even
+ * though the DTO/config shape already has room for a URL. Offering a
+ * transport picker or a URL field here would just be UI for a capability
+ * that doesn't exist; command+arguments is the only connect shape that
+ * actually works today.
  */
 export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailProps) {
   const [editing, setEditing] = useState(false);
-  const [transport, setTransport] = useState(endpoint.transport);
-  const [url, setUrl] = useState(endpoint.connect.url ?? "");
   const [command, setCommand] = useState(endpoint.connect.command ?? "");
+  const [args, setArgs] = useState((endpoint.connect.arguments ?? []).join(" "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -36,8 +43,11 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
     try {
       await onUpdate({
         name: endpoint.name,
-        transport,
-        connect: { url: url || undefined, command: command || undefined },
+        transport: "stdio",
+        connect: {
+          command,
+          arguments: args.trim() === "" ? undefined : args.trim().split(/\s+/),
+        },
       });
       setEditing(false);
     } catch (err) {
@@ -54,7 +64,8 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
           <div className="flex flex-col gap-0.5 min-w-0">
             <div className="text-base font-semibold">{endpoint.name}</div>
             <div className="text-[11.5px] font-mono text-subtle truncate">
-              {endpoint.connect.url || endpoint.connect.command}
+              {endpoint.connect.command}
+              {endpoint.connect.arguments?.length ? ` ${endpoint.connect.arguments.join(" ")}` : ""}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -67,22 +78,15 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
 
         {editing && (
           <div className="flex flex-col gap-2 p-3 border border-accent rounded-lg bg-accent-soft">
-            <div className="flex gap-2">
-              <select
-                value={transport}
-                onChange={(e) => setTransport(e.target.value)}
-                className="px-2.5 py-2 border border-border rounded-lg text-[12.5px] font-mono"
-              >
-                <option value="stdio">stdio</option>
-                <option value="sse">sse</option>
-                <option value="http">http</option>
-              </select>
-              <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="url" mono />
-            </div>
+            <p className="text-[10.5px] text-subtle">
+              Only stdio transport is implemented by the gateway today — sse/http aren't wired up
+              yet, so this always registers as a subprocess command.
+            </p>
+            <Input value={command} onChange={(e) => setCommand(e.target.value)} placeholder="command" mono />
             <Input
-              value={command}
-              onChange={(e) => setCommand(e.target.value)}
-              placeholder="command (stdio)"
+              value={args}
+              onChange={(e) => setArgs(e.target.value)}
+              placeholder="arguments (space-separated)"
               mono
             />
             {error && <p className="text-[10.5px] text-danger">{error}</p>}
