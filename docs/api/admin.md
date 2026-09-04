@@ -82,3 +82,50 @@ persisted row. In-flight calls to it are allowed to finish; new calls are reject
 |--------|--------------------|------------------------------------------|
 | 204    | —                  | Unregistered.                            |
 | 404    | `not_found`        | No MCP is registered under that name.    |
+
+## Access Policies
+
+Every write here persists via GORM and then refreshes the shared `router.PolicyStore`
+engine (both access and filter policies together, since one engine covers both — see
+[ADR-0004](../architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.md)),
+so the change is immediately visible to the data plane's `Authorize` calls.
+
+### `POST /admin/access-policies`
+
+```
+POST /admin/access-policies
+Content-Type: application/json
+
+{
+  "name": "db-reader",
+  "match": [{ "path": "$.role", "pattern": "^db-reader$" }],
+  "grants": [{ "mcp": "postgres-ro", "tools": ["*"] }]
+}
+```
+
+`match` uses the same `{path, pattern}` JSONPath+regexp rule syntax as
+`config.yaml`'s `access_policies` (see [`docs/CONFIG.md`](../CONFIG.md#5-access-policies)
+and [ADR-0002](../architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)).
+
+| Status | Body `error` code | When                                                        |
+|--------|--------------------|--------------------------------------------------------------|
+| 201    | —                  | Created; body is the resulting policy.                       |
+| 400    | `invalid_request`  | Malformed JSON, or `name` missing.                            |
+| 400    | `invalid_policy`   | A `match` rule's `path`/`pattern` failed to compile — not persisted. |
+
+### `GET /admin/access-policies`
+
+Lists every stored access policy.
+
+### `GET /admin/access-policies/:name`
+
+Returns one policy, or `404 not_found`.
+
+### `PUT /admin/access-policies/:name`
+
+Replaces the named policy's `match`/`grants` in place (creates it if absent). Same
+request body and `invalid_policy`/`invalid_request` responses as `POST`.
+
+### `DELETE /admin/access-policies/:name`
+
+Removes the policy. `204` on success, `404 not_found` if no such policy exists.
