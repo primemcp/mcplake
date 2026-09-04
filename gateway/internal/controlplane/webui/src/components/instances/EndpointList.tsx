@@ -61,7 +61,7 @@ export function EndpointList({
           </div>
           <div className="flex-1 min-h-[90px] overflow-y-auto flex flex-col gap-2">
             {hits.length === 0 && (
-              <div className="p-3 border border-dashed border-border rounded-[10px] text-[11.5px] text-subtle">
+              <div className="p-3 border border-dashed border-line rounded-[10px] text-[11.5px] text-subtle">
                 {endpoints.length === 0 ? "No MCP endpoints yet." : "No connection matches that."}
               </div>
             )}
@@ -75,18 +75,24 @@ export function EndpointList({
                   type="button"
                   onClick={() => onSelect(e.name)}
                   className={`text-left p-[11px_12px] border rounded-[11px] cursor-pointer flex flex-col gap-[3px] ${
-                    selected ? "border-accent bg-accent-soft" : "border-border bg-surface"
+                    selected ? "border-accent bg-select-soft" : "border-border bg-surface"
                   }`}
                 >
                   <div className="flex items-center gap-[7px] min-w-0">
                     <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${dotColor[status]}`} />
-                    <span className="text-[12.5px] font-semibold truncate">{e.name}</span>
+                    <span
+                      className={`text-[12.5px] font-semibold truncate ${selected ? "text-accent-hover" : "text-ink"}`}
+                    >
+                      {e.name}
+                    </span>
                   </div>
-                  <div className="text-[10.5px] font-mono text-subtle truncate">
+                  <div
+                    className={`text-[10.5px] font-mono truncate ${selected ? "text-subtle" : "text-muted"}`}
+                  >
                     {e.connect.command || "—"}
                   </div>
                   <div className={`text-[10.5px] font-medium ${statusTextColor[status]}`}>{e.status}</div>
-                  <div className="text-[10.5px] text-subtle">
+                  <div className={`text-[10.5px] ${selected ? "text-subtle" : "text-muted"}`}>
                     stdio · {toolCount} {toolCount === 1 ? "tool" : "tools"}
                   </div>
                 </button>
@@ -99,7 +105,7 @@ export function EndpointList({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="flex items-center gap-2.5 p-3 border border-dashed border-border rounded-[10px] bg-surface cursor-pointer text-left"
+        className="flex items-center gap-2.5 p-3 border border-dashed border-line rounded-[10px] bg-surface cursor-pointer text-left"
       >
         <span className="w-4 h-4 rounded border border-dashed border-muted grid place-items-center text-[11px] text-muted">
           +

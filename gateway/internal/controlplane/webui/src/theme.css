@@ -13,9 +13,18 @@
   --color-surface: #ffffff;
   --color-accent: #2f4bd8;
   --color-accent-hover: #1f37ad;
-  --color-accent-soft: #f7f9ff;
+  /* Two distinct soft-blue tints in the mockup's own color constants (its
+     `const C = {...}` block), not one — collapsing them into a single
+     token was the bug behind the sidebar/selection highlight looking
+     wrong: select-soft is C.accentSoft (nav active pill, selected list
+     row); form-soft is the separate, more saturated tint used for every
+     "you're editing this" inline panel (add/edit endpoint, add/edit
+     filter). Don't merge them back — they read as different colors. */
+  --color-select-soft: #eef1fe;
+  --color-form-soft: #f7f9ff;
   --color-border: #e4e7ec;
   --color-border-soft: #eef1f4;
+  --color-line: #cfd6e0;
   --color-muted: #98a2b3;
   --color-subtle: #667085;
   --color-body: #384252;

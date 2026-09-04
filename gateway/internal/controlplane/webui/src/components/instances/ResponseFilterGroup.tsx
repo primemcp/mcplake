@@ -35,7 +35,7 @@ function EditFilterForm({
   const outputSchema = endpoint.tools?.[filter.tool]?.output_schema;
 
   return (
-    <div className="p-3 border border-accent rounded-lg bg-accent-soft flex flex-col gap-2">
+    <div className="p-3 border border-accent rounded-lg bg-form-soft flex flex-col gap-2">
       <div className="text-[11.5px] font-semibold">Edit response filter</div>
       <SchemaFieldPicker
         schema={outputSchema}
@@ -167,7 +167,7 @@ export function ResponseFilterGroup({
       )}
 
       {adding ? (
-        <div className="p-3 border border-accent rounded-lg bg-accent-soft flex flex-col gap-2">
+        <div className="p-3 border border-accent rounded-lg bg-form-soft flex flex-col gap-2">
           <div className="text-xs font-semibold">New response filter</div>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="filter name" />
           <select
@@ -211,7 +211,7 @@ export function ResponseFilterGroup({
           type="button"
           onClick={() => setAdding(true)}
           disabled={tools.length === 0}
-          className="flex items-center gap-2.5 p-2.5 border border-dashed border-border rounded-[10px] bg-surface cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2.5 p-2.5 border border-dashed border-line rounded-[10px] bg-surface cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="w-4 h-4 rounded border border-dashed border-muted grid place-items-center text-[11px] text-muted">
             +

@@ -82,7 +82,7 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
         </div>
 
         {editing && (
-          <div className="p-[14px_16px] border-b border-border-soft bg-accent-soft flex flex-col gap-2">
+          <div className="p-[14px_16px] border-b border-border-soft bg-form-soft flex flex-col gap-2">
             <TransportPicker />
             <Input value={command} onChange={(e) => setCommand(e.target.value)} placeholder="command" mono />
             <Input
