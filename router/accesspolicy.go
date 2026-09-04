@@ -35,16 +35,17 @@ type AccessPolicy struct {
 	Grants []Grant
 }
 
-// Engine evaluates a caller's claims against a set of AccessPolicy (and,
-// from #23, FilterPolicy) to answer "is this call authorized" and "what
-// response fields should be stripped".
+// Engine evaluates a caller's claims against a set of AccessPolicy and
+// FilterPolicy to answer "is this call authorized" (Authorize) and "what
+// response fields should be stripped" (FieldsToRemove).
 type Engine struct {
 	accessPolicies []AccessPolicy
+	filterPolicies []FilterPolicy
 }
 
-// NewEngine constructs an Engine over the given access policies.
-func NewEngine(accessPolicies []AccessPolicy) *Engine {
-	return &Engine{accessPolicies: accessPolicies}
+// NewEngine constructs an Engine over the given access and filter policies.
+func NewEngine(accessPolicies []AccessPolicy, filterPolicies []FilterPolicy) *Engine {
+	return &Engine{accessPolicies: accessPolicies, filterPolicies: filterPolicies}
 }
 
 // Authorize reports whether claims are granted access to (mcp, tool): true

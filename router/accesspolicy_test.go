@@ -19,7 +19,7 @@ func matcherFor(t *testing.T, path, pattern string) router.ClaimMatcher {
 }
 
 func TestEngine_Authorize_NoPoliciesReturnsFalse(t *testing.T) {
-	engine := router.NewEngine(nil)
+	engine := router.NewEngine(nil, nil)
 
 	ok, err := engine.Authorize(json.RawMessage(writerClaims), "postgres-rw", "get_user")
 
@@ -36,7 +36,7 @@ func TestEngine_Authorize_NoMatchingPolicyReturnsFalse(t *testing.T) {
 				{MCP: "postgres-ro", Tools: []string{"get_user"}},
 			},
 		},
-	})
+	}, nil)
 
 	ok, err := engine.Authorize(json.RawMessage(writerClaims), "postgres-ro", "get_user")
 
@@ -53,7 +53,7 @@ func TestEngine_Authorize_MatchingPolicyGrantsSpecificTool(t *testing.T) {
 				{MCP: "postgres-rw", Tools: []string{"get_user"}},
 			},
 		},
-	})
+	}, nil)
 
 	ok, err := engine.Authorize(json.RawMessage(writerClaims), "postgres-rw", "get_user")
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestEngine_Authorize_WildcardToolsGrantsEveryToolOnMCP(t *testing.T) {
 				{MCP: "postgres-rw", Tools: []string{"*"}},
 			},
 		},
-	})
+	}, nil)
 
 	for _, tool := range []string{"get_user", "delete_user", "anything"} {
 		ok, err := engine.Authorize(json.RawMessage(writerClaims), "postgres-rw", tool)
@@ -95,7 +95,7 @@ func TestEngine_Authorize_WildcardMCPGrantsAcrossEveryMCP(t *testing.T) {
 				{MCP: "*", Tools: []string{"get_user"}},
 			},
 		},
-	})
+	}, nil)
 
 	for _, mcp := range []string{"postgres-ro", "postgres-rw", "filesystem"} {
 		ok, err := engine.Authorize(json.RawMessage(adminClaims), mcp, "get_user")
@@ -124,7 +124,7 @@ func TestEngine_Authorize_MultiplePoliciesUnionSemantics(t *testing.T) {
 				{MCP: "postgres-rw", Tools: []string{"get_user"}},
 			},
 		},
-	})
+	}, nil)
 
 	// Only the db-reader policy matches this caller, and only its grant applies.
 	ok, err := engine.Authorize(json.RawMessage(readerClaims), "postgres-ro", "get_user")
@@ -143,7 +143,7 @@ func TestEngine_Authorize_PropagatesClaimMatchError(t *testing.T) {
 			Match:  matcherFor(t, "$.role", "^db-writer$"),
 			Grants: []router.Grant{{MCP: "*", Tools: []string{"*"}}},
 		},
-	})
+	}, nil)
 
 	_, err := engine.Authorize(json.RawMessage(`{not json`), "postgres-rw", "get_user")
 
