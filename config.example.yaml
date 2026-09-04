@@ -32,39 +32,57 @@ mcps:
     arguments:
       - "/data"
 
-# Route requests based on JWT claims
-routing:
-  - claim_key: role
-    claim_value: "db-reader"
-    mcp_instance: postgres-ro
-    priority: 10
+# Grant access to (mcp, tool) pairs based on JWT claims. A call is
+# authorized if ANY policy's match matches the claims AND has a grant
+# covering the requested (mcp, tool). "*" means "all" for either field.
+# See ADR-0002 (match rule syntax) and ADR-0004 (policy semantics).
+access_policies:
+  - name: db-reader
+    match:
+      - path: "$.role"
+        pattern: "^db-reader$"
+    grants:
+      - mcp: postgres-ro
+        tools: ["*"]
 
-  - claim_key: role
-    claim_value: "db-writer"
-    mcp_instance: postgres-rw
-    priority: 10
+  - name: db-writer
+    match:
+      - path: "$.role"
+        pattern: "^db-writer$"
+    grants:
+      - mcp: postgres-rw
+        tools: ["*"]
 
-  - claim_key: role
-    claim_value: "admin"
-    mcp_instance: postgres-rw
-    priority: 5
+  - name: admin
+    match:
+      - path: "$.role"
+        pattern: "^admin$"
+    grants:
+      - mcp: "*"
+        tools: ["*"]
 
-# Filter response fields based on JWT claims
-filtering:
-  - claim_key: role
-    claim_value: "user"
-    mcp_name: postgres-ro
-    tool_name: get_user
-    hide_fields:
-      - hashed_password
-      - api_key
-      - internal_id
+# Strip response fields for a specific (mcp, tool) call when the caller's
+# claims match. Unlike access_policies' grants, mcp/tool here are exact,
+# not wildcarded — a filter always targets one specific tool response shape.
+filter_policies:
+  - name: hide-pii-for-plain-users-get-user
+    match:
+      - path: "$.role"
+        pattern: "^user$"
+    mcp: postgres-ro
+    tool: get_user
+    drop_fields:
+      - "$.hashed_password"
+      - "$.api_key"
+      - "$.internal_id"
 
-  - claim_key: role
-    claim_value: "user"
-    mcp_name: postgres-ro
-    tool_name: list_users
-    hide_fields:
-      - email
-      - hashed_password
-      - phone_number
+  - name: hide-pii-for-plain-users-list-users
+    match:
+      - path: "$.role"
+        pattern: "^user$"
+    mcp: postgres-ro
+    tool: list_users
+    drop_fields:
+      - "$.email"
+      - "$.hashed_password"
+      - "$.phone_number"
