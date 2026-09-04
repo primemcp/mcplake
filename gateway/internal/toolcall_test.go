@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +9,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/atsokha/mcplake/auth"
+	"github.com/atsokha/mcplake/internal"
+	"github.com/atsokha/mcplake/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -93,7 +97,9 @@ func TestToolCall_WrongAuthSchemeReturns401(t *testing.T) {
 	assert.Equal(t, "invalid_authorization", body["error"])
 }
 
-func TestToolCall_ValidRequestReturns501Stub(t *testing.T) {
+func TestToolCall_PipelineNotConfiguredReturns501(t *testing.T) {
+	// startTestGateway wires no Authenticator/Policy/Resolver - the pipeline
+	// must fail closed with 501, not nil-panic.
 	addr, cleanup := startTestGateway(t)
 	defer cleanup()
 
@@ -102,19 +108,35 @@ func TestToolCall_ValidRequestReturns501Stub(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotImplemented, resp.StatusCode)
 	assert.Equal(t, "not_implemented", body["error"])
-	assert.Equal(t, "postgres-ro", body["mcp"])
-	assert.Equal(t, "get_user", body["tool"])
 }
 
 // TestToolCall_ConcurrentRequestsDoNotCrossContaminate fires many concurrent
-// requests, each with a distinct mcp/tool payload, and asserts every response
-// echoes back exactly its own request's values. fasthttp pools and reuses
-// RequestCtx across connections; if parseToolCallRequest ever held a
-// reference into a pooled buffer instead of a copy, concurrent requests under
-// load would intermittently observe another request's mcp/tool in the echoed
-// response.
+// requests, each routed to its own distinct (mcp, tool), and asserts every
+// response reflects exactly its own request's tool, not another concurrent
+// request's. fasthttp pools and reuses RequestCtx across connections; if
+// parseToolCallRequest ever held a reference into a pooled buffer instead of
+// a copy, concurrent requests under load would intermittently be routed to
+// the wrong MCP/tool or see another request's response.
 func TestToolCall_ConcurrentRequestsDoNotCrossContaminate(t *testing.T) {
-	addr, cleanup := startTestGateway(t)
+	const n = 200
+	resolver := newFakeResolver()
+	for i := range n {
+		mcpName := fmt.Sprintf("mcp-%d", i)
+		toolName := fmt.Sprintf("tool-%d", i)
+		resolver.addTool(mcpName, toolName, &fakeMCPClient{
+			callTool: func(_ context.Context, tool string, _ map[string]any) (*mcp.ToolResponse, error) {
+				raw, err := json.Marshal(map[string]string{"echo_tool": tool})
+				require.NoError(t, err)
+				return &mcp.ToolResponse{Raw: raw}, nil
+			},
+		})
+	}
+
+	addr, cleanup := startTestGatewayWithConfig(t, internal.Config{
+		Authenticator: &fakeAuthenticator{claims: &auth.Claims{Raw: json.RawMessage(`{}`)}},
+		Policy:        &fakePolicyEngine{authorized: true},
+		Resolver:      resolver,
+	})
 	defer cleanup()
 
 	// Keep-alive connections deliberately are not force-closed by
@@ -124,22 +146,20 @@ func TestToolCall_ConcurrentRequestsDoNotCrossContaminate(t *testing.T) {
 	// not test speed.
 	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
 
-	const n = 200
 	var wg sync.WaitGroup
 	wg.Add(n)
 	for i := range n {
 		go func(i int) {
 			defer wg.Done()
-			mcp := fmt.Sprintf("mcp-%d", i)
-			tool := fmt.Sprintf("tool-%d", i)
-			body := fmt.Sprintf(`{"mcp":%q,"tool":%q}`, mcp, tool)
+			mcpName := fmt.Sprintf("mcp-%d", i)
+			toolName := fmt.Sprintf("tool-%d", i)
+			body := fmt.Sprintf(`{"mcp":%q,"tool":%q}`, mcpName, toolName)
 
 			resp := doToolCall(t, client, addr, body, "Bearer token")
 			got := decodeJSONBody(t, resp)
 
-			assert.Equal(t, http.StatusNotImplemented, resp.StatusCode)
-			assert.Equal(t, mcp, got["mcp"], "response mcp must match this request's own mcp, not another concurrent request's")
-			assert.Equal(t, tool, got["tool"], "response tool must match this request's own tool, not another concurrent request's")
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			assert.Equal(t, toolName, got["echo_tool"], "response must reflect this request's own tool, not another concurrent request's")
 		}(i)
 	}
 	wg.Wait()

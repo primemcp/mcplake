@@ -38,27 +38,40 @@ Content-Type: application/json
 
 The `Authorization` header is required and must use the `Bearer` scheme.
 
+The full pipeline (auth → authorize → route → call → filter) is described in
+[data.md#request-lifecycle](../architecture/data.md#request-lifecycle).
+
 ### Responses
 
-| Status | Body `error` code       | When                                                        |
-|--------|--------------------------|--------------------------------------------------------------|
-| 200    | —                        | Tool call succeeded; body is the (filtered) tool response.   |
-| 400    | `invalid_json`           | Request body is not valid JSON.                               |
-| 400    | `missing_field`          | `mcp` or `tool` is missing/empty.                             |
-| 401    | `missing_authorization`  | `Authorization` header is absent.                              |
-| 401    | `invalid_authorization`  | Header present but not a (non-empty) `Bearer` token.           |
-| 401    | *(auth.ErrUnauthorized)* | Token present but fails signature/exp/iss/aud validation.      |
-| 403    | *(pending #9)*           | Token valid but claims don't authorize this `(mcp, tool)`.     |
-| 404    | *(pending #9)*           | `mcp` or `tool` doesn't exist.                                 |
-| 501    | `not_implemented`        | Request is well-formed; the pipeline behind it isn't wired yet (temporary, removed by #9). |
+| Status | Body `error` code       | When                                                          |
+|--------|--------------------------|----------------------------------------------------------------|
+| 200    | —                        | Tool call succeeded; body is the (filtered) tool response.     |
+| 400    | `invalid_json`           | Request body is not valid JSON.                                 |
+| 400    | `missing_field`          | `mcp` or `tool` is missing/empty.                               |
+| 401    | `missing_authorization`  | `Authorization` header is absent.                                |
+| 401    | `invalid_authorization`  | Header present but not a (non-empty) `Bearer` token.             |
+| 401    | `unauthorized`           | Token present but fails signature/exp/iss/aud validation.        |
+| 403    | `forbidden`              | Token valid but claims don't authorize this `(mcp, tool)` (no `AccessPolicy` grants it). |
+| 404    | `mcp_not_found`          | `mcp` isn't registered, or isn't currently active.               |
+| 404    | `tool_not_found`         | `mcp` exists but doesn't advertise `tool`.                       |
+| 502    | `upstream_error`         | The downstream MCP call itself failed (connection issue, tool-level error). |
+| 504    | `upstream_timeout`       | The downstream MCP call didn't complete within the gateway's call timeout (`internal.Config.CallTimeout`, default 30s — not yet exposed as a `config.yaml` key). |
+| 500    | `internal_error`         | The Policy Engine or response filter failed unexpectedly — not a caller error. |
+| 501    | `not_implemented`        | The gateway was started without a configured auth/policy/MCP pipeline (should not happen in a real deployment). |
 
 Every error body has the shape `{"error": "<code>", "message": "<human-readable>"}`.
-The `501` stub additionally echoes `mcp`/`tool` back, purely to help manually
-verify request parsing before the real pipeline exists — this field is not part of
-the stable contract and will disappear once #9 lands.
+
+Authorization is checked *before* existence: a caller lacking a grant for a given
+`(mcp, tool)` gets 403 even if that `mcp`/`tool` doesn't actually exist, matching the
+`JWT eval -> [mcps] -> [tools]` pipeline order in
+[overview.md](../architecture/overview.md#pipeline-per-request) — access policies are
+evaluated purely against claims and the requested names, independent of whether the
+registry currently has anything registered under them.
 
 ### Current limitations (tracked, not bugs)
 
-- The 401/403/404 branches for signature/claims/routing failures are not wired yet
-  — see [Epic #1](https://github.com/atsokha/mcplake/issues/1), tickets #9-#11.
 - No request size limit or rate limiting is documented yet.
+- `cmd/gateway`'s `main.go` does not yet wire a real `Config` into the gateway —
+  that depends on `config.Load()` (YAML parsing), which isn't implemented by any
+  ticket yet. The pipeline itself (this document) is fully implemented and tested
+  independently of that wiring.

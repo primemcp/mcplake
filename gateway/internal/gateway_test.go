@@ -17,8 +17,17 @@ import (
 // Start returned cleanly.
 func startTestGateway(t *testing.T) (addr string, cleanup func()) {
 	t.Helper()
+	return startTestGatewayWithConfig(t, internal.Config{})
+}
 
-	g := internal.NewGateway(internal.Config{DataPlaneAddr: "127.0.0.1:0"})
+// startTestGatewayWithConfig is startTestGateway but lets the caller supply
+// pipeline dependencies (Authenticator/Policy/Resolver/CallTimeout);
+// DataPlaneAddr is always overridden to an ephemeral loopback port.
+func startTestGatewayWithConfig(t *testing.T, cfg internal.Config) (addr string, cleanup func()) {
+	t.Helper()
+
+	cfg.DataPlaneAddr = "127.0.0.1:0"
+	g := internal.NewGateway(cfg)
 	startErr := make(chan error, 1)
 	go func() { startErr <- g.Start(context.Background()) }()
 
