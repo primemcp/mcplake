@@ -1,0 +1,223 @@
+# Data Model & Request Lifecycle
+
+## Claim Rule
+
+The atomic unit of every policy. Extracts a value from the JWT claim set with
+JSONPath, then tests it with a regexp.
+
+```go
+type ClaimRule struct {
+    Path    string // JSONPath, e.g. "$.role" or "$.groups[*]"
+    Pattern string // regexp, e.g. "^db-(reader|writer)$"
+}
+```
+
+Evaluation (`ClaimRule.Matches(claims []byte) (bool, error)`):
+
+1. Run `Path` against the decoded claim JSON.
+2. If the result is a single scalar, return `regexp.MatchString(Pattern, value)`.
+3. If the result is a list (e.g. `$.groups[*]`), return `true` if **any** element
+   matches `Pattern` — this is the "is there an element in the list satisfying the
+   regexp" case called out explicitly in the design brief. There is no separate code
+   path for list vs. scalar rules beyond this branch; the rule shape is identical.
+4. If `Path` resolves to nothing, treat as no match (not an error) — a missing claim
+   simply fails the rule.
+
+A `ClaimMatcher` is an ordered list of `ClaimRule`s, ANDed together:
+
+```go
+type ClaimMatcher struct {
+    Rules []ClaimRule // every rule must match
+}
+```
+
+## Access Policy
+
+Grants a group of MCPs/tools to callers whose claims satisfy the matcher.
+
+```go
+type AccessPolicy struct {
+    Name  string
+    Match ClaimMatcher
+    Grants []Grant
+}
+
+type Grant struct {
+    MCP   string   // registered MCP name, or "*" for all
+    Tools []string // tool names within that MCP, or ["*"] for all
+}
+```
+
+Config shape (extends today's `routing` block in `config.example.yaml`):
+
+```yaml
+access_policies:
+  - name: db-reader
+    match:
+      - path: "$.role"
+        pattern: "^db-reader$"
+    grants:
+      - mcp: postgres-ro
+        tools: ["*"]
+
+  - name: on-call
+    match:
+      - path: "$.groups[*]"
+        pattern: "^oncall-.*$"
+    grants:
+      - mcp: postgres-rw
+        tools: ["get_user", "list_incidents"]
+```
+
+At request time, a call to `(mcp, tool)` is authorized if **any** `AccessPolicy` whose
+`Match` is satisfied has a `Grant` covering that `(mcp, tool)`. Policies are additive —
+there is no explicit deny rule in this milestone; absence of a matching grant is a
+403.
+
+## Filter Policy
+
+Same matcher, different payload: a set of field paths to drop from a specific
+`(mcp, tool)` response.
+
+```go
+type FilterPolicy struct {
+    Name       string
+    Match      ClaimMatcher
+    MCP        string
+    Tool       string
+    DropFields []string // JSON field paths in the tool's response, e.g. "$.salary"
+}
+```
+
+Config shape (extends today's `filtering` block):
+
+```yaml
+filter_policies:
+  - name: hide-pii-for-plain-users
+    match:
+      - path: "$.role"
+        pattern: "^user$"
+    mcp: postgres-ro
+    tool: get_user
+    drop_fields:
+      - "$.hashed_password"
+      - "$.api_key"
+      - "$.internal_id"
+```
+
+At response time, the set of fields removed is the **union** of `DropFields` across
+every `FilterPolicy` whose `Match` is satisfied and whose `(MCP, Tool)` equals the
+call just made.
+
+## MCP Registration
+
+```go
+type MCPRegistration struct {
+    Name      string
+    Transport string // "stdio" | "sse" | "http"
+    Connect   ConnectConfig // command+args for stdio, URL for sse/http
+    Status    string // "connecting" | "active" | "unreachable"
+    Tools     map[string]ToolSchema // populated after tools/list
+}
+
+type ToolSchema struct {
+    Name         string
+    InputSchema  json.RawMessage
+    OutputSchema json.RawMessage // when the MCP provides one; nil otherwise
+}
+```
+
+Registration is one call regardless of trigger (startup config or the Control-Plane
+API):
+
+```
+RegisterMCP(reg MCPRegistration) error
+    -> mcp.NewClient(reg.Transport, reg.Connect)
+    -> client.ListTools(ctx)
+    -> persistence.Upsert(reg.Name, tools)   // GORM, see below
+    -> registry.refreshCache(reg.Name, tools)
+    -> reg.Status = "active"
+```
+
+See [ADR-0003](decisions/0003-dynamic-mcp-registration-and-schema-discovery.md) for
+failure handling and re-registration semantics, and
+[ADR-0006](decisions/0006-gorm-sqlite-postgres-persistence.md) for the persistence
+step.
+
+## Persistence Models (GORM)
+
+`MCPRegistration`, `AccessPolicy`, and `FilterPolicy` are the durable records behind
+the in-memory shapes above. Nested rule/grant data is stored as a JSON text column so
+the same struct tags work unchanged on SQLite and PostgreSQL
+([ADR-0006](decisions/0006-gorm-sqlite-postgres-persistence.md)):
+
+```go
+type MCPRegistrationRow struct {
+    gorm.Model
+    Name      string `gorm:"uniqueIndex"`
+    Transport string
+    Connect   datatypes.JSON // ConnectConfig, serialized
+}
+
+type AccessPolicyRow struct {
+    gorm.Model
+    Name   string `gorm:"uniqueIndex"`
+    Match  datatypes.JSON // []ClaimRule, serialized
+    Grants datatypes.JSON // []Grant, serialized
+}
+
+type FilterPolicyRow struct {
+    gorm.Model
+    Name       string `gorm:"uniqueIndex"`
+    Match      datatypes.JSON // []ClaimRule, serialized
+    MCP        string
+    Tool       string
+    DropFields datatypes.JSON // []string, serialized
+}
+```
+
+`ToolSchema` results from `tools/list` are not modeled as their own table for this
+milestone — they're stored alongside the owning `MCPRegistrationRow` (as JSON) and
+rebuilt into the in-memory `MCPRegistry` cache on load, since they're only ever read
+as a whole per-MCP tool set, never queried individually in SQL.
+
+At startup, `config.yaml`'s `mcps:`, `access_policies:`, and `filter_policies:`
+entries are upserted into these tables by name (matching the `uniqueIndex`) before
+the caches are built — config is a seed mechanism, the database is the source of
+truth from that point on. Every Control-Plane API write goes through the same
+upsert path and then refreshes the corresponding in-memory cache.
+
+## Request Lifecycle
+
+This is the data-plane (fasthttp) tool-call path. Registering the MCP and defining
+the policies referenced below happens beforehand, out-of-band, via the Gin
+control-plane API described in [components.md](components.md#control-plane-api-gin).
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant GW as Gateway (fasthttp)
+    participant Auth as Auth Validator
+    participant Pol as Policy Engine
+    participant Reg as MCP Registry
+    participant M as Downstream MCP
+
+    C->>GW: POST /v1/call {mcp, tool, args} + Bearer JWT
+    GW->>Auth: ValidateToken(jwt)
+    Auth-->>GW: claims | 401
+    GW->>Pol: Authorize(claims, mcp, tool)
+    Pol-->>GW: allowed | 403
+    GW->>Reg: Resolve(mcp)
+    Reg-->>GW: mcp.Client
+    GW->>M: CallTool(tool, args)
+    M-->>GW: raw response JSON
+    GW->>Pol: FieldsToRemove(claims, mcp, tool)
+    Pol-->>GW: [field paths]
+    GW->>GW: filter.Strip(response, fields)
+    GW-->>C: filtered response JSON
+```
+
+This is the concrete form of the pipeline sketched in
+[`overview.md`](overview.md#pipeline-per-request): JWT eval happens once for
+authorization and is consulted again — same engine, different policy set — to decide
+what the response filter strips, before the response reaches the client.

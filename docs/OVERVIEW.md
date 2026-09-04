@@ -1,5 +1,13 @@
 # MCP Gateway — Architecture & Design Overview
 
+> **Note:** The routing and filtering design below (flat `ClaimKey`/`ClaimValue`
+> rules) is the original Phase 1 sketch. It has been superseded by the JSONPath +
+> regexp claim-rule pipeline, MCP registration flow, and unified access/filter
+> policy engine documented under
+> [`/docs/architecture`](architecture/overview.md) and its
+> [decision records](architecture/decisions/). Treat this file as historical context
+> for *why* the system looks the way it does; treat `/docs/architecture` as current.
+
 ## Table of Contents
 
 1. [Vision & Goals](#vision--goals)
