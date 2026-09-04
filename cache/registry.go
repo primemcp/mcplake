@@ -6,6 +6,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/atsokha/mcplake/mcp"
@@ -107,13 +108,55 @@ func (r *Registry) List() []MCPRegistration {
 	return out
 }
 
-// set stores reg under its Name, replacing any existing entry. Unexported:
-// it exists so this package's own tests can populate a Registry directly
-// without a real MCP connection. Registry.Register (ticket #17) is the
-// production write path and will call this internally once discovery
-// succeeds.
-func (r *Registry) set(reg MCPRegistration) {
+// set stores reg under its Name, replacing any existing entry in a single
+// atomic map write — a concurrent Get/HasTool/List either observes the
+// complete previous value or the complete new one, never a mix of the two.
+// It returns whatever was previously stored under that name, if anything,
+// so Register (register.go) can close a superseded client after the swap.
+//
+// Unexported: it exists so this package's own tests can populate a Registry
+// directly without a real MCP connection; Registry.Register is the
+// production write path.
+func (r *Registry) set(reg MCPRegistration) (previous MCPRegistration, hadPrevious bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	previous, hadPrevious = r.byName[reg.Name]
 	r.byName[reg.Name] = reg
+	return previous, hadPrevious
+}
+
+// setIfAbsent stores reg under its Name only if nothing is currently
+// registered under that name; otherwise it leaves the existing entry
+// untouched. Used to record a fresh (never-before-seen) MCP as unreachable
+// on its first failed registration attempt, without clobbering an existing,
+// possibly still-working registration when a re-registration attempt fails
+// — see Register's make-before-break contract in register.go and ADR-0003.
+func (r *Registry) setIfAbsent(reg MCPRegistration) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.byName[reg.Name]; exists {
+		return
+	}
+	r.byName[reg.Name] = reg
+}
+
+// Unregister removes name from the Registry and closes its client. Once
+// this returns, new calls referencing name are rejected as not-found
+// immediately. It does not forcibly interrupt an in-flight call already
+// holding a reference to the client (e.g. via a prior Resolve) — that call
+// is allowed to finish; only new lookups are affected.
+func (r *Registry) Unregister(name string) error {
+	r.mu.Lock()
+	reg, ok := r.byName[name]
+	if !ok {
+		r.mu.Unlock()
+		return fmt.Errorf("cache: %q is not registered", name)
+	}
+	delete(r.byName, name)
+	r.mu.Unlock()
+
+	if reg.Client != nil {
+		return reg.Client.Close()
+	}
+	return nil
 }
