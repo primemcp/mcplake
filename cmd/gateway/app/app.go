@@ -96,6 +96,7 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 	controlplane.RegisterMCPRoutes(admin, registry, mcpRepo)
 	controlplane.RegisterAccessPolicyRoutes(admin, accessRepo, reloader)
 	controlplane.RegisterFilterPolicyRoutes(admin, filterRepo, reloader)
+	controlplane.RegisterUIRoutes(controlPlane.Engine(), controlplane.WebUIAssets)
 
 	return &App{Gateway: gateway, ControlPlane: controlPlane}, nil
 }
