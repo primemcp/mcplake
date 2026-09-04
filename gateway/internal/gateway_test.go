@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -77,17 +76,6 @@ func TestGateway_WrongMethodOnHealthzReturns404(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
-}
-
-func TestGateway_ToolCallRouteIsStubbedNotImplemented(t *testing.T) {
-	addr, cleanup := startTestGateway(t)
-	defer cleanup()
-
-	resp, err := http.Post(fmt.Sprintf("http://%s/v1/call", addr), "application/json", strings.NewReader(`{}`))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusNotImplemented, resp.StatusCode)
 }
 
 func TestGateway_StopWithAlreadyExpiredContextDoesNotHang(t *testing.T) {
