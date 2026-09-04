@@ -1,0 +1,441 @@
+basePath: /admin
+definitions:
+  controlplane.accessPolicyDTO:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/controlplane.grantDTO'
+        type: array
+      match:
+        items:
+          $ref: '#/definitions/controlplane.claimRuleDTO'
+        type: array
+      name:
+        type: string
+    type: object
+  controlplane.accessPolicyRequest:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/controlplane.grantDTO'
+        type: array
+      match:
+        items:
+          $ref: '#/definitions/controlplane.claimRuleDTO'
+        type: array
+      name:
+        type: string
+    type: object
+  controlplane.claimRuleDTO:
+    properties:
+      path:
+        type: string
+      pattern:
+        type: string
+    required:
+    - path
+    - pattern
+    type: object
+  controlplane.connectConfigDTO:
+    properties:
+      arguments:
+        items:
+          type: string
+        type: array
+      command:
+        type: string
+      url:
+        type: string
+    type: object
+  controlplane.errorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  controlplane.filterPolicyDTO:
+    properties:
+      drop_fields:
+        items:
+          type: string
+        type: array
+      match:
+        items:
+          $ref: '#/definitions/controlplane.claimRuleDTO'
+        type: array
+      mcp:
+        type: string
+      name:
+        type: string
+      tool:
+        type: string
+    type: object
+  controlplane.filterPolicyRequest:
+    properties:
+      drop_fields:
+        items:
+          type: string
+        type: array
+      match:
+        items:
+          $ref: '#/definitions/controlplane.claimRuleDTO'
+        type: array
+      mcp:
+        type: string
+      name:
+        type: string
+      tool:
+        type: string
+    required:
+    - mcp
+    - tool
+    type: object
+  controlplane.grantDTO:
+    properties:
+      mcp:
+        type: string
+      tools:
+        items:
+          type: string
+        type: array
+    required:
+    - mcp
+    type: object
+  controlplane.mcpRegistrationDTO:
+    properties:
+      connect:
+        $ref: '#/definitions/controlplane.connectConfigDTO'
+      name:
+        type: string
+      status:
+        type: string
+      tools:
+        additionalProperties:
+          $ref: '#/definitions/controlplane.toolSchemaDTO'
+        type: object
+      transport:
+        type: string
+    type: object
+  controlplane.registerMCPRequest:
+    properties:
+      connect:
+        $ref: '#/definitions/controlplane.connectConfigDTO'
+      name:
+        type: string
+      transport:
+        type: string
+    required:
+    - name
+    type: object
+  controlplane.toolSchemaDTO:
+    properties:
+      input_schema:
+        type: object
+      name:
+        type: string
+      output_schema:
+        type: object
+    type: object
+info:
+  contact: {}
+  description: Admin API for registering downstream MCPs and managing access/filter
+    policies. See ADR-0005 and ADR-0007.
+  title: MCP Gateway Control-Plane Admin API
+  version: "1.0"
+paths:
+  /access-policies:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controlplane.accessPolicyDTO'
+            type: array
+      summary: List access policies
+      tags:
+      - access-policies
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Access policy
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controlplane.accessPolicyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/controlplane.accessPolicyDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Create an access policy
+      tags:
+      - access-policies
+  /access-policies/{name}:
+    delete:
+      parameters:
+      - description: Policy name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Delete an access policy
+      tags:
+      - access-policies
+    get:
+      parameters:
+      - description: Policy name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controlplane.accessPolicyDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Get an access policy
+      tags:
+      - access-policies
+    put:
+      consumes:
+      - application/json
+      description: Creates it if absent.
+      parameters:
+      - description: Policy name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Access policy
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controlplane.accessPolicyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controlplane.accessPolicyDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Replace an access policy
+      tags:
+      - access-policies
+  /filter-policies:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controlplane.filterPolicyDTO'
+            type: array
+      summary: List filter policies
+      tags:
+      - filter-policies
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Filter policy
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controlplane.filterPolicyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/controlplane.filterPolicyDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Create a filter policy
+      tags:
+      - filter-policies
+  /filter-policies/{name}:
+    delete:
+      parameters:
+      - description: Policy name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Delete a filter policy
+      tags:
+      - filter-policies
+    get:
+      parameters:
+      - description: Policy name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controlplane.filterPolicyDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Get a filter policy
+      tags:
+      - filter-policies
+    put:
+      consumes:
+      - application/json
+      description: Creates it if absent.
+      parameters:
+      - description: Policy name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Filter policy
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controlplane.filterPolicyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controlplane.filterPolicyDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Replace a filter policy
+      tags:
+      - filter-policies
+  /healthz:
+    get:
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+      summary: Control-plane health check
+      tags:
+      - health
+  /mcps:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controlplane.mcpRegistrationDTO'
+            type: array
+      summary: List registered MCPs
+      tags:
+      - mcps
+    post:
+      consumes:
+      - application/json
+      description: Connects to the MCP, discovers its tools, and makes it immediately
+        callable via the data plane. Persisted only on success.
+      parameters:
+      - description: MCP registration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controlplane.registerMCPRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/controlplane.mcpRegistrationDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Register an MCP
+      tags:
+      - mcps
+  /mcps/{name}:
+    delete:
+      parameters:
+      - description: MCP name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Unregister an MCP
+      tags:
+      - mcps
+swagger: "2.0"
