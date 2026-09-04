@@ -1,0 +1,128 @@
+// Package controlplane implements the Gin-based admin API server: the
+// control-plane HTTP surface for MCP registration and access/filter policy
+// CRUD, separate from the fasthttp data plane in package internal. See
+// docs/architecture/decisions/0005-use-gin-for-control-plane-api.md.
+package controlplane
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"sync"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+// idleTimeout bounds how long a keep-alive connection may sit idle, so a
+// client holding a persistent connection open can't keep graceful shutdown
+// from completing — mirrors internal.Gateway's idleTimeout rationale.
+const idleTimeout = 60 * time.Second
+
+// Config configures the control-plane Server.
+type Config struct {
+	// ControlPlaneAddr is the listen address (host:port) for the admin API,
+	// e.g. ":8081". See config.ServerConfig.ControlPlaneAddr.
+	ControlPlaneAddr string
+}
+
+// Server is the Gin-based control-plane admin API server: its own listener,
+// independent of the data-plane fasthttp server. It establishes the
+// "/admin" route group and a health endpoint; tickets #47-#49 register the
+// actual CRUD routes onto the group returned by Admin.
+//
+// Server must not be copied after first use.
+type Server struct {
+	addr       string
+	engine     *gin.Engine
+	admin      *gin.RouterGroup
+	httpServer *http.Server
+
+	mu    sync.Mutex
+	ln    net.Listener
+	ready chan struct{}
+	once  sync.Once
+}
+
+// NewServer constructs a Server bound to cfg.ControlPlaneAddr. It does not
+// start listening; call Start to do that.
+func NewServer(cfg Config) *Server {
+	gin.SetMode(gin.ReleaseMode)
+	engine := gin.New()
+	engine.Use(gin.Recovery())
+
+	admin := engine.Group("/admin")
+	admin.GET("/healthz", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	s := &Server{
+		addr:   cfg.ControlPlaneAddr,
+		engine: engine,
+		admin:  admin,
+		ready:  make(chan struct{}),
+	}
+	s.httpServer = &http.Server{
+		Handler:     engine,
+		IdleTimeout: idleTimeout,
+	}
+	return s
+}
+
+// Admin returns the "/admin" route group, so callers (the admin API
+// handlers added in later tickets) can register additional routes onto the
+// same server/engine.
+func (s *Server) Admin() *gin.RouterGroup {
+	return s.admin
+}
+
+// Ready returns a channel that is closed once the Server has bound its
+// listener and is accepting connections.
+func (s *Server) Ready() <-chan struct{} {
+	return s.ready
+}
+
+// Addr returns the actual bound address, useful when Config.ControlPlaneAddr
+// used an ephemeral port (":0") such as in tests. It is empty until Start
+// has bound the listener.
+func (s *Server) Addr() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ln == nil {
+		return ""
+	}
+	return s.ln.Addr().String()
+}
+
+// Start binds the listener and serves requests until the server is shut down
+// via Stop, in which case Start returns nil, or an unrecoverable server
+// error occurs.
+func (s *Server) Start(_ context.Context) error {
+	ln, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return fmt.Errorf("controlplane: listen on %s: %w", s.addr, err)
+	}
+
+	s.mu.Lock()
+	s.ln = ln
+	s.mu.Unlock()
+	s.once.Do(func() { close(s.ready) })
+
+	err = s.httpServer.Serve(ln)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("controlplane: serve: %w", err)
+	}
+	return nil
+}
+
+// Stop gracefully shuts the server down: it stops accepting new connections
+// and waits for in-flight requests to finish, up to ctx's deadline. It
+// unblocks the goroutine running Start.
+func (s *Server) Stop(ctx context.Context) error {
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		return fmt.Errorf("controlplane: shutdown: %w", err)
+	}
+	return nil
+}
