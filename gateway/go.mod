@@ -3,19 +3,20 @@ module github.com/atsokha/mcplake
 go 1.27.1
 
 require (
+	github.com/MicahParks/jwkset v0.11.1
 	github.com/atsokha/mcplake/auth v0.0.0-00010101000000-000000000000
 	github.com/atsokha/mcplake/cache v0.0.0-00010101000000-000000000000
 	github.com/atsokha/mcplake/filter v0.0.0-00010101000000-000000000000
+	github.com/atsokha/mcplake/mcp v0.0.0-00010101000000-000000000000
+	github.com/atsokha/mcplake/router v0.0.0-00010101000000-000000000000
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasthttp v1.73.0
 )
 
 require (
-	github.com/MicahParks/jwkset v0.11.1 // indirect
 	github.com/MicahParks/keyfunc/v3 v3.8.1 // indirect
 	github.com/andybalholm/brotli v1.2.2 // indirect
-	github.com/atsokha/mcplake/mcp v0.0.0-00010101000000-000000000000 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.7.0 // indirect
