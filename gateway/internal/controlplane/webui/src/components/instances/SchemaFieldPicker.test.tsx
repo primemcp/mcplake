@@ -70,4 +70,36 @@ describe("SchemaFieldPicker", () => {
     render(<SchemaFieldPicker schema={undefined} selected={[]} onToggle={vi.fn()} />);
     expect(screen.getByText("This tool doesn't advertise any fields.")).toBeInTheDocument();
   });
+
+  describe("with a nested schema", () => {
+    const NESTED_SCHEMA = {
+      type: "object",
+      properties: {
+        entities: {
+          type: "array",
+          items: { type: "object", properties: { name: { type: "string" } } },
+        },
+      },
+    };
+
+    it("collapses nested fields by default, showing a depth badge instead", () => {
+      render(<SchemaFieldPicker schema={NESTED_SCHEMA} selected={[]} onToggle={vi.fn()} />);
+      expect(screen.getByText("[1]")).toBeInTheDocument();
+      expect(screen.queryByText("$.entities[*].name")).not.toBeInTheDocument();
+    });
+
+    it("reveals children on expand, and search bypasses collapse entirely", async () => {
+      const user = userEvent.setup();
+      render(<SchemaFieldPicker schema={NESTED_SCHEMA} selected={[]} onToggle={vi.fn()} />);
+
+      await user.click(screen.getByRole("button", { name: "Expand $.entities" }));
+      expect(screen.getByText("$.entities[*].name")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Collapse $.entities" }));
+      expect(screen.queryByText("$.entities[*].name")).not.toBeInTheDocument();
+
+      await user.type(screen.getByPlaceholderText(/Search fields/), "name");
+      expect(screen.getByText("$.entities[*].name")).toBeInTheDocument();
+    });
+  });
 });

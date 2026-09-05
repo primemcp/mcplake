@@ -61,4 +61,43 @@ describe("AllToolsFieldPicker", () => {
     render(<AllToolsFieldPicker tools={{ noop: { name: "noop" } }} onChange={vi.fn()} />);
     expect(screen.getByText("No tools have discovered response fields yet.")).toBeInTheDocument();
   });
+
+  describe("with a nested schema", () => {
+    const NESTED_TOOLS: Record<string, ToolSchema> = {
+      create_entities: {
+        name: "create_entities",
+        output_schema: {
+          type: "object",
+          properties: {
+            entities: {
+              type: "array",
+              items: { type: "object", properties: { name: { type: "string" } } },
+            },
+          },
+        },
+      },
+    };
+
+    it("collapses nested fields by default, showing a depth badge instead", () => {
+      render(<AllToolsFieldPicker tools={NESTED_TOOLS} onChange={vi.fn()} />);
+
+      expect(screen.getByText("[1]")).toBeInTheDocument();
+      expect(screen.queryByText("$.entities[*].name")).not.toBeInTheDocument();
+    });
+
+    it("reveals children on expand, and search bypasses collapse entirely", async () => {
+      const user = userEvent.setup();
+      render(<AllToolsFieldPicker tools={NESTED_TOOLS} onChange={vi.fn()} />);
+
+      await user.click(screen.getByRole("button", { name: "Expand create_entities $.entities" }));
+      expect(screen.getByText("$.entities[*].name")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Collapse create_entities $.entities" }));
+      expect(screen.queryByText("$.entities[*].name")).not.toBeInTheDocument();
+
+      // Still collapsed, but a search finds the hidden nested field anyway.
+      await user.type(screen.getByPlaceholderText(/Search fields/), "name");
+      expect(screen.getByText("$.entities[*].name")).toBeInTheDocument();
+    });
+  });
 });
