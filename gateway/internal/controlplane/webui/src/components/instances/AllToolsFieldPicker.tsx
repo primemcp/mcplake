@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { annotateFields, collapseFields, flattenSchema, matchesFieldQuery, type SchemaField } from "../../lib/schema";
+import {
+  annotateFields,
+  collapseFields,
+  countDroppedDescendants,
+  flattenSchema,
+  matchesFieldQuery,
+  type SchemaField,
+} from "../../lib/schema";
 import type { FieldsByTool } from "../../lib/filterGroups";
 import { Modal } from "../primitives/Modal";
 import { SearchInput } from "../primitives/SearchInput";
@@ -56,28 +63,39 @@ export type AllToolsFieldPickerProps = {
  * and the caller (ResponseFilterGroup) decides how to persist that as one
  * or several real FilterPolicy records.
  *
- * Nested fields collapse by default -- annotating the whole
- * merged/concatenated row list works unmodified across tool boundaries,
- * since each tool's own rows always start back at indent 0.
+ * Nested fields never expand inline any more -- the only way to see or
+ * toggle them is the schema graph (opened from the `[N]` badge), so
+ * browsing always shows just each tool's top-level fields. Searching
+ * still reaches every nested field (collapseFields' searching bypass),
+ * shown flat (full path, no stair-step indent) since there's no tree
+ * structure being drawn around them any more to indent against.
  */
 export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllToolsFieldPickerProps) {
   const [query, setQuery] = useState("");
   const [dropped, setDropped] = useState<string[]>(() =>
     Object.entries(initial ?? {}).flatMap(([tool, paths]) => paths.map((p) => key(tool, p))),
   );
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [graphTool, setGraphTool] = useState<string | null>(null);
   const searching = query.trim() !== "";
 
   const rows = useMemo(() => annotateFields(flattenAllTools(tools)), [tools]);
+  const droppedSet = useMemo(() => new Set(dropped), [dropped]);
+  // Indexed by row, parallel to `rows` -- how many of *this* row's own
+  // descendants are currently dropped, so a collapsed row can still show
+  // "something under here got filtered" without opening the graph.
+  const droppedBelowByKey = useMemo(() => {
+    const counts = countDroppedDescendants(rows, (r) => droppedSet.has(key(r.tool, r.path)));
+    const m = new Map<string, number>();
+    rows.forEach((r, i) => m.set(key(r.tool, r.path), counts[i]));
+    return m;
+  }, [rows, droppedSet]);
   const filtered = useMemo(
     () => (searching ? rows.filter((r) => matchesFieldQuery(r, query)) : rows),
     [rows, query, searching],
   );
-  const hits = useMemo(
-    () => collapseFields(filtered, (r) => expanded.has(key(r.tool, r.path)), searching),
-    [filtered, expanded, searching],
-  );
+  // Never expanded -- collapseFields then always hides every row past the
+  // first level, which is exactly "browse shows top-level fields only."
+  const hits = useMemo(() => collapseFields(filtered, () => false, searching), [filtered, searching]);
   const droppedCount = dropped.length;
 
   const toggle = (tool: string, path: string) => {
@@ -85,15 +103,6 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
     const next = dropped.includes(k) ? dropped.filter((x) => x !== k) : [...dropped, k];
     setDropped(next);
     onChange(toFieldsByTool(next));
-  };
-
-  const toggleExpanded = (k: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
   };
 
   if (rows.length === 0) {
@@ -120,7 +129,7 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
           {hits.map((r) => {
             const k = key(r.tool, r.path);
             const isDropped = dropped.includes(k);
-            const isOpen = expanded.has(k);
+            const droppedBelow = droppedBelowByKey.get(k) ?? 0;
             const flagged = /PII|secret|internal|PCI|payload|cost|financial/i.test(
               `${r.type} ${r.description ?? ""}`,
             );
@@ -129,36 +138,16 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
                 key={k}
                 className="flex items-center gap-2.5 px-2.5 py-1.5 border-b border-border-soft last:border-b-0"
               >
-                {/* 12px per nesting level, not the design's fixed
-                    one-level indent -- real schemas can nest arbitrarily
-                    deep, so indent needs to scale with actual depth. */}
+                {/* 12px per nesting level while browsing -- real schemas
+                    can nest arbitrarily deep, so indent needs to scale
+                    with actual depth. Search results skip it: with no
+                    tree drawn around them any more (nesting is only ever
+                    browsed via the schema graph now), the full dotted
+                    path already says everything the indent used to. */}
                 <div
                   className="flex-1 min-w-0 flex items-start gap-1.5"
-                  style={{ paddingLeft: r.indent * 12 }}
+                  style={{ paddingLeft: searching ? 0 : r.indent * 12 }}
                 >
-                  {r.hasChildren && !searching ? (
-                    <button
-                      type="button"
-                      aria-label={`${isOpen ? "Collapse" : "Expand"} ${r.tool} ${r.path}`}
-                      onClick={() => toggleExpanded(k)}
-                      className="shrink-0 border-0 bg-transparent cursor-pointer text-[10px] text-muted p-0 w-3.5 leading-[1.6]"
-                    >
-                      {isOpen ? "▾" : "▸"}
-                    </button>
-                  ) : (
-                    <span className="shrink-0 w-3.5" />
-                  )}
-                  {r.hasChildren && (
-                    <button
-                      type="button"
-                      aria-label={`View schema graph for ${r.tool}`}
-                      title={`View ${r.tool}'s schema as a graph`}
-                      onClick={() => setGraphTool(r.tool)}
-                      className="shrink-0 border-0 bg-transparent cursor-pointer text-[11px] text-muted p-0 leading-[1.6]"
-                    >
-                      👁
-                    </button>
-                  )}
                   <div className="flex-1 min-w-0 flex flex-col gap-px">
                     <div className="flex items-baseline gap-1.5">
                       <div
@@ -167,7 +156,16 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
                         <span className="text-muted">{r.tool}:</span> {r.path}
                       </div>
                       {r.hasChildren && (
-                        <span className="shrink-0 text-[9.5px] text-muted font-mono">[{r.descendantCount}]</span>
+                        <button
+                          type="button"
+                          aria-label={`View schema graph for ${r.tool}`}
+                          title={`View ${r.tool}'s schema as a graph`}
+                          onClick={() => setGraphTool(r.tool)}
+                          className="shrink-0 border-0 bg-transparent p-0 cursor-pointer text-[9.5px] font-mono text-muted underline decoration-dotted underline-offset-2 hover:text-accent hover:decoration-accent"
+                        >
+                          [{r.descendantCount}]
+                          {droppedBelow > 0 && <span className="text-danger"> -{droppedBelow}</span>}
+                        </button>
                       )}
                     </div>
                     <div className={`text-[10px] ${flagged ? "text-warn" : "text-muted"}`}>

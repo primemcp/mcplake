@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { annotateFields, buildGraph, collapseFields, flattenSchema } from "./schema";
+import { annotateFields, buildGraph, collapseFields, countDroppedDescendants, flattenSchema } from "./schema";
 
 describe("flattenSchema", () => {
   it("flattens top-level primitive fields", () => {
@@ -202,5 +202,39 @@ describe("buildGraph", () => {
       { id: "$.a->$.a.x", source: "$.a", target: "$.a.x" },
       { id: "$.b->$.b.y", source: "$.b", target: "$.b.y" },
     ]);
+  });
+});
+
+describe("countDroppedDescendants", () => {
+  it("counts zero for every row when nothing is dropped", () => {
+    const rows = flattenSchema(DEEP_SCHEMA);
+    expect(countDroppedDescendants(rows, () => false)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("counts only dropped descendants, not the row itself or its siblings", () => {
+    const rows = flattenSchema(DEEP_SCHEMA); // entities, entities[*].name, entities[*].tags, id
+    const dropped = new Set(["$.entities[*].name"]);
+    const counts = countDroppedDescendants(rows, (r) => dropped.has(r.path));
+    expect(counts).toEqual([1, 0, 0, 0]); // entities has 1 dropped descendant; id has none (not a descendant)
+  });
+
+  it("counts transitively, including grandchildren", () => {
+    const rows = flattenSchema({
+      type: "object",
+      properties: {
+        a: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { b: { type: "array", items: { type: "object", properties: { c: { type: "string" } } } } },
+          },
+        },
+      },
+    });
+    const dropped = new Set(["$.a[*].b[*].c"]);
+    const [a, b, c] = countDroppedDescendants(rows, (r) => dropped.has(r.path));
+    expect(a).toBe(1);
+    expect(b).toBe(1);
+    expect(c).toBe(0);
   });
 });

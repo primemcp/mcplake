@@ -120,6 +120,27 @@ export function annotateFields<T extends SchemaField>(rows: T[]): AnnotatedField
 }
 
 /**
+ * For every row, counts how many of its descendants (per the same
+ * contiguous-indent scan as annotateFields) are currently dropped —
+ * lets a row that's collapsed in the browse view (nested fields are only
+ * ever toggled through the schema graph now, not an inline expand) still
+ * show at a glance that something underneath it has been filtered,
+ * without opening the graph to check.
+ */
+export function countDroppedDescendants<T extends SchemaField>(
+  rows: T[],
+  isDropped: (row: T) => boolean,
+): number[] {
+  return rows.map((row, i) => {
+    let count = 0;
+    for (let j = i + 1; j < rows.length && rows[j].indent > row.indent; j++) {
+      if (isDropped(rows[j])) count++;
+    }
+    return count;
+  });
+}
+
+/**
  * Filters an annotated, depth-first-ordered row list down to what should
  * actually render given which rows are expanded — collapsed by default
  * (isExpanded returning false hides that row's entire subtree, nested

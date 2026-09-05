@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ToolSchema } from "../../api/types";
@@ -93,26 +93,48 @@ describe("AllToolsFieldPicker", () => {
       },
     };
 
-    it("collapses nested fields by default, showing a depth badge instead", () => {
+    it("never expands nested fields inline -- browsing shows only top-level fields, with a clickable descendant-count badge", () => {
       render(<AllToolsFieldPicker tools={NESTED_TOOLS} onChange={vi.fn()} />);
 
-      expect(screen.getByText("[1]")).toBeInTheDocument();
       expect(screen.queryByText("$.entities[*].name")).not.toBeInTheDocument();
+      const badge = screen.getByRole("button", { name: "View schema graph for create_entities" });
+      expect(badge).toHaveTextContent("[1]");
     });
 
-    it("reveals children on expand, and search bypasses collapse entirely", async () => {
+    it("search still reaches nested fields, flat (no stair-step indent) since there's no expand state any more", async () => {
       const user = userEvent.setup();
       render(<AllToolsFieldPicker tools={NESTED_TOOLS} onChange={vi.fn()} />);
 
-      await user.click(screen.getByRole("button", { name: "Expand create_entities $.entities" }));
-      expect(screen.getByText("$.entities[*].name")).toBeInTheDocument();
-
-      await user.click(screen.getByRole("button", { name: "Collapse create_entities $.entities" }));
-      expect(screen.queryByText("$.entities[*].name")).not.toBeInTheDocument();
-
-      // Still collapsed, but a search finds the hidden nested field anyway.
       await user.type(screen.getByPlaceholderText(/Search fields/), "name");
-      expect(screen.getByText("$.entities[*].name")).toBeInTheDocument();
+
+      const hit = screen.getByText("$.entities[*].name");
+      expect(hit).toBeInTheDocument();
+      expect(hit.closest("div[style]")).toHaveStyle({ paddingLeft: "0px" });
+    });
+
+    it("clicking the descendant-count badge opens the schema graph for that tool", async () => {
+      const user = userEvent.setup();
+      render(<AllToolsFieldPicker tools={NESTED_TOOLS} onChange={vi.fn()} />);
+
+      await user.click(screen.getByRole("button", { name: "View schema graph for create_entities" }));
+
+      expect(screen.getByRole("dialog", { name: "Schema graph" })).toBeInTheDocument();
+    });
+
+    it("shows how many descendants are currently dropped, in red, once one is toggled off via the graph", async () => {
+      const user = userEvent.setup();
+      render(<AllToolsFieldPicker tools={NESTED_TOOLS} onChange={vi.fn()} />);
+
+      await user.click(screen.getByRole("button", { name: "View schema graph for create_entities" }));
+      const edge = await waitFor(() => {
+        const el = document.querySelector(".react-flow__edge");
+        expect(el).toBeTruthy();
+        return el!;
+      });
+      await user.click(edge);
+
+      const badge = screen.getByRole("button", { name: "View schema graph for create_entities" });
+      expect(badge).toHaveTextContent("[1] -1");
     });
   });
 });

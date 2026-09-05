@@ -19,7 +19,7 @@ const NESTED_TOOLS: Record<string, ToolSchema> = {
   },
 };
 
-describe("SchemaGraph (via AllToolsFieldPicker's eye button)", () => {
+describe("SchemaGraph (via AllToolsFieldPicker's descendant-count badge)", () => {
   it("opens the graph modal and renders a node per field", async () => {
     const user = userEvent.setup();
     render(<AllToolsFieldPicker tools={NESTED_TOOLS} onChange={vi.fn()} />);
