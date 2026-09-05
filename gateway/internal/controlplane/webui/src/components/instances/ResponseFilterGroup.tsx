@@ -5,6 +5,7 @@ import { ErrorNotice } from "../primitives/ErrorNotice";
 import { Input } from "../primitives/Input";
 import { SearchInput } from "../primitives/SearchInput";
 import type { FilterPolicy, MCPRegistration } from "../../api/types";
+import { AllToolsFieldPicker } from "./AllToolsFieldPicker";
 import { SchemaFieldPicker } from "./SchemaFieldPicker";
 
 export type ResponseFilterGroupProps = {
@@ -96,7 +97,7 @@ export function ResponseFilterGroup({
   const [expanded, setExpanded] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [tool, setTool] = useState("");
+  const [pickedTool, setPickedTool] = useState<string | null>(null);
   const [fields, setFields] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [listQuery, setListQuery] = useState("");
@@ -125,12 +126,13 @@ export function ResponseFilterGroup({
   const hiddenCount = visible.length - shown.length;
 
   const submit = async () => {
+    if (!pickedTool) return;
     setSubmitError(null);
     try {
-      await onCreate(name.trim(), tool.trim(), fields);
+      await onCreate(name.trim(), pickedTool, fields);
       setAdding(false);
       setName("");
-      setTool("");
+      setPickedTool(null);
       setFields([]);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to create filter.");
@@ -225,39 +227,27 @@ export function ResponseFilterGroup({
         <div className="p-3 border border-accent rounded-lg bg-form-soft flex flex-col gap-2">
           <div className="text-xs font-semibold">New response filter</div>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="filter name" />
-          <select
-            value={tool}
-            onChange={(e) => {
-              setTool(e.target.value);
-              setFields([]);
+          <AllToolsFieldPicker
+            tools={endpoint.tools ?? {}}
+            onChange={(t, dropFields) => {
+              setPickedTool(t);
+              setFields(dropFields);
             }}
-            className="px-2.5 py-2 border border-border rounded-lg text-[12.5px] font-mono"
-          >
-            <option value="">select a tool…</option>
-            {tools.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-          {tool && (
-            <SchemaFieldPicker
-              schema={endpoint.tools?.[tool]?.output_schema}
-              selected={fields}
-              onToggle={(path) =>
-                setFields((prev) =>
-                  prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
-                )
-              }
-              meta={`tools/list · ${endpoint.name}`}
-            />
-          )}
+            meta={`tools/list · ${endpoint.name}`}
+          />
           {submitError && <p className="text-[10.5px] text-danger">{submitError}</p>}
           <div className="flex gap-1.5">
-            <Button onClick={submit} disabled={name.trim() === "" || tool.trim() === ""}>
+            <Button onClick={submit} disabled={name.trim() === "" || !pickedTool}>
               Create filter
             </Button>
-            <Button variant="secondary" onClick={() => setAdding(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setAdding(false);
+                setPickedTool(null);
+                setFields([]);
+              }}
+            >
               Cancel
             </Button>
           </div>

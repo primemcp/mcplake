@@ -12,6 +12,13 @@ const GET_USER_SCHEMA = {
   },
 };
 
+const LIST_USERS_SCHEMA = {
+  type: "object",
+  properties: {
+    count: { type: "number" },
+  },
+};
+
 const ENDPOINT: MCPRegistration = {
   name: "postgres-ro",
   transport: "stdio",
@@ -19,7 +26,7 @@ const ENDPOINT: MCPRegistration = {
   status: "active",
   tools: {
     get_user: { name: "get_user", output_schema: GET_USER_SCHEMA },
-    list_users: { name: "list_users" },
+    list_users: { name: "list_users", output_schema: LIST_USERS_SCHEMA },
   },
 };
 
@@ -76,13 +83,26 @@ describe("ResponseFilterGroup", () => {
       />,
     );
 
-    // Form is already open (no filters yet) -- no button to click first.
+    // Form is already open (no filters yet) -- no button to click first,
+    // and no tool selector either -- all tools' fields are merged into one
+    // list, and the tool is inferred from whichever field gets toggled.
     await user.type(screen.getByPlaceholderText("filter name"), "hide-pii");
-    await user.selectOptions(screen.getByRole("combobox"), "get_user");
-    await user.click(screen.getByRole("button", { name: "Hide $.salary" }));
+    await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
     await user.click(screen.getByRole("button", { name: "Create filter" }));
 
     expect(onCreate).toHaveBeenCalledWith("hide-pii", "get_user", ["$.salary"]);
+  });
+
+  it("scopes field selection to one tool once a field is toggled, disabling other tools' fields", async () => {
+    const user = userEvent.setup();
+    render(<ResponseFilterGroup endpoint={ENDPOINT} filters={[]} loading={false} error={null} {...noopProps()} />);
+
+    await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
+
+    expect(screen.getByText(/Scoped to/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide list_users $.count" })).toBeDisabled();
+    // The active tool's other fields stay pickable.
+    expect(screen.getByRole("button", { name: "Hide get_user $.name" })).toBeEnabled();
   });
 
   it("edits an existing filter's fields and saves via onUpdate", async () => {
