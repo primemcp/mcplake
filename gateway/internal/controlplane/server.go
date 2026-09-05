@@ -80,6 +80,15 @@ func (s *Server) Admin() *gin.RouterGroup {
 	return s.admin
 }
 
+// Engine returns the underlying Gin engine, so callers can register routes
+// outside the "/admin" group onto the same server/listener — e.g.
+// RegisterUIRoutes, which serves the admin web UI from this server's
+// ControlPlaneAddr instead of a separate listener (see the Admin UI epic,
+// #76).
+func (s *Server) Engine() *gin.Engine {
+	return s.engine
+}
+
 // Ready returns a channel that is closed once the Server has bound its
 // listener and is accepting connections.
 func (s *Server) Ready() <-chan struct{} {
