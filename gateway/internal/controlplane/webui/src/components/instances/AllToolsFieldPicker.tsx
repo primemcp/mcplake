@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { annotateFields, collapseFields, flattenSchema, matchesFieldQuery, type SchemaField } from "../../lib/schema";
+import { Modal } from "../primitives/Modal";
 import { SearchInput } from "../primitives/SearchInput";
 import type { ToolSchema } from "../../api/types";
+import { SchemaGraph } from "./SchemaGraph";
 
 type Row = SchemaField & { tool: string };
 
@@ -46,6 +48,7 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
   const [query, setQuery] = useState("");
   const [dropped, setDropped] = useState<string[]>([]); // "tool path" keys
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [graphTool, setGraphTool] = useState<string | null>(null);
   const searching = query.trim() !== "";
 
   const rows = useMemo(() => annotateFields(flattenAllTools(tools)), [tools]);
@@ -60,12 +63,15 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
   );
   const droppedCount = dropped.length;
 
-  const toggle = (row: Row) => {
-    const k = key(row.tool, row.path);
+  const toggle = (tool: string, path: string) => {
+    const k = key(tool, path);
     const next = dropped.includes(k) ? dropped.filter((x) => x !== k) : [...dropped, k];
     setDropped(next);
-    const tool = next.length > 0 ? next[0].split(SEP)[0] : null;
-    onChange(tool, next.filter((x) => x.startsWith(`${tool}${SEP}`)).map((x) => x.split(SEP)[1]));
+    const activeAfter = next.length > 0 ? next[0].split(SEP)[0] : null;
+    onChange(
+      activeAfter,
+      next.filter((x) => x.startsWith(`${activeAfter}${SEP}`)).map((x) => x.split(SEP)[1]),
+    );
   };
 
   const toggleExpanded = (k: string) => {
@@ -136,6 +142,18 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
                   ) : (
                     <span className="shrink-0 w-3.5" />
                   )}
+                  {r.hasChildren && (
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      aria-label={`View schema graph for ${r.tool}`}
+                      title={`View ${r.tool}'s schema as a graph`}
+                      onClick={() => setGraphTool(r.tool)}
+                      className="shrink-0 border-0 bg-transparent cursor-pointer text-[11px] text-muted p-0 leading-[1.6] disabled:cursor-not-allowed"
+                    >
+                      👁
+                    </button>
+                  )}
                   <div className="flex-1 min-w-0 flex flex-col gap-px">
                     <div className="flex items-baseline gap-1.5">
                       <div
@@ -157,7 +175,7 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
                   type="button"
                   disabled={disabled}
                   aria-label={`${isDropped ? "Stop hiding" : "Hide"} ${r.tool} ${r.path}`}
-                  onClick={() => toggle(r)}
+                  onClick={() => toggle(r.tool, r.path)}
                   className="shrink-0 border-0 bg-transparent p-0 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <span
@@ -176,6 +194,20 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
           ? `All ${rows.length} ${rows.length === 1 ? "field" : "fields"} pass through — toggle a field off to strip it`
           : `${droppedCount} of ${rows.length} fields removed from the response`}
       </p>
+      {/* Scoped to one tool at a time -- unlike the merged list above, a
+          graph needs unique node ids, and two different tools can easily
+          share a bare path like "$.id". */}
+      <Modal open={graphTool !== null} onClose={() => setGraphTool(null)} title="Schema graph" size="wide">
+        {graphTool && (
+          <SchemaGraph
+            rows={rows.filter((r) => r.tool === graphTool)}
+            selected={dropped
+              .filter((x) => x.startsWith(`${graphTool}${SEP}`))
+              .map((x) => x.split(SEP)[1])}
+            onToggle={(path) => toggle(graphTool, path)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { annotateFields, collapseFields, flattenSchema, matchesFieldQuery } from "../../lib/schema";
+import { Modal } from "../primitives/Modal";
+import { SchemaGraph } from "./SchemaGraph";
 
 export type SchemaFieldRowsProps = {
   schema: unknown;
@@ -33,6 +35,7 @@ const SENSITIVE_HINT = /PII|secret|internal|PCI|payload|cost|financial/i;
  */
 export function SchemaFieldRows({ schema, query, selected, onToggle }: SchemaFieldRowsProps) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [graphOpen, setGraphOpen] = useState(false);
   const searching = query.trim() !== "";
 
   const annotated = useMemo(() => annotateFields(flattenSchema(schema)), [schema]);
@@ -57,6 +60,7 @@ export function SchemaFieldRows({ schema, query, selected, onToggle }: SchemaFie
   if (hits.length === 0) return null;
 
   return (
+    <>
     <div className="max-h-[200px] overflow-y-auto border border-border rounded-lg bg-surface">
       {hits.map((r) => {
         const dropped = selected.includes(r.path);
@@ -86,6 +90,17 @@ export function SchemaFieldRows({ schema, query, selected, onToggle }: SchemaFie
                 </button>
               ) : (
                 <span className="shrink-0 w-3.5" />
+              )}
+              {r.hasChildren && (
+                <button
+                  type="button"
+                  aria-label="View schema graph"
+                  title="View the whole schema as a graph"
+                  onClick={() => setGraphOpen(true)}
+                  className="shrink-0 border-0 bg-transparent cursor-pointer text-[11px] text-muted p-0 leading-[1.6]"
+                >
+                  👁
+                </button>
               )}
               <div className="flex-1 min-w-0 flex flex-col gap-px">
                 <div className="flex items-baseline gap-1.5">
@@ -120,5 +135,9 @@ export function SchemaFieldRows({ schema, query, selected, onToggle }: SchemaFie
         );
       })}
     </div>
+    <Modal open={graphOpen} onClose={() => setGraphOpen(false)} title="Schema graph" size="wide">
+      <SchemaGraph rows={annotated} selected={selected} onToggle={onToggle} />
+    </Modal>
+    </>
   );
 }

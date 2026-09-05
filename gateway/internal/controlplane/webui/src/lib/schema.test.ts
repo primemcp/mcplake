@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { annotateFields, collapseFields, flattenSchema } from "./schema";
+import { annotateFields, buildGraph, collapseFields, flattenSchema } from "./schema";
 
 describe("flattenSchema", () => {
   it("flattens top-level primitive fields", () => {
@@ -166,5 +166,40 @@ describe("collapseFields", () => {
     const annotated = annotateFields(flattenSchema(DEEP_SCHEMA));
     const visible = collapseFields(annotated, () => false, true);
     expect(visible).toHaveLength(annotated.length);
+  });
+});
+
+describe("buildGraph", () => {
+  it("builds one node per field and one edge per parent-child link", () => {
+    const { nodes, edges } = buildGraph(flattenSchema(DEEP_SCHEMA));
+
+    expect(nodes.map((n) => n.id).sort()).toEqual(["$.entities", "$.entities[*].name", "$.entities[*].tags", "$.id"].sort());
+    expect(edges).toEqual([
+      { id: "$.entities->$.entities[*].name", source: "$.entities", target: "$.entities[*].name" },
+      { id: "$.entities->$.entities[*].tags", source: "$.entities", target: "$.entities[*].tags" },
+    ]);
+    // $.id is a separate top-level root -- no edge connects it to anything.
+    expect(edges.some((e) => e.target === "$.id" || e.source === "$.id")).toBe(false);
+  });
+
+  it("labels a node with just its final path segment, stripping [*] wildcards", () => {
+    const { nodes } = buildGraph(flattenSchema(DEEP_SCHEMA));
+    const nameNode = nodes.find((n) => n.id === "$.entities[*].name");
+    expect(nameNode?.label).toBe("name");
+  });
+
+  it("correctly parents nodes across two independent top-level trees, not just one", () => {
+    const rows = flattenSchema({
+      type: "object",
+      properties: {
+        a: { type: "object", properties: { x: { type: "string" } } },
+        b: { type: "object", properties: { y: { type: "string" } } },
+      },
+    });
+    const { edges } = buildGraph(rows);
+    expect(edges).toEqual([
+      { id: "$.a->$.a.x", source: "$.a", target: "$.a.x" },
+      { id: "$.b->$.b.y", source: "$.b", target: "$.b.y" },
+    ]);
   });
 });

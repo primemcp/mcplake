@@ -5,6 +5,9 @@ export type ModalProps = {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** "wide" for content that needs real screen space (e.g. the schema
+   * graph) instead of the default form-sized dialog. */
+  size?: "default" | "wide";
 };
 
 /**
@@ -13,7 +16,7 @@ export type ModalProps = {
  * inline `data-inline-form` panels everywhere, but a modal was requested
  * explicitly for this one interaction rather than being a fidelity choice.
  */
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, size = "default" }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -35,7 +38,9 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[440px] bg-surface border border-border rounded-2xl shadow-xl p-5 flex flex-col gap-3"
+        className={`w-full bg-surface border border-border rounded-2xl shadow-xl p-5 flex flex-col gap-3 ${
+          size === "wide" ? "max-w-[min(1100px,92vw)] h-[85vh]" : "max-w-[440px]"
+        }`}
       >
         <div className="flex items-center justify-between">
           <div className="text-[15px] font-semibold">{title}</div>
