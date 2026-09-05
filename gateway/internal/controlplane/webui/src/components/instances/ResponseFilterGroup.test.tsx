@@ -69,7 +69,7 @@ describe("ResponseFilterGroup", () => {
     expect(screen.queryByPlaceholderText("filter name")).not.toBeInTheDocument();
   });
 
-  it("creates a filter from schema fields toggled on in the picker", async () => {
+  it("creates one real filter, named '<name>::<tool>', from fields toggled on in the picker", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(
@@ -85,24 +85,52 @@ describe("ResponseFilterGroup", () => {
 
     // Form is already open (no filters yet) -- no button to click first,
     // and no tool selector either -- all tools' fields are merged into one
-    // list, and the tool is inferred from whichever field gets toggled.
+    // list, and the tool comes from whichever field gets toggled.
     await user.type(screen.getByPlaceholderText("filter name"), "hide-pii");
     await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
     await user.click(screen.getByRole("button", { name: "Create filter" }));
 
-    expect(onCreate).toHaveBeenCalledWith("hide-pii", "get_user", ["$.salary"]);
+    expect(onCreate).toHaveBeenCalledWith("hide-pii::get_user", "get_user", ["$.salary"]);
   });
 
-  it("scopes field selection to one tool once a field is toggled, collapsing the other tools out of view", async () => {
+  it("creates one real filter per tool -- sharing a name prefix -- when fields from several tools are picked at once", async () => {
     const user = userEvent.setup();
-    render(<ResponseFilterGroup endpoint={ENDPOINT} filters={[]} loading={false} error={null} {...noopProps()} />);
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ResponseFilterGroup
+        endpoint={ENDPOINT}
+        filters={[]}
+        loading={false}
+        error={null}
+        {...noopProps()}
+        onCreate={onCreate}
+      />,
+    );
 
+    await user.type(screen.getByPlaceholderText("filter name"), "hide-content");
     await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
+    await user.click(screen.getByRole("button", { name: "Hide list_users $.count" }));
+    // Neither tool's fields disappear or get locked out -- both stay pickable.
+    expect(screen.getByText("$.name")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Create filter" }));
 
-    expect(screen.getByText(/Scoped to/)).toBeInTheDocument();
-    expect(screen.queryByText("$.count")).not.toBeInTheDocument();
-    // The active tool's other fields stay visible and pickable.
-    expect(screen.getByRole("button", { name: "Hide get_user $.name" })).toBeEnabled();
+    expect(onCreate).toHaveBeenCalledTimes(2);
+    expect(onCreate).toHaveBeenCalledWith("hide-content::get_user", "get_user", ["$.salary"]);
+    expect(onCreate).toHaveBeenCalledWith("hide-content::list_users", "list_users", ["$.count"]);
+  });
+
+  it("renders a multi-tool group as a single card in the list, not one per underlying record", () => {
+    const grouped: FilterPolicy[] = [
+      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
+      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"] },
+    ];
+    render(
+      <ResponseFilterGroup endpoint={ENDPOINT} filters={grouped} loading={false} error={null} {...noopProps()} />,
+    );
+
+    expect(screen.getAllByText("hide-content")).toHaveLength(1);
+    expect(screen.getByText(/get_user: \$\.salary/)).toBeInTheDocument();
+    expect(screen.getByText(/list_users: \$\.count/)).toBeInTheDocument();
   });
 
   it("edits an existing filter's fields and saves via onUpdate", async () => {
@@ -121,19 +149,55 @@ describe("ResponseFilterGroup", () => {
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
     // hide-pii starts with $.salary toggled on; also toggle $.name on.
-    await user.click(screen.getByRole("button", { name: "Hide $.name" }));
+    await user.click(screen.getByRole("button", { name: "Hide get_user $.name" }));
     await user.click(screen.getByRole("button", { name: "Save filter" }));
 
+    // Editing an existing member keeps its exact name -- no rename.
     expect(onUpdate).toHaveBeenCalledWith("hide-pii", "get_user", ["$.salary", "$.name"]);
   });
 
-  it("deletes a filter from within its edit panel", async () => {
+  it("editing a multi-tool group reconciles create/update/delete against its real per-tool records", async () => {
     const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
     const onDelete = vi.fn().mockResolvedValue(undefined);
+    const grouped: FilterPolicy[] = [
+      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
+      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"] },
+    ];
     render(
       <ResponseFilterGroup
         endpoint={ENDPOINT}
-        filters={FILTERS}
+        filters={grouped}
+        loading={false}
+        error={null}
+        {...noopProps()}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    // Add a field to a tool that's already in the group...
+    await user.click(screen.getByRole("button", { name: "Hide get_user $.name" }));
+    // ...and remove the other tool from the group entirely.
+    await user.click(screen.getByRole("button", { name: "Stop hiding list_users $.count" }));
+    await user.click(screen.getByRole("button", { name: "Save filter" }));
+
+    expect(onUpdate).toHaveBeenCalledWith("hide-content::get_user", "get_user", ["$.salary", "$.name"]);
+    expect(onDelete).toHaveBeenCalledWith("hide-content::list_users");
+  });
+
+  it("deletes every underlying record when deleting a group from within its edit panel", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+    const grouped: FilterPolicy[] = [
+      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
+      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"] },
+    ];
+    render(
+      <ResponseFilterGroup
+        endpoint={ENDPOINT}
+        filters={grouped}
         loading={false}
         error={null}
         {...noopProps()}
@@ -143,7 +207,10 @@ describe("ResponseFilterGroup", () => {
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Delete" }));
-    expect(onDelete).toHaveBeenCalledWith("hide-pii");
+
+    expect(onDelete).toHaveBeenCalledWith("hide-content::get_user");
+    expect(onDelete).toHaveBeenCalledWith("hide-content::list_users");
+    expect(onDelete).toHaveBeenCalledTimes(2);
   });
 
   it("the list search narrows filters by name, tool, or dropped field — separate from the per-form field picker search", async () => {

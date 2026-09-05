@@ -25,38 +25,41 @@ describe("AllToolsFieldPicker", () => {
     expect(screen.getByText("$.count")).toBeInTheDocument();
   });
 
-  it("reports the owning tool and dropped paths once a field is toggled", async () => {
+  it("reports the dropped fields grouped by tool", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<AllToolsFieldPicker tools={TOOLS} onChange={onChange} />);
 
     await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
 
-    expect(onChange).toHaveBeenCalledWith("get_user", ["$.salary"]);
+    expect(onChange).toHaveBeenLastCalledWith({ get_user: ["$.salary"] });
   });
 
-  it("collapses to just the active tool's fields once one is selected, and merges everything back once cleared", async () => {
+  it("allows toggling fields across multiple tools at once -- a filter spanning several tools is a valid selection now", async () => {
     const user = userEvent.setup();
-    render(<AllToolsFieldPicker tools={TOOLS} onChange={vi.fn()} />);
+    const onChange = vi.fn();
+    render(<AllToolsFieldPicker tools={TOOLS} onChange={onChange} />);
 
     await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
-    expect(screen.queryByText("$.count")).not.toBeInTheDocument();
-    expect(screen.getByText(/Scoped to/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Hide list_users $.count" }));
 
-    await user.click(screen.getByRole("button", { name: "switch tool" }));
-    expect(screen.getByText("$.count")).toBeInTheDocument();
-    expect(screen.queryByText(/Scoped to/)).not.toBeInTheDocument();
+    // Neither tool's fields ever leave the list, and the switch stays enabled.
+    expect(screen.getByText("$.name")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop hiding list_users $.count" })).toBeEnabled();
+    expect(onChange).toHaveBeenLastCalledWith({ get_user: ["$.salary"], list_users: ["$.count"] });
   });
 
-  it("toggling the active tool's only dropped field back off clears the scope too", async () => {
-    const user = userEvent.setup();
-    render(<AllToolsFieldPicker tools={TOOLS} onChange={vi.fn()} />);
+  it("prefills from the `initial` prop, e.g. when editing an existing multi-tool group", () => {
+    render(
+      <AllToolsFieldPicker
+        tools={TOOLS}
+        onChange={vi.fn()}
+        initial={{ get_user: ["$.salary"], list_users: ["$.count"] }}
+      />,
+    );
 
-    await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
-    await user.click(screen.getByRole("button", { name: "Stop hiding get_user $.salary" }));
-
-    expect(screen.getByText("$.count")).toBeInTheDocument();
-    expect(screen.queryByText(/Scoped to/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop hiding get_user $.salary" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop hiding list_users $.count" })).toBeInTheDocument();
   });
 
   it("search narrows the merged list across every tool", async () => {

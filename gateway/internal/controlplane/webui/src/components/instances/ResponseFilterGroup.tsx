@@ -6,7 +6,7 @@ import { Input } from "../primitives/Input";
 import { SearchInput } from "../primitives/SearchInput";
 import type { FilterPolicy, MCPRegistration } from "../../api/types";
 import { AllToolsFieldPicker } from "./AllToolsFieldPicker";
-import { SchemaFieldPicker } from "./SchemaFieldPicker";
+import { groupFilters, planGroupSave, type FieldsByTool, type FilterGroup } from "../../lib/filterGroups";
 
 export type ResponseFilterGroupProps = {
   endpoint: MCPRegistration;
@@ -22,50 +22,55 @@ export type ResponseFilterGroupProps = {
 // How many filter rows show before "Show N more filters" collapses the rest.
 const VISIBLE_LIMIT = 3;
 
-// Matches the mockup's own row summary exactly: first 3 dropped fields
-// joined by " · ", "+N" for the rest, "full response" when nothing's
-// dropped. Our model needs the tool name prefixed (the mockup assumes one
-// schema per endpoint; a real endpoint can expose several tools).
-function filterSummary(f: FilterPolicy): string {
-  if (f.drop_fields.length === 0) return `${f.tool} · full response`;
-  const shown = f.drop_fields.slice(0, 3).join(" · ");
-  const rest = f.drop_fields.length > 3 ? ` +${f.drop_fields.length - 3}` : "";
-  return `${f.tool} · ${shown}${rest} removed`;
+/** One line per dropped field, tool-prefixed the same way the picker's own
+ * rows are -- reads the same for a plain single-tool filter and a group
+ * spanning several, no special-casing needed. */
+function groupSummary(g: FilterGroup): string {
+  const dropped = g.members.flatMap((m) => m.drop_fields.map((p) => `${m.tool}: ${p}`));
+  if (dropped.length === 0) {
+    return `${[...new Set(g.members.map((m) => m.tool))].join(", ")} · full response`;
+  }
+  const shown = dropped.slice(0, 3).join(" · ");
+  const rest = dropped.length > 3 ? ` +${dropped.length - 3}` : "";
+  return `${shown}${rest} removed`;
 }
 
-function EditFilterForm({
-  filter,
+function groupToFieldsByTool(g: FilterGroup): FieldsByTool {
+  const byTool: FieldsByTool = {};
+  for (const m of g.members) byTool[m.tool] = m.drop_fields;
+  return byTool;
+}
+
+function EditGroupForm({
+  group,
   endpoint,
   onSave,
   onCancel,
-  onDelete,
+  onDeleteGroup,
 }: {
-  filter: FilterPolicy;
+  group: FilterGroup;
   endpoint: MCPRegistration;
-  onSave: (dropFields: string[]) => Promise<void>;
+  onSave: (fieldsByTool: FieldsByTool) => Promise<void>;
   onCancel: () => void;
-  onDelete: () => Promise<void>;
+  onDeleteGroup: () => Promise<void>;
 }) {
-  const [fields, setFields] = useState<string[]>(filter.drop_fields);
+  const [fieldsByTool, setFieldsByTool] = useState<FieldsByTool>(() => groupToFieldsByTool(group));
   const [saving, setSaving] = useState(false);
-  const outputSchema = endpoint.tools?.[filter.tool]?.output_schema;
 
   return (
     <div className="p-3 border border-accent rounded-lg bg-form-soft flex flex-col gap-2">
       <div className="text-[11.5px] font-semibold">Edit response filter</div>
-      <SchemaFieldPicker
-        schema={outputSchema}
-        selected={fields}
-        onToggle={(path) =>
-          setFields((prev) => (prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]))
-        }
+      <AllToolsFieldPicker
+        tools={endpoint.tools ?? {}}
+        initial={groupToFieldsByTool(group)}
+        onChange={setFieldsByTool}
         meta={`tools/list · ${endpoint.name}`}
       />
       <div className="flex flex-wrap items-center gap-1.5">
         <Button
           onClick={async () => {
             setSaving(true);
-            await onSave(fields);
+            await onSave(fieldsByTool);
           }}
           disabled={saving}
         >
@@ -75,7 +80,7 @@ function EditFilterForm({
           Cancel
         </Button>
         <span className="flex-1" />
-        <Button variant="danger" onClick={onDelete}>
+        <Button variant="danger" onClick={onDeleteGroup}>
           Delete
         </Button>
       </div>
@@ -95,45 +100,66 @@ export function ResponseFilterGroup({
 }: ResponseFilterGroupProps) {
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [pickedTool, setPickedTool] = useState<string | null>(null);
-  const [fields, setFields] = useState<string[]>([]);
+  const [fieldsByTool, setFieldsByTool] = useState<FieldsByTool>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [listQuery, setListQuery] = useState("");
 
   const tools = Object.keys(endpoint.tools ?? {});
   const scoped = filters.filter((f) => f.mcp === endpoint.name);
-  const editingFilter = scoped.find((f) => f.name === editingName) ?? null;
+  // A "filter" in this UI can be several real FilterPolicy records (one per
+  // tool -- the backend has no other way to span tools), grouped purely by
+  // a `<name>::<tool>` prefix on each record's own `name`. See
+  // lib/filterGroups for why, and why a plain legacy name with no `::`
+  // still works unmodified as its own single-member group.
+  const groups = useMemo(() => groupFilters(scoped), [scoped]);
+  const editingGroup = groups.find((g) => g.id === editingId) ?? null;
   // No filters yet: skip the empty-state message and go straight to an
   // open creation form instead of making the operator click "+" first.
-  const formOpen = tools.length > 0 && (adding || (scoped.length === 0 && !loading && !error));
+  const formOpen = tools.length > 0 && (adding || (groups.length === 0 && !loading && !error));
 
   // Mirrors the mockup's single "Search filters or fields" box above the
-  // list — distinct from SchemaFieldPicker's own per-form field search,
+  // list — distinct from AllToolsFieldPicker's own per-form field search,
   // which narrows one filter's candidate schema fields while building it.
   const visible = useMemo(() => {
     const q = listQuery.trim().toLowerCase();
-    if (q === "") return scoped;
-    return scoped.filter(
-      (f) =>
-        f.name.toLowerCase().includes(q) ||
-        f.tool.toLowerCase().includes(q) ||
-        f.drop_fields.some((field) => field.toLowerCase().includes(q)),
+    if (q === "") return groups;
+    return groups.filter(
+      (g) =>
+        g.id.toLowerCase().includes(q) ||
+        g.members.some(
+          (m) => m.tool.toLowerCase().includes(q) || m.drop_fields.some((field) => field.toLowerCase().includes(q)),
+        ),
     );
-  }, [scoped, listQuery]);
+  }, [groups, listQuery]);
   const shown = expanded ? visible : visible.slice(0, VISIBLE_LIMIT);
   const hiddenCount = visible.length - shown.length;
 
+  // Diffs the desired per-tool selection against what's actually persisted
+  // for this group, then fires only the real API calls the change needs:
+  // existing members keep their name (PUT), new tools mint a
+  // `<group>::<tool>` name (POST), tools dropped from the selection
+  // entirely get removed (DELETE). No rollback on partial failure -- this
+  // is an admin tool operating on independent backend records, not one
+  // atomic transaction.
+  const runPlan = async (groupId: string, existing: FilterPolicy[], desired: FieldsByTool) => {
+    const plan = planGroupSave(groupId, existing, desired);
+    await Promise.all([
+      ...plan.toCreate.map((c) => onCreate(c.name, c.tool, c.dropFields)),
+      ...plan.toUpdate.map((u) => onUpdate(u.name, u.tool, u.dropFields)),
+      ...plan.toDelete.map((n) => onDelete(n)),
+    ]);
+  };
+
   const submit = async () => {
-    if (!pickedTool) return;
+    if (Object.keys(fieldsByTool).length === 0) return;
     setSubmitError(null);
     try {
-      await onCreate(name.trim(), pickedTool, fields);
+      await runPlan(name.trim(), [], fieldsByTool);
       setAdding(false);
       setName("");
-      setPickedTool(null);
-      setFields([]);
+      setFieldsByTool({});
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to create filter.");
     }
@@ -151,38 +177,36 @@ export function ResponseFilterGroup({
       ) : loading ? (
         <p className="text-[11.5px] text-subtle">Loading…</p>
       ) : (
-        scoped.length > 0 && (
+        groups.length > 0 && (
           <>
             <SearchInput value={listQuery} onChange={setListQuery} placeholder="Search filters or fields" />
             {visible.length === 0 && <p className="text-[11.5px] text-subtle">No filter matches that.</p>}
             <ul className="flex flex-col gap-1.5">
-              {shown.map((f) =>
-                editingFilter?.name === f.name ? (
-                  <li key={f.name}>
-                    <EditFilterForm
-                      filter={f}
+              {shown.map((g) =>
+                editingGroup?.id === g.id ? (
+                  <li key={g.id}>
+                    <EditGroupForm
+                      group={g}
                       endpoint={endpoint}
-                      onCancel={() => setEditingName(null)}
-                      onSave={async (dropFields) => {
-                        await onUpdate(f.name, f.tool, dropFields);
-                        setEditingName(null);
+                      onCancel={() => setEditingId(null)}
+                      onSave={async (desired) => {
+                        await runPlan(g.id, g.members, desired);
+                        setEditingId(null);
                       }}
-                      onDelete={async () => {
-                        await onDelete(f.name);
-                        setEditingName(null);
+                      onDeleteGroup={async () => {
+                        await Promise.all(g.members.map((m) => onDelete(m.name)));
+                        setEditingId(null);
                       }}
                     />
                   </li>
                 ) : (
                   <li
-                    key={f.name}
+                    key={g.id}
                     className="flex items-center gap-3 p-2.5 border border-border rounded-[10px]"
                   >
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                      <div className="text-[12.5px] font-medium truncate">{f.name}</div>
-                      <div className="text-[10.5px] font-mono text-subtle truncate">
-                        {filterSummary(f)}
-                      </div>
+                      <div className="text-[12.5px] font-medium truncate">{g.id}</div>
+                      <div className="text-[10.5px] font-mono text-subtle truncate">{groupSummary(g)}</div>
                     </div>
                     {/* Always "not used yet" until #80 (Users & access) exists to
                         compute a real per-filter usage count from access grants —
@@ -192,7 +216,7 @@ export function ResponseFilterGroup({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setEditingName(f.name)}
+                      onClick={() => setEditingId(g.id)}
                       className="shrink-0 px-2.5 py-1 border border-border rounded-md bg-surface cursor-pointer text-[11px] font-medium text-body hover:border-accent hover:text-accent"
                     >
                       Edit
@@ -229,23 +253,19 @@ export function ResponseFilterGroup({
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="filter name" />
           <AllToolsFieldPicker
             tools={endpoint.tools ?? {}}
-            onChange={(t, dropFields) => {
-              setPickedTool(t);
-              setFields(dropFields);
-            }}
+            onChange={setFieldsByTool}
             meta={`tools/list · ${endpoint.name}`}
           />
           {submitError && <p className="text-[10.5px] text-danger">{submitError}</p>}
           <div className="flex gap-1.5">
-            <Button onClick={submit} disabled={name.trim() === "" || !pickedTool}>
+            <Button onClick={submit} disabled={name.trim() === "" || Object.keys(fieldsByTool).length === 0}>
               Create filter
             </Button>
             <Button
               variant="secondary"
               onClick={() => {
                 setAdding(false);
-                setPickedTool(null);
-                setFields([]);
+                setFieldsByTool({});
               }}
             >
               Cancel

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { annotateFields, collapseFields, flattenSchema, matchesFieldQuery, type SchemaField } from "../../lib/schema";
+import type { FieldsByTool } from "../../lib/filterGroups";
 import { Modal } from "../primitives/Modal";
 import { SearchInput } from "../primitives/SearchInput";
 import type { ToolSchema } from "../../api/types";
@@ -11,6 +12,10 @@ type Row = SchemaField & { tool: string };
 // separator for the composite key even across every tool's own paths.
 const SEP = " ";
 const key = (tool: string, path: string) => `${tool}${SEP}${path}`;
+const parseKey = (k: string): [tool: string, path: string] => {
+  const i = k.indexOf(SEP);
+  return [k.slice(0, i), k.slice(i + SEP.length)];
+};
 
 function flattenAllTools(tools: Record<string, ToolSchema>): Row[] {
   return Object.entries(tools).flatMap(([tool, schema]) =>
@@ -18,11 +23,24 @@ function flattenAllTools(tools: Record<string, ToolSchema>): Row[] {
   );
 }
 
+function toFieldsByTool(keys: string[]): FieldsByTool {
+  const byTool: FieldsByTool = {};
+  for (const k of keys) {
+    const [tool, path] = parseKey(k);
+    (byTool[tool] ??= []).push(path);
+  }
+  return byTool;
+}
+
 export type AllToolsFieldPickerProps = {
   tools: Record<string, ToolSchema>;
-  /** Reports the field paths dropped so far, plus which tool they belong
-   * to (null once the selection is cleared). */
-  onChange: (tool: string | null, dropFields: string[]) => void;
+  /** Reports every tool with at least one dropped field, keyed by tool
+   * name -- called with the full up-to-date map on every toggle. */
+  onChange: (fieldsByTool: FieldsByTool) => void;
+  /** Prefills the picker when editing an existing (possibly multi-tool)
+   * filter group. Only read on mount -- pass a `key` from the parent to
+   * force a remount when switching what's being edited. */
+  initial?: FieldsByTool;
   meta?: string;
 };
 
@@ -30,42 +48,31 @@ export type AllToolsFieldPickerProps = {
  * The design has no "select a tool" step — one merged, searchable list of
  * every field the endpoint exposes across all its tools (matching the
  * mockup's single `Discovered response fields` browser exactly). The real
- * backend's FilterPolicy still needs exactly one `tool` per filter though
- * (it's a required field, not optional), so rather than an upfront picker,
- * the active tool is inferred from whichever field you actually toggle
- * first. This is the one place this app's data model (many tools per
- * endpoint) genuinely doesn't match the mockup's (one schema per
- * endpoint), so it gets a visible, explained constraint instead of either
- * silently guessing a tool or forcing an up-front dropdown the design
- * never had.
+ * backend's FilterPolicy still needs exactly one `tool` per record though
+ * (it's a required field, not a list) — so a "filter across N tools" here
+ * is a frontend-only grouping of N real per-tool records sharing a name
+ * prefix (see lib/filterGroups). This picker itself doesn't need to know
+ * about that: it just reports every tool with at least one dropped field,
+ * and the caller (ResponseFilterGroup) decides how to persist that as one
+ * or several real FilterPolicy records.
  *
- * Once scoped, the list collapses to just that tool's fields (with a
- * "switch tool" link back to the merged view) rather than showing every
- * other tool grayed out in place — several tools sharing an identical
- * field name (every local-fs tool exposes a bare `$.content`) made the
- * grayed-out version unreadable, since toggling any one field turned
- * nearly the whole list into identical dimmed rows.
- *
- * Nested fields collapse by default, same as SchemaFieldRows — annotating
- * the whole merged/concatenated row list works unmodified across tool
- * boundaries, since each tool's own rows always start back at indent 0.
+ * Nested fields collapse by default -- annotating the whole
+ * merged/concatenated row list works unmodified across tool boundaries,
+ * since each tool's own rows always start back at indent 0.
  */
-export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPickerProps) {
+export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllToolsFieldPickerProps) {
   const [query, setQuery] = useState("");
-  const [dropped, setDropped] = useState<string[]>([]); // "tool path" keys
+  const [dropped, setDropped] = useState<string[]>(() =>
+    Object.entries(initial ?? {}).flatMap(([tool, paths]) => paths.map((p) => key(tool, p))),
+  );
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [graphTool, setGraphTool] = useState<string | null>(null);
   const searching = query.trim() !== "";
 
   const rows = useMemo(() => annotateFields(flattenAllTools(tools)), [tools]);
-  const activeTool = dropped.length > 0 ? dropped[0].split(SEP)[0] : null;
-  const scopedRows = useMemo(
-    () => (activeTool ? rows.filter((r) => r.tool === activeTool) : rows),
-    [rows, activeTool],
-  );
   const filtered = useMemo(
-    () => (searching ? scopedRows.filter((r) => matchesFieldQuery(r, query)) : scopedRows),
-    [scopedRows, query, searching],
+    () => (searching ? rows.filter((r) => matchesFieldQuery(r, query)) : rows),
+    [rows, query, searching],
   );
   const hits = useMemo(
     () => collapseFields(filtered, (r) => expanded.has(key(r.tool, r.path)), searching),
@@ -77,16 +84,7 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
     const k = key(tool, path);
     const next = dropped.includes(k) ? dropped.filter((x) => x !== k) : [...dropped, k];
     setDropped(next);
-    const activeAfter = next.length > 0 ? next[0].split(SEP)[0] : null;
-    onChange(
-      activeAfter,
-      next.filter((x) => x.startsWith(`${activeAfter}${SEP}`)).map((x) => x.split(SEP)[1]),
-    );
-  };
-
-  const switchTool = () => {
-    setDropped([]);
-    onChange(null, []);
+    onChange(toFieldsByTool(next));
   };
 
   const toggleExpanded = (k: string) => {
@@ -111,22 +109,10 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
         <span className="flex-1" />
         {meta && <span className="text-[10px] text-muted font-mono">{meta}</span>}
         <span className="text-[10px] text-muted">
-          {scopedRows.length} {scopedRows.length === 1 ? "field" : "fields"}
+          {rows.length} {rows.length === 1 ? "field" : "fields"}
         </span>
       </div>
       <SearchInput value={query} onChange={setQuery} placeholder="Search fields, e.g. email or PII" />
-      {activeTool && (
-        <p className="text-[10.5px] text-muted px-1 flex items-center gap-1.5">
-          Scoped to <span className="font-mono text-body">{activeTool}</span>
-          <button
-            type="button"
-            onClick={switchTool}
-            className="border-0 bg-transparent cursor-pointer text-[10.5px] font-medium text-accent p-0"
-          >
-            switch tool
-          </button>
-        </p>
-      )}
       {hits.length === 0 ? (
         <p className="text-[11px] text-muted px-1">No field matches that.</p>
       ) : (
@@ -143,8 +129,9 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
                 key={k}
                 className="flex items-center gap-2.5 px-2.5 py-1.5 border-b border-border-soft last:border-b-0"
               >
-                {/* 12px per nesting level -- see SchemaFieldRows for why
-                    this isn't the design's fixed one-level indent. */}
+                {/* 12px per nesting level, not the design's fixed
+                    one-level indent -- real schemas can nest arbitrarily
+                    deep, so indent needs to scale with actual depth. */}
                 <div
                   className="flex-1 min-w-0 flex items-start gap-1.5"
                   style={{ paddingLeft: r.indent * 12 }}
@@ -208,8 +195,8 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
       )}
       <p className={`text-[10.5px] ${droppedCount > 0 ? "text-warn" : "text-muted"}`}>
         {droppedCount === 0
-          ? `All ${scopedRows.length} ${scopedRows.length === 1 ? "field" : "fields"} pass through — toggle a field off to strip it`
-          : `${droppedCount} of ${scopedRows.length} fields removed from the response`}
+          ? `All ${rows.length} ${rows.length === 1 ? "field" : "fields"} pass through — toggle a field off to strip it`
+          : `${droppedCount} of ${rows.length} fields removed from the response`}
       </p>
       {/* Scoped to one tool at a time -- unlike the merged list above, a
           graph needs unique node ids, and two different tools can easily

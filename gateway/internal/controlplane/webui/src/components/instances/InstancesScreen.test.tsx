@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { MCPRegistration } from "../../api/types";
+import type { FilterPolicy, MCPRegistration } from "../../api/types";
 import { InstancesScreen } from "./InstancesScreen";
 
 const ENDPOINTS: MCPRegistration[] = [
@@ -32,30 +32,48 @@ afterEach(() => {
 describe("InstancesScreen", () => {
   it("resets the response filter form's state when switching to a different endpoint", async () => {
     const user = userEvent.setup();
+    const createdFilters: FilterPolicy[] = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn((url: string) => {
+      vi.fn((url: string, init?: RequestInit) => {
         if (url === "/admin/mcps") return Promise.resolve(jsonResponse(ENDPOINTS));
-        if (url === "/admin/filter-policies") return Promise.resolve(jsonResponse([]));
-        throw new Error(`unexpected fetch: ${url}`);
+        if (url === "/admin/filter-policies" && (!init || init.method === undefined)) {
+          return Promise.resolve(jsonResponse(createdFilters));
+        }
+        if (url === "/admin/filter-policies" && init?.method === "POST") {
+          const body = JSON.parse(init.body as string) as FilterPolicy;
+          createdFilters.push(body);
+          return Promise.resolve(jsonResponse(body));
+        }
+        throw new Error(`unexpected fetch: ${url} ${init?.method}`);
       }),
     );
 
     render(<InstancesScreen />);
 
-    // mcp-a is auto-selected (first endpoint); scope its only field.
+    // mcp-a is auto-selected (first endpoint); toggle its only field off.
     await screen.findByRole("button", { name: /^mcp-a/ });
     await user.click(await screen.findByRole("button", { name: "Hide only_in_a $.a_field" }));
-    expect(screen.getByText(/Scoped to/)).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText("filter name"), "hide-a");
 
-    // Switching to mcp-b must not carry mcp-a's scoped tool/state along --
-    // without a `key` on ResponseFilterGroup this used to leave the field
-    // list scoped to a tool ("only_in_a") that doesn't exist on mcp-b,
-    // collapsing it to zero fields instead of showing mcp-b's own.
+    // Switching to mcp-b must not carry mcp-a's toggled field or in-progress
+    // filter name along -- without a `key` on ResponseFilterGroup this used
+    // to leave the field list scoped to a tool ("only_in_a") that doesn't
+    // exist on mcp-b, collapsing it to zero fields instead of showing
+    // mcp-b's own, and "Create filter" would submit against the wrong mcp.
     await user.click(screen.getByRole("button", { name: /^mcp-b/ }));
 
     await waitFor(() => expect(screen.getByText("$.b_field")).toBeInTheDocument());
-    expect(screen.queryByText(/Scoped to/)).not.toBeInTheDocument();
-    expect(screen.queryByText("No field matches that.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide only_in_b $.b_field" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("filter name")).toHaveValue("");
+
+    // The full create flow on the newly-selected endpoint must be scoped
+    // correctly too, not just the picker's own display.
+    await user.type(screen.getByPlaceholderText("filter name"), "hide-b");
+    await user.click(screen.getByRole("button", { name: "Hide only_in_b $.b_field" }));
+    await user.click(screen.getByRole("button", { name: "Create filter" }));
+
+    await waitFor(() => expect(createdFilters).toHaveLength(1));
+    expect(createdFilters[0]).toMatchObject({ name: "hide-b::only_in_b", mcp: "mcp-b", tool: "only_in_b" });
   });
 });
