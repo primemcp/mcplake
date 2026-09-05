@@ -69,6 +69,17 @@ export function InstancesScreen() {
               />
               <div className="px-5 pb-5 -mt-2">
                 <ResponseFilterGroup
+                  // Without a key, switching the selected endpoint doesn't
+                  // remount this (React just re-renders with new props),
+                  // so its in-progress form state -- including
+                  // AllToolsFieldPicker's toggled fields and inferred
+                  // active tool -- leaked into whichever endpoint you
+                  // switched to next. A tool name scoped from the
+                  // previous endpoint doesn't exist on the new one, so
+                  // the field list collapsed to zero rows and "Create
+                  // filter" would have submitted a tool that isn't even
+                  // registered on the new endpoint.
+                  key={selected.name}
                   endpoint={selected}
                   filters={filterPolicies.filterPolicies}
                   loading={filterPolicies.loading}
