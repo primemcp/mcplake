@@ -250,7 +250,12 @@ export function ResponseFilterGroup({
       {formOpen ? (
         <div className="p-3 border border-accent rounded-lg bg-form-soft flex flex-col gap-2">
           <div className="text-xs font-semibold">New response filter</div>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="filter name" />
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-subtle">
+              Filter name <span className="text-danger">*</span>
+            </span>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="filter name" required />
+          </label>
           <AllToolsFieldPicker
             tools={endpoint.tools ?? {}}
             onChange={setFieldsByTool}
