@@ -115,18 +115,19 @@ const DEEP_SCHEMA = {
 };
 
 describe("annotateFields", () => {
-  it("marks a leaf as having no children and zero depth below", () => {
+  it("marks a leaf as having no children and zero descendants", () => {
     const [entities, name, tags, id] = annotateFields(flattenSchema(DEEP_SCHEMA));
     expect(entities.hasChildren).toBe(true);
-    expect(entities.depthBelow).toBe(1); // name/tags are one level deeper
+    expect(entities.descendantCount).toBe(2); // name and tags, both direct children
     expect(name.hasChildren).toBe(false);
-    expect(name.depthBelow).toBe(0);
+    expect(name.descendantCount).toBe(0);
     expect(tags.hasChildren).toBe(false); // array<string> is a leaf, not expandable
     expect(id.hasChildren).toBe(false);
   });
 
-  it("reports the full depth below the root of a many-level schema", () => {
-    // object -> array<object> -> array<object> -> leaf = 2 levels below root
+  it("counts every descendant recursively, not just direct children", () => {
+    // object -> array<object> -> array<object> -> leaf: "a" has 2 fields
+    // living under it (b and c), even though only b is a direct child.
     const rows = flattenSchema({
       type: "object",
       properties: {
@@ -140,7 +141,7 @@ describe("annotateFields", () => {
       },
     });
     const [a] = annotateFields(rows);
-    expect(a.depthBelow).toBe(2);
+    expect(a.descendantCount).toBe(2);
   });
 });
 

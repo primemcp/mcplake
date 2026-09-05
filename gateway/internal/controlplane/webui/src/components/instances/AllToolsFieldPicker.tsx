@@ -167,7 +167,7 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
                         <span className="text-muted">{r.tool}:</span> {r.path}
                       </div>
                       {r.hasChildren && (
-                        <span className="shrink-0 text-[9.5px] text-muted font-mono">[{r.depthBelow}]</span>
+                        <span className="shrink-0 text-[9.5px] text-muted font-mono">[{r.descendantCount}]</span>
                       )}
                     </div>
                     <div className={`text-[10px] ${flagged ? "text-warn" : "text-muted"}`}>

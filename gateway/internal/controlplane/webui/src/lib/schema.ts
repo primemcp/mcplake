@@ -95,24 +95,27 @@ export function matchesFieldQuery(field: SchemaField, query: string): boolean {
 
 export type AnnotatedField<T extends SchemaField = SchemaField> = T & {
   hasChildren: boolean;
-  /** How many additional levels of nesting exist below this row — e.g. 14
-   * for the root of a 15-deep schema. 0 for a leaf. */
-  depthBelow: number;
+  /** Total number of descendant rows below this one, recursively — not
+   * just direct children. A row with two leaf children is 2, same as a
+   * row with one child that itself has one child (both are "2 fields
+   * live under here"), which is the number that actually matches what
+   * you see once you expand it. */
+  descendantCount: number;
 };
 
 /**
  * Tags each row (in the flat, depth-first order flattenSchema/flattenNode
- * already produce) with whether it has descendants and how deep they go,
- * by scanning forward for a contiguous run of rows at greater indent.
- * O(n^2) worst case, fine for schemas with tens to low hundreds of fields.
+ * already produce) with whether it has descendants and how many, by
+ * scanning forward for a contiguous run of rows at greater indent. O(n^2)
+ * worst case, fine for schemas with tens to low hundreds of fields.
  */
 export function annotateFields<T extends SchemaField>(rows: T[]): AnnotatedField<T>[] {
   return rows.map((row, i) => {
-    let depthBelow = 0;
+    let descendantCount = 0;
     for (let j = i + 1; j < rows.length && rows[j].indent > row.indent; j++) {
-      depthBelow = Math.max(depthBelow, rows[j].indent - row.indent);
+      descendantCount++;
     }
-    return { ...row, hasChildren: depthBelow > 0, depthBelow };
+    return { ...row, hasChildren: descendantCount > 0, descendantCount };
   });
 }
 
