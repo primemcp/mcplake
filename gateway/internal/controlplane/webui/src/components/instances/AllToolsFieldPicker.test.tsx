@@ -35,16 +35,28 @@ describe("AllToolsFieldPicker", () => {
     expect(onChange).toHaveBeenCalledWith("get_user", ["$.salary"]);
   });
 
-  it("disables other tools' fields once one is selected, and re-enables everything once cleared", async () => {
+  it("collapses to just the active tool's fields once one is selected, and merges everything back once cleared", async () => {
     const user = userEvent.setup();
     render(<AllToolsFieldPicker tools={TOOLS} onChange={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
-    expect(screen.getByRole("button", { name: "Hide list_users $.count" })).toBeDisabled();
+    expect(screen.queryByText("$.count")).not.toBeInTheDocument();
+    expect(screen.getByText(/Scoped to/)).toBeInTheDocument();
 
-    // Toggling the same field back off clears the active tool entirely.
+    await user.click(screen.getByRole("button", { name: "switch tool" }));
+    expect(screen.getByText("$.count")).toBeInTheDocument();
+    expect(screen.queryByText(/Scoped to/)).not.toBeInTheDocument();
+  });
+
+  it("toggling the active tool's only dropped field back off clears the scope too", async () => {
+    const user = userEvent.setup();
+    render(<AllToolsFieldPicker tools={TOOLS} onChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
     await user.click(screen.getByRole("button", { name: "Stop hiding get_user $.salary" }));
-    expect(screen.getByRole("button", { name: "Hide list_users $.count" })).toBeEnabled();
+
+    expect(screen.getByText("$.count")).toBeInTheDocument();
+    expect(screen.queryByText(/Scoped to/)).not.toBeInTheDocument();
   });
 
   it("search narrows the merged list across every tool", async () => {

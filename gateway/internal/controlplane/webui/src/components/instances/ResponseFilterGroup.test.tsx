@@ -93,15 +93,15 @@ describe("ResponseFilterGroup", () => {
     expect(onCreate).toHaveBeenCalledWith("hide-pii", "get_user", ["$.salary"]);
   });
 
-  it("scopes field selection to one tool once a field is toggled, disabling other tools' fields", async () => {
+  it("scopes field selection to one tool once a field is toggled, collapsing the other tools out of view", async () => {
     const user = userEvent.setup();
     render(<ResponseFilterGroup endpoint={ENDPOINT} filters={[]} loading={false} error={null} {...noopProps()} />);
 
     await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
 
     expect(screen.getByText(/Scoped to/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hide list_users $.count" })).toBeDisabled();
-    // The active tool's other fields stay pickable.
+    expect(screen.queryByText("$.count")).not.toBeInTheDocument();
+    // The active tool's other fields stay visible and pickable.
     expect(screen.getByRole("button", { name: "Hide get_user $.name" })).toBeEnabled();
   });
 

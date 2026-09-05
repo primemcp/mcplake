@@ -33,12 +33,18 @@ export type AllToolsFieldPickerProps = {
  * backend's FilterPolicy still needs exactly one `tool` per filter though
  * (it's a required field, not optional), so rather than an upfront picker,
  * the active tool is inferred from whichever field you actually toggle
- * first — every other tool's fields gray out until you clear the
- * selection. This is the one place this app's data model (many tools per
+ * first. This is the one place this app's data model (many tools per
  * endpoint) genuinely doesn't match the mockup's (one schema per
  * endpoint), so it gets a visible, explained constraint instead of either
  * silently guessing a tool or forcing an up-front dropdown the design
  * never had.
+ *
+ * Once scoped, the list collapses to just that tool's fields (with a
+ * "switch tool" link back to the merged view) rather than showing every
+ * other tool grayed out in place — several tools sharing an identical
+ * field name (every local-fs tool exposes a bare `$.content`) made the
+ * grayed-out version unreadable, since toggling any one field turned
+ * nearly the whole list into identical dimmed rows.
  *
  * Nested fields collapse by default, same as SchemaFieldRows — annotating
  * the whole merged/concatenated row list works unmodified across tool
@@ -53,9 +59,13 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
 
   const rows = useMemo(() => annotateFields(flattenAllTools(tools)), [tools]);
   const activeTool = dropped.length > 0 ? dropped[0].split(SEP)[0] : null;
+  const scopedRows = useMemo(
+    () => (activeTool ? rows.filter((r) => r.tool === activeTool) : rows),
+    [rows, activeTool],
+  );
   const filtered = useMemo(
-    () => (searching ? rows.filter((r) => matchesFieldQuery(r, query)) : rows),
-    [rows, query, searching],
+    () => (searching ? scopedRows.filter((r) => matchesFieldQuery(r, query)) : scopedRows),
+    [scopedRows, query, searching],
   );
   const hits = useMemo(
     () => collapseFields(filtered, (r) => expanded.has(key(r.tool, r.path)), searching),
@@ -72,6 +82,11 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
       activeAfter,
       next.filter((x) => x.startsWith(`${activeAfter}${SEP}`)).map((x) => x.split(SEP)[1]),
     );
+  };
+
+  const switchTool = () => {
+    setDropped([]);
+    onChange(null, []);
   };
 
   const toggleExpanded = (k: string) => {
@@ -96,14 +111,20 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
         <span className="flex-1" />
         {meta && <span className="text-[10px] text-muted font-mono">{meta}</span>}
         <span className="text-[10px] text-muted">
-          {rows.length} {rows.length === 1 ? "field" : "fields"}
+          {scopedRows.length} {scopedRows.length === 1 ? "field" : "fields"}
         </span>
       </div>
       <SearchInput value={query} onChange={setQuery} placeholder="Search fields, e.g. email or PII" />
       {activeTool && (
-        <p className="text-[10.5px] text-muted px-1">
-          Scoped to <span className="font-mono text-body">{activeTool}</span> — clear the selected
-          fields below to filter a different tool instead (one tool per filter).
+        <p className="text-[10.5px] text-muted px-1 flex items-center gap-1.5">
+          Scoped to <span className="font-mono text-body">{activeTool}</span>
+          <button
+            type="button"
+            onClick={switchTool}
+            className="border-0 bg-transparent cursor-pointer text-[10.5px] font-medium text-accent p-0"
+          >
+            switch tool
+          </button>
         </p>
       )}
       {hits.length === 0 ? (
@@ -114,14 +135,13 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
             const k = key(r.tool, r.path);
             const isDropped = dropped.includes(k);
             const isOpen = expanded.has(k);
-            const disabled = activeTool !== null && r.tool !== activeTool;
             const flagged = /PII|secret|internal|PCI|payload|cost|financial/i.test(
               `${r.type} ${r.description ?? ""}`,
             );
             return (
               <div
                 key={k}
-                className={`flex items-center gap-2.5 px-2.5 py-1.5 border-b border-border-soft last:border-b-0 ${disabled ? "opacity-40" : ""}`}
+                className="flex items-center gap-2.5 px-2.5 py-1.5 border-b border-border-soft last:border-b-0"
               >
                 {/* 12px per nesting level -- see SchemaFieldRows for why
                     this isn't the design's fixed one-level indent. */}
@@ -132,10 +152,9 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
                   {r.hasChildren && !searching ? (
                     <button
                       type="button"
-                      disabled={disabled}
                       aria-label={`${isOpen ? "Collapse" : "Expand"} ${r.tool} ${r.path}`}
                       onClick={() => toggleExpanded(k)}
-                      className="shrink-0 border-0 bg-transparent cursor-pointer text-[10px] text-muted p-0 w-3.5 leading-[1.6] disabled:cursor-not-allowed"
+                      className="shrink-0 border-0 bg-transparent cursor-pointer text-[10px] text-muted p-0 w-3.5 leading-[1.6]"
                     >
                       {isOpen ? "▾" : "▸"}
                     </button>
@@ -145,11 +164,10 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
                   {r.hasChildren && (
                     <button
                       type="button"
-                      disabled={disabled}
                       aria-label={`View schema graph for ${r.tool}`}
                       title={`View ${r.tool}'s schema as a graph`}
                       onClick={() => setGraphTool(r.tool)}
-                      className="shrink-0 border-0 bg-transparent cursor-pointer text-[11px] text-muted p-0 leading-[1.6] disabled:cursor-not-allowed"
+                      className="shrink-0 border-0 bg-transparent cursor-pointer text-[11px] text-muted p-0 leading-[1.6]"
                     >
                       👁
                     </button>
@@ -173,10 +191,9 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
                 </div>
                 <button
                   type="button"
-                  disabled={disabled}
                   aria-label={`${isDropped ? "Stop hiding" : "Hide"} ${r.tool} ${r.path}`}
                   onClick={() => toggle(r.tool, r.path)}
-                  className="shrink-0 border-0 bg-transparent p-0 disabled:cursor-not-allowed cursor-pointer"
+                  className="shrink-0 border-0 bg-transparent p-0 cursor-pointer"
                 >
                   <span
                     className={`flex w-[30px] h-[17px] rounded-full p-0.5 ${isDropped ? "bg-track-off justify-start" : "bg-success justify-end"}`}
@@ -191,8 +208,8 @@ export function AllToolsFieldPicker({ tools, onChange, meta }: AllToolsFieldPick
       )}
       <p className={`text-[10.5px] ${droppedCount > 0 ? "text-warn" : "text-muted"}`}>
         {droppedCount === 0
-          ? `All ${rows.length} ${rows.length === 1 ? "field" : "fields"} pass through — toggle a field off to strip it`
-          : `${droppedCount} of ${rows.length} fields removed from the response`}
+          ? `All ${scopedRows.length} ${scopedRows.length === 1 ? "field" : "fields"} pass through — toggle a field off to strip it`
+          : `${droppedCount} of ${scopedRows.length} fields removed from the response`}
       </p>
       {/* Scoped to one tool at a time -- unlike the merged list above, a
           graph needs unique node ids, and two different tools can easily
