@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens lifted from the Claude Design mockup (`MCP Gateway UI
+ * (standalone).html`, project mcplake) — the single source of truth for
+ * this app's palette/type, so Tailwind utilities (bg-ink, text-accent,
+ * border-border, font-mono, ...) and any hand-written CSS both read from
+ * the same values instead of hardcoded hex scattered through components.
+ */
+@theme {
+  --color-ink: #14161a;
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-accent: #2f4bd8;
+  --color-accent-hover: #1f37ad;
+  --color-accent-soft: #f7f9ff;
+  --color-border: #e4e7ec;
+  --color-border-soft: #eef1f4;
+  --color-muted: #98a2b3;
+  --color-subtle: #667085;
+  --color-body: #384252;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdecea;
+  --color-danger-border: #f3c9c5;
+  --color-success: #0b7a4b;
+
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  height: 100vh;
+  min-height: 760px;
+}
