@@ -8,7 +8,7 @@ import type { FilterPolicy } from "../api/types";
  * Legacy/manually-created records with no `::` in their name are their
  * own single-member group (id = the whole name) -- no migration needed.
  */
-const GROUP_SEP = "::";
+export const GROUP_SEP = "::";
 
 export function groupIdOf(filterName: string): string {
   const i = filterName.indexOf(GROUP_SEP);

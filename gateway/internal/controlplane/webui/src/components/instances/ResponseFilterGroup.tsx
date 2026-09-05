@@ -6,7 +6,7 @@ import { Input } from "../primitives/Input";
 import { SearchInput } from "../primitives/SearchInput";
 import type { FilterPolicy, MCPRegistration } from "../../api/types";
 import { AllToolsFieldPicker } from "./AllToolsFieldPicker";
-import { groupFilters, planGroupSave, type FieldsByTool, type FilterGroup } from "../../lib/filterGroups";
+import { GROUP_SEP, groupFilters, planGroupSave, type FieldsByTool, type FilterGroup } from "../../lib/filterGroups";
 
 export type ResponseFilterGroupProps = {
   endpoint: MCPRegistration;
@@ -152,8 +152,18 @@ export function ResponseFilterGroup({
     ]);
   };
 
+  // A name containing the group separator would, once minted as
+  // `<name>::<tool>`, groupIdOf() back down to whatever's before its own
+  // *first* "::" -- silently merging this filter's real records into an
+  // unrelated existing group with that same prefix (and making them
+  // editable/deletable together). Rejected at input time rather than
+  // sanitized, since silently stripping/replacing it would let two
+  // different typed names collide into the same group without any
+  // indication why.
+  const nameHasSeparator = name.includes(GROUP_SEP);
+
   const submit = async () => {
-    if (Object.keys(fieldsByTool).length === 0) return;
+    if (Object.keys(fieldsByTool).length === 0 || nameHasSeparator) return;
     setSubmitError(null);
     try {
       await runPlan(name.trim(), [], fieldsByTool);
@@ -255,6 +265,11 @@ export function ResponseFilterGroup({
               Filter name <span className="text-danger">*</span>
             </span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="filter name" required />
+            {nameHasSeparator && (
+              <span className="text-[10.5px] text-danger">
+                Filter names can't contain "{GROUP_SEP}" (reserved for internal grouping).
+              </span>
+            )}
           </label>
           <AllToolsFieldPicker
             tools={endpoint.tools ?? {}}
@@ -263,7 +278,10 @@ export function ResponseFilterGroup({
           />
           {submitError && <p className="text-[10.5px] text-danger">{submitError}</p>}
           <div className="flex gap-1.5">
-            <Button onClick={submit} disabled={name.trim() === "" || Object.keys(fieldsByTool).length === 0}>
+            <Button
+              onClick={submit}
+              disabled={name.trim() === "" || nameHasSeparator || Object.keys(fieldsByTool).length === 0}
+            >
               Create filter
             </Button>
             <Button

@@ -15,14 +15,16 @@ import { SchemaGraph } from "./SchemaGraph";
 
 type Row = SchemaField & { tool: string };
 
-// A JSON path never contains a space, so this is a safe, unambiguous
-// separator for the composite key even across every tool's own paths.
-const SEP = " ";
-const key = (tool: string, path: string) => `${tool}${SEP}${path}`;
-const parseKey = (k: string): [tool: string, path: string] => {
-  const i = k.indexOf(SEP);
-  return [k.slice(0, i), k.slice(i + SEP.length)];
-};
+// Tool names come from whatever the MCP server itself advertises via
+// list_tools() -- nothing on the backend restricts their charset, so a
+// delimiter-joined string key (even one a JSON path can't contain) isn't
+// actually safe: a tool literally named e.g. "get user" would collide
+// with a plain space separator, splitting into the wrong (tool, path)
+// pair and silently saving a filter against a tool that doesn't exist.
+// JSON-encoding the pair sidesteps the whole class of delimiter
+// collisions regardless of what either string contains.
+const key = (tool: string, path: string) => JSON.stringify([tool, path]);
+const parseKey = (k: string): [tool: string, path: string] => JSON.parse(k) as [string, string];
 
 function flattenAllTools(tools: Record<string, ToolSchema>): Row[] {
   return Object.entries(tools).flatMap(([tool, schema]) =>
@@ -203,9 +205,7 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
         {graphTool && (
           <SchemaGraph
             rows={rows.filter((r) => r.tool === graphTool)}
-            selected={dropped
-              .filter((x) => x.startsWith(`${graphTool}${SEP}`))
-              .map((x) => x.split(SEP)[1])}
+            selected={dropped.map(parseKey).filter(([tool]) => tool === graphTool).map(([, path]) => path)}
             onToggle={(path) => toggle(graphTool, path)}
           />
         )}

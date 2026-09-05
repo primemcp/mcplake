@@ -35,6 +35,26 @@ describe("AllToolsFieldPicker", () => {
     expect(onChange).toHaveBeenLastCalledWith({ get_user: ["$.salary"] });
   });
 
+  it("reports the correct (tool, path) pair even when a tool name itself contains a space", async () => {
+    // Tool names come straight from whatever the MCP server advertises via
+    // list_tools() -- nothing validates their charset -- so a naive
+    // space-delimited composite key would misparse this into
+    // tool="get", path="user $.salary" instead.
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const spacedTools: Record<string, ToolSchema> = {
+      "get user": {
+        name: "get user",
+        output_schema: { type: "object", properties: { salary: { type: "number" } } },
+      },
+    };
+    render(<AllToolsFieldPicker tools={spacedTools} onChange={onChange} />);
+
+    await user.click(screen.getByRole("button", { name: "Hide get user $.salary" }));
+
+    expect(onChange).toHaveBeenLastCalledWith({ "get user": ["$.salary"] });
+  });
+
   it("allows toggling fields across multiple tools at once -- a filter spanning several tools is a valid selection now", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

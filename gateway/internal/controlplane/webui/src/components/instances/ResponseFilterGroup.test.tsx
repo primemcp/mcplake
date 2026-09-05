@@ -93,6 +93,32 @@ describe("ResponseFilterGroup", () => {
     expect(onCreate).toHaveBeenCalledWith("hide-pii::get_user", "get_user", ["$.salary"]);
   });
 
+  it("rejects a filter name containing '::' -- it would silently merge into an unrelated group sharing that prefix", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ResponseFilterGroup
+        endpoint={ENDPOINT}
+        filters={[]}
+        loading={false}
+        error={null}
+        {...noopProps()}
+        onCreate={onCreate}
+      />,
+    );
+
+    await user.type(screen.getByPlaceholderText("filter name"), "billing::extra");
+    await user.click(screen.getByRole("button", { name: "Hide get_user $.salary" }));
+
+    expect(screen.getByText(/can't contain/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create filter" })).toBeDisabled();
+
+    // Clicking a disabled button is a no-op, but assert the guard is real
+    // (not just the disabled attribute) by trying anyway.
+    await user.click(screen.getByRole("button", { name: "Create filter" }));
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
   it("creates one real filter per tool -- sharing a name prefix -- when fields from several tools are picked at once", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn().mockResolvedValue(undefined);

@@ -29,6 +29,24 @@ describe("groupFilters", () => {
     expect(groups).toEqual([{ id: "hide-pii", members: [filters[0]] }]);
   });
 
+  it("groups by everything before the FIRST '::' -- a name with an embedded separator merges into whatever group already owns that prefix", () => {
+    // This is deliberate, useful behavior for a hand-crafted/legacy name --
+    // but it's also exactly why ResponseFilterGroup rejects "::" in the
+    // free-text name input at creation time: without that guard, an
+    // operator naming a new filter "billing::extra" would silently produce
+    // a member named "billing::extra::get_user", which groups under the
+    // *existing* "billing" group's id, not a new one -- merging into (and,
+    // on save, becoming editable/deletable alongside) an unrelated filter.
+    const filters = [
+      policy({ name: "billing::get_user", tool: "get_user" }),
+      policy({ name: "billing::extra::list_users", tool: "list_users" }),
+    ];
+    const groups = groupFilters(filters);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].id).toBe("billing");
+    expect(groups[0].members).toHaveLength(2);
+  });
+
   it("preserves insertion order of first appearance for group ids", () => {
     const filters = [
       policy({ name: "b::t1", tool: "t1" }),
