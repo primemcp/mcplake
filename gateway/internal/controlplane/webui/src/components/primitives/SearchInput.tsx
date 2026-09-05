@@ -8,7 +8,7 @@ export type SearchInputProps = {
  * clear button that only appears once there's something to clear. */
 export function SearchInput({ value, onChange, placeholder }: SearchInputProps) {
   return (
-    <div className="flex items-center gap-2 px-2.5 border border-border rounded-lg bg-[#fbfbfc]">
+    <div className="flex items-center gap-2 px-2.5 border border-border rounded-lg bg-well">
       <span className="text-[11.5px] text-muted font-mono">⌕</span>
       <input
         value={value}

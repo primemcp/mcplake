@@ -12,9 +12,13 @@ export type SidebarProps = {
   totalCount: number;
 };
 
+// Matches the mockup's own `nav(active)` helper exactly:
+// `active ? [C.accentSoft, C.accent] : ['transparent', C.ink2]` — a soft
+// blue pill with accent-blue text when active, not a filled dark pill
+// (that was the bug: this file previously used bg-ink/text-white here).
 const navItemClass = (active: boolean) =>
   `flex items-center gap-2.5 text-left px-2.5 py-2 rounded-lg border-0 cursor-pointer text-[13px] font-medium ${
-    active ? "bg-ink text-white" : "bg-transparent text-body"
+    active ? "bg-select-soft text-accent" : "bg-transparent text-body"
   }`;
 
 export function Sidebar({
