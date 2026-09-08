@@ -1,6 +1,6 @@
 import { useEndpoints } from "./api/endpoints";
-import { EmptyState } from "./components/primitives/EmptyState";
 import { InstancesScreen } from "./components/instances/InstancesScreen";
+import { UsersScreen } from "./components/users/UsersScreen";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AppShell } from "./layout/AppShell";
 import { useNav } from "./state/useNav";
@@ -23,16 +23,7 @@ export function App() {
         connectedCount={connectedCount}
         totalCount={totalCount}
       >
-        {screen === "instances" ? (
-          <InstancesScreen />
-        ) : (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <EmptyState
-              title="Users & access screen"
-              subtitle="Lands in #80/#81 — token match, access grants, request path."
-            />
-          </div>
-        )}
+        {screen === "instances" ? <InstancesScreen /> : <UsersScreen />}
       </AppShell>
     </ErrorBoundary>
   );

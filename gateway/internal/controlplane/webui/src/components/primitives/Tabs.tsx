@@ -20,7 +20,7 @@ export function Tabs({ tabs, activeId, onChange }: TabsProps) {
           aria-selected={tab.id === activeId}
           onClick={() => onChange(tab.id)}
           className={`px-3 py-1.5 rounded-md border-0 cursor-pointer text-[12.5px] font-medium ${
-            tab.id === activeId ? "bg-surface text-ink" : "bg-transparent text-subtle"
+            tab.id === activeId ? "bg-ink text-white" : "bg-transparent text-body"
           }`}
         >
           {tab.label}
