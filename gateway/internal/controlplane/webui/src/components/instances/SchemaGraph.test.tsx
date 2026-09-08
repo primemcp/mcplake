@@ -103,4 +103,35 @@ describe("SchemaGraph (via AllToolsFieldPicker's descendant-count badge)", () =>
     expect(idEdgePath).toHaveStyle({ stroke: "var(--color-track-off)" });
     expect(nameEdgePath).toHaveStyle({ stroke: "var(--color-track-off)" });
   });
+
+  it("enabling a nested field blocked by a dropped ancestor un-blocks just that path, keeping its sibling branches dropped", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<AllToolsFieldPicker tools={THREE_LEVEL_TOOLS} onChange={onChange} />);
+
+    await user.click(screen.getByRole("button", { name: "View schema graph for get_root" }));
+    await waitFor(() => expect(document.querySelector(".react-flow__edge")).toBeTruthy());
+
+    // Drop "user" first -- this hides both "id" and "name" as a side effect.
+    const userEdge = document.querySelector('[data-id="$.root->$.root.user"]');
+    await user.click(userEdge!);
+    expect(onChange).toHaveBeenLastCalledWith({ get_root: ["$.root.user"] });
+
+    // Now enable "id" specifically, without ever touching "name" directly.
+    const idEdge = document.querySelector('[data-id="$.root.user->$.root.user.id"]');
+    await user.click(idEdge!);
+
+    // "user" can no longer be dropped as a whole -- it has to stay "open"
+    // for "id" to be reachable -- but "name" was never asked for, so it's
+    // the one that ends up explicitly dropped, preserving what was
+    // visually hidden a moment ago.
+    expect(onChange).toHaveBeenLastCalledWith({ get_root: ["$.root.user.name"] });
+
+    const idEdgePath = document.querySelector('[data-id="$.root.user->$.root.user.id"] .react-flow__edge-path');
+    const nameEdgePath = document.querySelector(
+      '[data-id="$.root.user->$.root.user.name"] .react-flow__edge-path',
+    );
+    expect(idEdgePath).toHaveStyle({ stroke: "var(--color-success)" });
+    expect(nameEdgePath).toHaveStyle({ stroke: "var(--color-track-off)" });
+  });
 });

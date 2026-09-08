@@ -168,6 +168,74 @@ export function effectiveDropped<T extends SchemaField>(
 }
 
 /**
+ * "Enabling" a field that's only dropped *in effect* (blocked by a dropped
+ * ancestor, per effectiveDropped above) can't just remove it from
+ * `dropped` -- it was never explicitly there. Un-dropping the whole
+ * ancestor instead would resurrect every sibling subtree that was hidden
+ * along with it, which is very likely not what was wanted (nothing else
+ * was touched). This computes the minimal edit that makes exactly
+ * `target` (and its path down from the nearest dropped ancestor) visible
+ * again while everything else that was hidden stays hidden: remove the
+ * blocking ancestor(s), then add an explicit drop for every sibling
+ * branch along the path from there down to (but not including) `target`.
+ *
+ * When `target` is itself explicitly dropped (the common, direct case),
+ * this is just a plain removal -- the same as before this function
+ * existed.
+ */
+export function enablePath<T extends SchemaField>(
+  rows: T[],
+  dropped: string[],
+  target: string,
+): string[] {
+  if (dropped.includes(target)) {
+    return dropped.filter((p) => p !== target);
+  }
+
+  const targetIndex = rows.findIndex((r) => r.path === target);
+  if (targetIndex === -1) return dropped;
+
+  // Ancestor chain (shallowest first), via the same "nearest preceding
+  // row at each shallower indent" technique buildGraph uses to find a
+  // row's parent.
+  const lastAtIndent = new Map<number, T>();
+  for (let i = 0; i < targetIndex; i++) lastAtIndent.set(rows[i].indent, rows[i]);
+  const chain: T[] = [];
+  for (let d = 0; d < rows[targetIndex].indent; d++) {
+    const row = lastAtIndent.get(d);
+    if (row) chain.push(row);
+  }
+
+  const droppedSet = new Set(dropped);
+  const blockers = chain.filter((r) => droppedSet.has(r.path));
+  if (blockers.length === 0) return dropped; // wasn't actually blocked
+
+  const next = new Set(dropped);
+  for (const b of blockers) next.delete(b.path);
+
+  const directChildren = (parent: T): T[] => {
+    const parentIndex = rows.indexOf(parent);
+    const children: T[] = [];
+    for (let i = parentIndex + 1; i < rows.length && rows[i].indent > parent.indent; i++) {
+      if (rows[i].indent === parent.indent + 1) children.push(rows[i]);
+    }
+    return children;
+  };
+
+  const shallowestBlockerIndex = chain.findIndex((r) => droppedSet.has(r.path));
+  const pathFromBlocker = [...chain.slice(shallowestBlockerIndex), rows[targetIndex]];
+  for (let i = 0; i < pathFromBlocker.length - 1; i++) {
+    const parent = pathFromBlocker[i];
+    const onPath = pathFromBlocker[i + 1];
+    for (const child of directChildren(parent)) {
+      if (child.path !== onPath.path) next.add(child.path);
+    }
+  }
+
+  return [...next];
+}
+
+/**
  * Filters an annotated, depth-first-ordered row list down to what should
  * actually render given which rows are expanded — collapsed by default
  * (isExpanded returning false hides that row's entire subtree, nested

@@ -57,6 +57,7 @@ type ToggleEdgeData = { dropped: boolean; onToggle: () => void };
  * the edge's own <g>, so its click doesn't also bubble into onEdgeClick.
  */
 function ToggleEdge({
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -91,6 +92,7 @@ function ToggleEdge({
         <button
           type="button"
           title={dropped ? "Include this field" : "Exclude this field"}
+          aria-label={`${dropped ? "Include" : "Exclude"} ${target}`}
           onClick={(e) => {
             e.stopPropagation();
             data?.onToggle();
