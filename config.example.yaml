@@ -37,6 +37,10 @@ mcps:
     command: mcp-server-filesystem
     arguments:
       - "/data"
+    # enabled: false   # optional, default true. A disabled MCP still
+    #                   # connects and caches its tools, but the data plane
+    #                   # rejects every call for it with 403 mcp_disabled.
+    #                   # Toggle at runtime with PATCH /admin/mcps/:name.
 
 # Grant access to (mcp, tool) pairs based on JWT claims. A call is
 # authorized if ANY policy's match matches the claims AND has a grant
@@ -66,6 +70,9 @@ access_policies:
     grants:
       - mcp: "*"
         tools: ["*"]
+    # enabled: false   # optional, default true. A disabled access policy is
+    #                   # skipped: it grants nothing, so a caller authorized
+    #                   # only by it gets 403 forbidden.
 
 # Strip response fields for a specific (mcp, tool) call when the caller's
 # claims match. Unlike access_policies' grants, mcp/tool here are exact,
@@ -81,6 +88,9 @@ filter_policies:
       - "$.hashed_password"
       - "$.api_key"
       - "$.internal_id"
+    # enabled: false   # optional, default true. A disabled filter policy
+    #                   # strips nothing, so the response is returned
+    #                   # unfiltered by it (other enabled filters still run).
 
   - name: hide-pii-for-plain-users-list-users
     match:

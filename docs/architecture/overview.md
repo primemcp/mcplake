@@ -79,7 +79,8 @@ Each of MCP registrations, access policies, and filter policies carries an opera
 a disabled MCP rejects every call with `403 mcp_disabled` while staying connected; a
 disabled access policy grants nothing (so the pipeline never starts); a disabled filter
 policy strips nothing (so the response is returned unfiltered). See
-[`data.md`](data.md#enabledisable-gates) and [`CONFIG.md`](../CONFIG.md).
+[ADR-0009](decisions/0009-operator-enable-disable-flag.md),
+[`data.md`](data.md#enabledisable-gates), and [`CONFIG.md`](../CONFIG.md).
 
 ## Non-Goals for This Milestone
 
