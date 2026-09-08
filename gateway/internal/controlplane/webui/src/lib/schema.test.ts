@@ -5,6 +5,7 @@ import {
   collapseFields,
   countDroppedDescendants,
   effectiveDropped,
+  enablePath,
   flattenSchema,
 } from "./schema";
 
@@ -302,5 +303,109 @@ describe("effectiveDropped", () => {
     // effectively dropped, not just the 1 explicitly-toggled "user" row.
     const rootIndex = rows.findIndex((r) => r.path === "$.root");
     expect(counts[rootIndex]).toBe(3);
+  });
+});
+
+describe("enablePath", () => {
+  const USER_SCHEMA = {
+    type: "object",
+    properties: {
+      user: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          profile: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              email: { type: "string" },
+              address: {
+                type: "object",
+                properties: { city: { type: "string" }, zip: { type: "string" } },
+              },
+            },
+          },
+          roles: { type: "string" },
+        },
+      },
+    },
+  };
+
+  it("un-drops a directly (not just effectively) dropped field with a plain removal", () => {
+    const rows = flattenSchema(USER_SCHEMA);
+    expect(enablePath(rows, ["$.user"], "$.user")).toEqual([]);
+  });
+
+  it("returns the drop list unchanged if the target wasn't actually blocked by anything", () => {
+    const rows = flattenSchema(USER_SCHEMA);
+    expect(enablePath(rows, [], "$.user.profile.name")).toEqual([]);
+    expect(enablePath(rows, ["$.user.roles"], "$.user.profile.name")).toEqual(["$.user.roles"]);
+  });
+
+  it("un-drops a nested field blocked by a dropped ancestor, preserving every sibling branch as dropped", () => {
+    const rows = flattenSchema(USER_SCHEMA);
+    const next = enablePath(rows, ["$.user"], "$.user.profile.name");
+
+    // "user" itself is no longer dropped, and neither is "profile" (it's
+    // on the path to "name") -- but every sibling branch that was hidden
+    // along with "user" stays hidden.
+    expect(new Set(next)).toEqual(
+      new Set(["$.user.id", "$.user.roles", "$.user.profile.email", "$.user.profile.address"]),
+    );
+  });
+
+  it("handles a target blocked by a dropped grandparent two levels up the same way", () => {
+    const rows = flattenSchema(USER_SCHEMA);
+    const next = enablePath(rows, ["$.user"], "$.user.profile.address.city");
+
+    expect(new Set(next)).toEqual(
+      new Set([
+        "$.user.id",
+        "$.user.roles",
+        "$.user.profile.name",
+        "$.user.profile.email",
+        "$.user.profile.address.zip",
+      ]),
+    );
+  });
+
+  it("is defensive against a redundant state where an ancestor and one of its own descendants are both somehow explicitly dropped", () => {
+    const rows = flattenSchema(USER_SCHEMA);
+    const next = enablePath(rows, ["$.user", "$.user.profile"], "$.user.profile.name");
+
+    expect(new Set(next)).toEqual(
+      new Set(["$.user.id", "$.user.roles", "$.user.profile.email", "$.user.profile.address"]),
+    );
+  });
+
+  it("enabling a branch node (not a leaf) reveals only that node and its ancestors -- not its own descendants", () => {
+    // A -> B -> C: dropping A drops B and C in effect. Enabling B should
+    // reveal A and B, but C -- never individually requested, just along
+    // for the ride under A's original drop -- must stay dropped.
+    const rows = flattenSchema({
+      type: "object",
+      properties: { a: { type: "object", properties: { b: { type: "object", properties: { c: { type: "string" } } } } } },
+    });
+    const next = enablePath(rows, ["$.a"], "$.a.b");
+
+    expect(next).toEqual(["$.a.b.c"]);
+  });
+
+  it("enabling a mid-level branch node re-drops both its siblings and its own children", () => {
+    const rows = flattenSchema(USER_SCHEMA);
+    const next = enablePath(rows, ["$.user"], "$.user.profile");
+
+    // "user" and "profile" become reachable; "id"/"roles" (profile's
+    // siblings) and "name"/"email"/"address" (profile's own children,
+    // never asked for) all stay dropped.
+    expect(new Set(next)).toEqual(
+      new Set([
+        "$.user.id",
+        "$.user.roles",
+        "$.user.profile.name",
+        "$.user.profile.email",
+        "$.user.profile.address",
+      ]),
+    );
   });
 });

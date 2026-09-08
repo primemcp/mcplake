@@ -4,6 +4,7 @@ import {
   collapseFields,
   countDroppedDescendants,
   effectiveDropped,
+  enablePath,
   flattenSchema,
   matchesFieldQuery,
   type SchemaField,
@@ -83,23 +84,25 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
 
   const rows = useMemo(() => annotateFields(flattenAllTools(tools)), [tools]);
   const droppedSet = useMemo(() => new Set(dropped), [dropped]);
-  // How many of *this* row's own descendants are dropped *in effect* --
-  // explicitly toggled, or under a dropped ancestor (dropping a node
-  // removes its whole subtree via one JSONPath on the real backend, so a
-  // child was never really still there just because nobody clicked it
-  // individually). Indexed by row, parallel to `rows`, so a collapsed row
-  // can still show "something under here got filtered" at a glance,
-  // without opening the graph to check.
-  const droppedBelowByKey = useMemo(() => {
+  // Whether each row is dropped *in effect* -- explicitly toggled, or
+  // under a dropped ancestor (dropping a node removes its whole subtree
+  // via one JSONPath on the real backend, so a child was never really
+  // still there just because nobody clicked it individually). Drives the
+  // row's own display (so it matches what toggling it will actually do,
+  // see `toggle` below) and the `[N] -M` badge counts.
+  const effectiveByKey = useMemo(() => {
     const isExplicitlyDropped = (r: Row) => droppedSet.has(key(r.tool, r.path));
     const effective = effectiveDropped(rows, isExplicitlyDropped);
-    const effectiveByPath = new Map<string, boolean>();
-    rows.forEach((r, i) => effectiveByPath.set(key(r.tool, r.path), effective[i]));
-    const counts = countDroppedDescendants(rows, (r) => effectiveByPath.get(key(r.tool, r.path)) ?? false);
+    const m = new Map<string, boolean>();
+    rows.forEach((r, i) => m.set(key(r.tool, r.path), effective[i]));
+    return m;
+  }, [rows, droppedSet]);
+  const droppedBelowByKey = useMemo(() => {
+    const counts = countDroppedDescendants(rows, (r) => effectiveByKey.get(key(r.tool, r.path)) ?? false);
     const m = new Map<string, number>();
     rows.forEach((r, i) => m.set(key(r.tool, r.path), counts[i]));
     return m;
-  }, [rows, droppedSet]);
+  }, [rows, effectiveByKey]);
   const filtered = useMemo(
     () => (searching ? rows.filter((r) => matchesFieldQuery(r, query)) : rows),
     [rows, query, searching],
@@ -110,8 +113,21 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
   const droppedCount = dropped.length;
 
   const toggle = (tool: string, path: string) => {
-    const k = key(tool, path);
-    const next = dropped.includes(k) ? dropped.filter((x) => x !== k) : [...dropped, k];
+    // A field that's only dropped *in effect* (blocked by a dropped
+    // ancestor, not itself explicitly toggled) can't just be removed from
+    // `dropped` -- it was never there. enablePath un-drops the blocking
+    // ancestor(s) and pushes an explicit drop onto every sibling branch
+    // along the way instead, so exactly this field (and its path) comes
+    // back while everything else that was hidden alongside it stays
+    // hidden. A field that's fully visible is the simple case: just drop
+    // it (enablePath's own direct-removal branch covers "explicitly
+    // dropped, toggle it back off" the same way).
+    const toolRows = rows.filter((r) => r.tool === tool);
+    const toolDropped = dropped.filter((k) => parseKey(k)[0] === tool).map((k) => parseKey(k)[1]);
+    const isEffectivelyDropped = effectiveByKey.get(key(tool, path)) ?? false;
+    const nextToolDropped = isEffectivelyDropped ? enablePath(toolRows, toolDropped, path) : [...toolDropped, path];
+
+    const next = [...dropped.filter((k) => parseKey(k)[0] !== tool), ...nextToolDropped.map((p) => key(tool, p))];
     setDropped(next);
     onChange(toFieldsByTool(next));
   };
@@ -139,7 +155,7 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
         <div className="max-h-[240px] overflow-y-auto border border-border rounded-lg bg-surface">
           {hits.map((r) => {
             const k = key(r.tool, r.path);
-            const isDropped = dropped.includes(k);
+            const isDropped = effectiveByKey.get(k) ?? false;
             const droppedBelow = droppedBelowByKey.get(k) ?? 0;
             const flagged = /PII|secret|internal|PCI|payload|cost|financial/i.test(
               `${r.type} ${r.description ?? ""}`,
