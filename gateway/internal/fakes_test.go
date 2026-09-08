@@ -37,14 +37,16 @@ func (f *fakePolicyEngine) FieldsToRemove(json.RawMessage, string, string) ([]st
 
 // fakeResolver is a test double for internal.MCPResolver.
 type fakeResolver struct {
-	clients map[string]cache.MCPClient
-	tools   map[string]map[string]bool
+	clients  map[string]cache.MCPClient
+	tools    map[string]map[string]bool
+	disabled map[string]bool
 }
 
 func newFakeResolver() *fakeResolver {
 	return &fakeResolver{
-		clients: make(map[string]cache.MCPClient),
-		tools:   make(map[string]map[string]bool),
+		clients:  make(map[string]cache.MCPClient),
+		tools:    make(map[string]map[string]bool),
+		disabled: make(map[string]bool),
 	}
 }
 
@@ -56,6 +58,12 @@ func (f *fakeResolver) addTool(mcpName, tool string, client cache.MCPClient) {
 	f.tools[mcpName][tool] = true
 }
 
+// setDisabled marks mcpName as registered but administratively disabled,
+// mirroring cache.Registry.Disabled.
+func (f *fakeResolver) setDisabled(mcpName string) {
+	f.disabled[mcpName] = true
+}
+
 func (f *fakeResolver) Resolve(mcpName string) (cache.MCPClient, bool) {
 	c, ok := f.clients[mcpName]
 	return c, ok
@@ -63,6 +71,10 @@ func (f *fakeResolver) Resolve(mcpName string) (cache.MCPClient, bool) {
 
 func (f *fakeResolver) HasTool(mcpName, tool string) bool {
 	return f.tools[mcpName][tool]
+}
+
+func (f *fakeResolver) Disabled(mcpName string) bool {
+	return f.disabled[mcpName]
 }
 
 // fakeMCPClient is a test double for cache.MCPClient (used as what Resolve

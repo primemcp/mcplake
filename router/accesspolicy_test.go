@@ -30,8 +30,9 @@ func TestEngine_Authorize_NoPoliciesReturnsFalse(t *testing.T) {
 func TestEngine_Authorize_NoMatchingPolicyReturnsFalse(t *testing.T) {
 	engine := router.NewEngine([]router.AccessPolicy{
 		{
-			Name:  "db-reader",
-			Match: matcherFor(t, "$.role", "^db-reader$"),
+			Name:    "db-reader",
+			Enabled: true,
+			Match:   matcherFor(t, "$.role", "^db-reader$"),
 			Grants: []router.Grant{
 				{MCP: "postgres-ro", Tools: []string{"get_user"}},
 			},
@@ -47,8 +48,9 @@ func TestEngine_Authorize_NoMatchingPolicyReturnsFalse(t *testing.T) {
 func TestEngine_Authorize_MatchingPolicyGrantsSpecificTool(t *testing.T) {
 	engine := router.NewEngine([]router.AccessPolicy{
 		{
-			Name:  "db-writer",
-			Match: matcherFor(t, "$.role", "^db-writer$"),
+			Name:    "db-writer",
+			Enabled: true,
+			Match:   matcherFor(t, "$.role", "^db-writer$"),
 			Grants: []router.Grant{
 				{MCP: "postgres-rw", Tools: []string{"get_user"}},
 			},
@@ -67,8 +69,9 @@ func TestEngine_Authorize_MatchingPolicyGrantsSpecificTool(t *testing.T) {
 func TestEngine_Authorize_WildcardToolsGrantsEveryToolOnMCP(t *testing.T) {
 	engine := router.NewEngine([]router.AccessPolicy{
 		{
-			Name:  "db-writer",
-			Match: matcherFor(t, "$.role", "^db-writer$"),
+			Name:    "db-writer",
+			Enabled: true,
+			Match:   matcherFor(t, "$.role", "^db-writer$"),
 			Grants: []router.Grant{
 				{MCP: "postgres-rw", Tools: []string{"*"}},
 			},
@@ -89,8 +92,9 @@ func TestEngine_Authorize_WildcardToolsGrantsEveryToolOnMCP(t *testing.T) {
 func TestEngine_Authorize_WildcardMCPGrantsAcrossEveryMCP(t *testing.T) {
 	engine := router.NewEngine([]router.AccessPolicy{
 		{
-			Name:  "admin",
-			Match: matcherFor(t, "$.role", "^admin$"),
+			Name:    "admin",
+			Enabled: true,
+			Match:   matcherFor(t, "$.role", "^admin$"),
 			Grants: []router.Grant{
 				{MCP: "*", Tools: []string{"get_user"}},
 			},
@@ -111,15 +115,17 @@ func TestEngine_Authorize_WildcardMCPGrantsAcrossEveryMCP(t *testing.T) {
 func TestEngine_Authorize_MultiplePoliciesUnionSemantics(t *testing.T) {
 	engine := router.NewEngine([]router.AccessPolicy{
 		{
-			Name:  "db-reader",
-			Match: matcherFor(t, "$.role", "^db-reader$"),
+			Name:    "db-reader",
+			Enabled: true,
+			Match:   matcherFor(t, "$.role", "^db-reader$"),
 			Grants: []router.Grant{
 				{MCP: "postgres-ro", Tools: []string{"get_user"}},
 			},
 		},
 		{
-			Name:  "db-writer",
-			Match: matcherFor(t, "$.role", "^db-writer$"),
+			Name:    "db-writer",
+			Enabled: true,
+			Match:   matcherFor(t, "$.role", "^db-writer$"),
 			Grants: []router.Grant{
 				{MCP: "postgres-rw", Tools: []string{"get_user"}},
 			},
@@ -139,13 +145,67 @@ func TestEngine_Authorize_MultiplePoliciesUnionSemantics(t *testing.T) {
 func TestEngine_Authorize_PropagatesClaimMatchError(t *testing.T) {
 	engine := router.NewEngine([]router.AccessPolicy{
 		{
-			Name:   "any",
-			Match:  matcherFor(t, "$.role", "^db-writer$"),
-			Grants: []router.Grant{{MCP: "*", Tools: []string{"*"}}},
+			Name:    "any",
+			Enabled: true,
+			Match:   matcherFor(t, "$.role", "^db-writer$"),
+			Grants:  []router.Grant{{MCP: "*", Tools: []string{"*"}}},
 		},
 	}, nil)
 
 	_, err := engine.Authorize(json.RawMessage(`{not json`), "postgres-rw", "get_user")
 
 	assert.Error(t, err)
+}
+
+func TestEngine_Authorize_SkipsDisabledPolicy(t *testing.T) {
+	engine := router.NewEngine([]router.AccessPolicy{
+		{
+			Name:    "db-writer",
+			Enabled: false,
+			Match:   matcherFor(t, "$.role", "^db-writer$"),
+			Grants:  []router.Grant{{MCP: "postgres-rw", Tools: []string{"*"}}},
+		},
+	}, nil)
+
+	ok, err := engine.Authorize(json.RawMessage(writerClaims), "postgres-rw", "get_user")
+
+	require.NoError(t, err)
+	assert.False(t, ok, "a disabled policy must grant nothing, even when its Match matches")
+}
+
+func TestEngine_Authorize_DisabledPolicyDoesNotSuppressAnEnabledOne(t *testing.T) {
+	engine := router.NewEngine([]router.AccessPolicy{
+		{
+			Name:    "db-writer-disabled",
+			Enabled: false,
+			Match:   matcherFor(t, "$.role", "^db-writer$"),
+			Grants:  []router.Grant{{MCP: "postgres-rw", Tools: []string{"get_user"}}},
+		},
+		{
+			Name:    "db-writer-enabled",
+			Enabled: true,
+			Match:   matcherFor(t, "$.role", "^db-writer$"),
+			Grants:  []router.Grant{{MCP: "postgres-rw", Tools: []string{"get_user"}}},
+		},
+	}, nil)
+
+	ok, err := engine.Authorize(json.RawMessage(writerClaims), "postgres-rw", "get_user")
+
+	require.NoError(t, err)
+	assert.True(t, ok, "an enabled policy still authorizes even when a disabled sibling would have too")
+}
+
+func TestEngine_Authorize_DisabledPolicyDoesNotPropagateClaimMatchError(t *testing.T) {
+	engine := router.NewEngine([]router.AccessPolicy{
+		{
+			Name:    "disabled",
+			Enabled: false,
+			Match:   matcherFor(t, "$.role", "^db-writer$"),
+			Grants:  []router.Grant{{MCP: "*", Tools: []string{"*"}}},
+		},
+	}, nil)
+
+	_, err := engine.Authorize(json.RawMessage(`{not json`), "postgres-rw", "get_user")
+
+	require.NoError(t, err, "a disabled policy must be skipped before its Match is evaluated")
 }

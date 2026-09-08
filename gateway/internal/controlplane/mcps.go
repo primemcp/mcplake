@@ -134,6 +134,9 @@ func (h *mcpHandlers) register(c *gin.Context) {
 			Arguments: req.Connect.Arguments,
 			URL:       req.Connect.URL,
 		},
+		// Enabled defaults to true — an MCP registered via the admin API is
+		// active. The enable/disable toggle is a follow-up (#98).
+		Enabled: true,
 	}
 
 	ctx := c.Request.Context()

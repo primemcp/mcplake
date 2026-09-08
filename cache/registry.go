@@ -123,6 +123,19 @@ func (r *Registry) Resolve(mcp string) (MCPClient, bool) {
 	return reg.Client, true
 }
 
+// Disabled reports whether mcp is registered but administratively disabled
+// (Enabled == false). A disabled registration keeps its cached tools and
+// live client — so re-enabling needs no reconnect — but the data-plane
+// pipeline must refuse to route calls to it (see #95). An unknown MCP
+// reports false: it is not "disabled", it is absent, which callers detect
+// separately via Resolve.
+func (r *Registry) Disabled(mcp string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	reg, ok := r.byName[mcp]
+	return ok && !reg.Enabled
+}
+
 // List returns a defensive copy of every registration currently stored:
 // callers cannot mutate Registry-internal state through the returned slice
 // or its elements' Tools maps.

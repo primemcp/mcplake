@@ -59,7 +59,9 @@ underneath them.
 
 ```mermaid
 flowchart LR
-    A["JWT eval\n(auth + access policy)"] --> B["mcps\n(allowed MCP set)"]
+    A["JWT eval\n(auth + access policy)"] --> G{"mcp\nenabled?"}
+    G -->|no| X["403 mcp_disabled"]
+    G -->|yes| B["mcps\n(allowed MCP set)"]
     B --> C["tools\n(allowed tool set)"]
     C --> D["tool call\n(MCP client)"]
     D --> E["resp_filter\n(claims-driven field drop)"]
@@ -71,6 +73,13 @@ Read as: a JWT is evaluated once to authorize a `(mcp, tool)` pair; the call exe
 the response is passed back through the same claim-rule engine — this time matched
 against filter policies instead of access policies — before it leaves the gateway. Full
 sequence and payload shapes are in [`data.md`](data.md#request-lifecycle).
+
+Each of MCP registrations, access policies, and filter policies carries an operator
+`Enabled` flag (default true). Disabling one is a reversible kill switch, not a delete:
+a disabled MCP rejects every call with `403 mcp_disabled` while staying connected; a
+disabled access policy grants nothing (so the pipeline never starts); a disabled filter
+policy strips nothing (so the response is returned unfiltered). See
+[`data.md`](data.md#enabledisable-gates) and [`CONFIG.md`](../CONFIG.md).
 
 ## Non-Goals for This Milestone
 

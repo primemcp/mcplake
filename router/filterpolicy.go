@@ -33,6 +33,11 @@ func (e *Engine) FieldsToRemove(claims json.RawMessage, mcp, tool string) ([]str
 	fields := make([]string, 0)
 
 	for _, policy := range e.filterPolicies {
+		if !policy.Enabled {
+			// A disabled policy strips no fields: skip it so the response is
+			// returned unfiltered by this policy (see #95).
+			continue
+		}
 		if policy.MCP != mcp || policy.Tool != tool {
 			continue
 		}

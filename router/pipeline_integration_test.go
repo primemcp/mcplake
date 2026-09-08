@@ -27,8 +27,9 @@ func TestPolicyPipeline_AuthorizedAndFiltered(t *testing.T) {
 	engine := router.NewEngine(
 		[]router.AccessPolicy{
 			{
-				Name:  "plain-users-read-only",
-				Match: userMatch,
+				Name:    "plain-users-read-only",
+				Enabled: true,
+				Match:   userMatch,
 				Grants: []router.Grant{
 					{MCP: "postgres-ro", Tools: []string{"get_user"}},
 				},
@@ -37,6 +38,7 @@ func TestPolicyPipeline_AuthorizedAndFiltered(t *testing.T) {
 		[]router.FilterPolicy{
 			{
 				Name:       "hide-pii-for-plain-users",
+				Enabled:    true,
 				Match:      userMatch,
 				MCP:        "postgres-ro",
 				Tool:       "get_user",
@@ -85,4 +87,46 @@ func TestPolicyPipeline_UnauthorizedNeverReachesFilter(t *testing.T) {
 	authorized, err := engine.Authorize(claims, "postgres-rw", "delete_user")
 	require.NoError(t, err)
 	assert.False(t, authorized)
+}
+
+// TestPolicyPipeline_DisabledPoliciesStopTheirHalfOfThePipeline pins the
+// two policy-level disable semantics from #95 in one place: a disabled
+// AccessPolicy authorizes nothing (the pipeline never starts), and a
+// disabled FilterPolicy strips nothing (the response is returned
+// unfiltered).
+func TestPolicyPipeline_DisabledPoliciesStopTheirHalfOfThePipeline(t *testing.T) {
+	claims := json.RawMessage(`{"role": "user"}`)
+	userMatch := router.ClaimMatcher{
+		Rules: []router.ClaimRule{mustRule(t, "$.role", "^user$")},
+	}
+
+	engine := router.NewEngine(
+		[]router.AccessPolicy{{
+			Name:    "plain-users-read-only",
+			Enabled: false,
+			Match:   userMatch,
+			Grants:  []router.Grant{{MCP: "postgres-ro", Tools: []string{"get_user"}}},
+		}},
+		[]router.FilterPolicy{{
+			Name:       "hide-pii-for-plain-users",
+			Enabled:    false,
+			Match:      userMatch,
+			MCP:        "postgres-ro",
+			Tool:       "get_user",
+			DropFields: []string{"$.hashed_password"},
+		}},
+	)
+
+	authorized, err := engine.Authorize(claims, "postgres-ro", "get_user")
+	require.NoError(t, err)
+	assert.False(t, authorized, "a disabled access policy grants nothing")
+
+	rawResponse := json.RawMessage(`{"id":42,"hashed_password":"$2a$10$abc"}`)
+	fieldsToRemove, err := engine.FieldsToRemove(claims, "postgres-ro", "get_user")
+	require.NoError(t, err)
+	assert.Empty(t, fieldsToRemove, "a disabled filter policy strips nothing")
+
+	filtered, err := filter.Strip(rawResponse, fieldsToRemove)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(rawResponse), string(filtered), "response passes through unfiltered")
 }

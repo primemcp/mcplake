@@ -207,6 +207,8 @@ sequenceDiagram
     Auth-->>GW: claims | 401
     GW->>Pol: Authorize(claims, mcp, tool)
     Pol-->>GW: allowed | 403
+    GW->>Reg: Disabled(mcp)?
+    Reg-->>GW: yes -> 403 mcp_disabled
     GW->>Reg: Resolve(mcp)
     Reg-->>GW: mcp.Client
     GW->>M: CallTool(tool, args)
@@ -221,3 +223,23 @@ This is the concrete form of the pipeline sketched in
 [`overview.md`](overview.md#pipeline-per-request): JWT eval happens once for
 authorization and is consulted again — same engine, different policy set — to decide
 what the response filter strips, before the response reaches the client.
+
+### Enable/disable gates
+
+Each of the three runtime-managed objects carries an operator `Enabled` flag
+(default true; see [`CONFIG.md`](../CONFIG.md) and #95). Disabling one is a
+reversible kill switch, not a delete, and each acts at a different point above:
+
+- **MCP registration disabled** — after `Authorize` succeeds, the gateway
+  checks `Registry.Disabled(mcp)` and returns `403 mcp_disabled` (distinct
+  from `404 mcp_not_found`) without calling the downstream MCP. The
+  registration, its cached tool schemas, and its live client are all kept, so
+  re-enabling needs no reconnect. Every pipeline for that MCP stops.
+- **Access policy disabled** — `Engine.Authorize` skips the policy before
+  evaluating its `Match`, so it grants nothing. A caller authorized only by a
+  disabled policy gets `403 forbidden` and no downstream call is made — the
+  pipeline never starts.
+- **Filter policy disabled** — `Engine.FieldsToRemove` skips the policy, so
+  its `drop_fields` do not contribute. A response that policy would have
+  stripped is returned unfiltered; other enabled filter policies for the same
+  `(mcp, tool)` still apply.
