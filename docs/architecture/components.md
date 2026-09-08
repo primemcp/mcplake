@@ -28,8 +28,8 @@ described in [`data.md`](data.md).
 - Every write goes through the Persistence Layer and then triggers an in-memory
   cache refresh in the MCP Registry / Policy Engine, so the data plane observes
   changes without querying the database itself.
-- Intended consumers: human operators (via `curl`/scripts) and, later, the
-  Admin/Graph UI's backend calls.
+- Intended consumers: human operators (via `curl`/scripts) and the Admin Web
+  UI's backend calls (below).
 - Not on the tool-call hot path; ergonomics (request binding/validation, clear
   routing) are prioritized over raw throughput here, unlike the data plane.
 - Documented with `swag`-generated OpenAPI, served via `gin-swagger` at
@@ -104,6 +104,21 @@ described in [`data.md`](data.md).
   independent of the inbound fasthttp request lifecycle (fasthttp's `RequestCtx` is
   pooled and reused after the handler returns, so it must not be retained — see
   [ADR-0001](decisions/0001-use-fasthttp-for-gateway-server.md#consequences)).
+
+## Admin Web UI (`gateway/internal/controlplane/webui`)
+
+- React 19 + TypeScript SPA, built with Vite and embedded into the control-plane
+  binary via `//go:embed` — served from the same listener and port as the
+  Control-Plane API, no separate origin/CORS setup. See
+  [features/admin-webui.md](../features/admin-webui.md) for what it does and how
+  to run it.
+- Talks to the real `/admin/*` API documented in
+  [api/admin.md](../api/admin.md) — no separate backend or mock layer; every
+  screen reflects live Registry/Policy Engine state.
+- One place where the UI's data model doesn't map 1:1 onto the backend's: a
+  response filter can span several tools from the operator's point of view, even
+  though `FilterPolicy` (above) is always single-tool — reconciled entirely in
+  the frontend, see [ADR-0008](decisions/0008-frontend-only-multi-tool-filter-grouping.md).
 
 ## Response Filter (`filter`)
 

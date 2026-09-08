@@ -111,6 +111,8 @@ This is not a commercial product. Success is measured by adoption, production us
 - Shows live pipeline state (which claims → which MCP → which fields filtered)
 - Allows MCPs to be registered/unregistered
 - Displays audit logs (Phase 3)
+- MCP connections screen (endpoint registration, response filters) is implemented — see
+  [features/admin-webui.md](features/admin-webui.md). Users & access is not yet built.
 
 ## Request Flow
 
