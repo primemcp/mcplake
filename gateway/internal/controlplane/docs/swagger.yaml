@@ -2,6 +2,8 @@ basePath: /admin
 definitions:
   controlplane.accessPolicyDTO:
     properties:
+      enabled:
+        type: boolean
       grants:
         items:
           $ref: '#/definitions/controlplane.grantDTO'
@@ -15,6 +17,9 @@ definitions:
     type: object
   controlplane.accessPolicyRequest:
     properties:
+      enabled:
+        description: Enabled is optional; omitting it means enabled (see enabledOrTrue).
+        type: boolean
       grants:
         items:
           $ref: '#/definitions/controlplane.grantDTO'
@@ -60,6 +65,8 @@ definitions:
         items:
           type: string
         type: array
+      enabled:
+        type: boolean
       match:
         items:
           $ref: '#/definitions/controlplane.claimRuleDTO'
@@ -77,6 +84,9 @@ definitions:
         items:
           type: string
         type: array
+      enabled:
+        description: Enabled is optional; omitting it means enabled (see enabledOrTrue).
+        type: boolean
       match:
         items:
           $ref: '#/definitions/controlplane.claimRuleDTO'
@@ -106,6 +116,8 @@ definitions:
     properties:
       connect:
         $ref: '#/definitions/controlplane.connectConfigDTO'
+      enabled:
+        type: boolean
       name:
         type: string
       status:
@@ -121,12 +133,22 @@ definitions:
     properties:
       connect:
         $ref: '#/definitions/controlplane.connectConfigDTO'
+      enabled:
+        description: Enabled is optional; omitting it means enabled (see enabledOrTrue).
+        type: boolean
       name:
         type: string
       transport:
         type: string
     required:
     - name
+    type: object
+  controlplane.setEnabledRequest:
+    properties:
+      enabled:
+        type: boolean
+    required:
+    - enabled
     type: object
   controlplane.toolSchemaDTO:
     properties:
@@ -436,6 +458,41 @@ paths:
           schema:
             $ref: '#/definitions/controlplane.errorResponse'
       summary: Unregister an MCP
+      tags:
+      - mcps
+    patch:
+      consumes:
+      - application/json
+      description: Toggles the registration's `enabled` flag in place without reconnecting.
+        A disabled MCP rejects every data-plane call with 403 mcp_disabled.
+      parameters:
+      - description: MCP name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Desired state
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controlplane.setEnabledRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controlplane.mcpRegistrationDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controlplane.errorResponse'
+      summary: Enable or disable an MCP
       tags:
       - mcps
 swagger: "2.0"

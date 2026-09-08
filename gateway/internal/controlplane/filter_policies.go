@@ -13,6 +13,7 @@ type filterPolicyDTO struct {
 	MCP        string         `json:"mcp"`
 	Tool       string         `json:"tool"`
 	DropFields []string       `json:"drop_fields"`
+	Enabled    bool           `json:"enabled"`
 }
 
 func filterPolicyDTOFrom(p router.FilterPolicy) filterPolicyDTO {
@@ -26,6 +27,7 @@ func filterPolicyDTOFrom(p router.FilterPolicy) filterPolicyDTO {
 		MCP:        p.MCP,
 		Tool:       p.Tool,
 		DropFields: p.DropFields,
+		Enabled:    p.Enabled,
 	}
 }
 
@@ -35,6 +37,8 @@ type filterPolicyRequest struct {
 	MCP        string         `json:"mcp" binding:"required"`
 	Tool       string         `json:"tool" binding:"required"`
 	DropFields []string       `json:"drop_fields"`
+	// Enabled is optional; omitting it means enabled (see enabledOrTrue).
+	Enabled *bool `json:"enabled"`
 }
 
 func (r filterPolicyRequest) toFilterPolicy(name string) router.FilterPolicy {
@@ -48,10 +52,7 @@ func (r filterPolicyRequest) toFilterPolicy(name string) router.FilterPolicy {
 		MCP:        r.MCP,
 		Tool:       r.Tool,
 		DropFields: r.DropFields,
-		// Enabled defaults to true here — the admin API makes it
-		// configurable in a follow-up (#98); until then a policy created via
-		// the API is active, matching pre-#95 behaviour.
-		Enabled: true,
+		Enabled:    enabledOrTrue(r.Enabled),
 	}
 }
 

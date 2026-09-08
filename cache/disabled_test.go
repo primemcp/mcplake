@@ -19,6 +19,34 @@ func TestRegistry_Disabled(t *testing.T) {
 	assert.False(t, r.Disabled("unknown"), "an unknown MCP is absent, not disabled")
 }
 
+func TestRegistry_SetEnabled(t *testing.T) {
+	fake := &fakeMCPClient{}
+	withFakeNewMCPClient(t, func(context.Context, mcp.Config) (MCPClient, error) { return fake, nil })
+
+	r := NewRegistry()
+	require.NoError(t, r.Register(context.Background(), MCPRegistration{
+		Name: "postgres-ro", Transport: "stdio", Connect: ConnectConfig{Command: "x"},
+		Enabled: true,
+	}))
+
+	updated, ok := r.SetEnabled("postgres-ro", false)
+	require.True(t, ok)
+	assert.False(t, updated.Enabled)
+	assert.Equal(t, StatusActive, updated.Status, "SetEnabled does not touch Status")
+
+	assert.True(t, r.Disabled("postgres-ro"))
+	client, resolved := r.Resolve("postgres-ro")
+	assert.True(t, resolved, "the live client survives a disable")
+	assert.Same(t, fake, client)
+
+	_, back := r.SetEnabled("postgres-ro", true)
+	assert.True(t, back)
+	assert.False(t, r.Disabled("postgres-ro"))
+
+	_, ok = r.SetEnabled("unknown", false)
+	assert.False(t, ok)
+}
+
 func TestRegistry_Register_CarriesEnabledThrough(t *testing.T) {
 	fake := &fakeMCPClient{}
 	withFakeNewMCPClient(t, func(context.Context, mcp.Config) (MCPClient, error) { return fake, nil })

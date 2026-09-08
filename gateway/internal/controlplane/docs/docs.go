@@ -463,6 +463,57 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "description": "Toggles the registration's ` + "`" + `enabled` + "`" + ` flag in place without reconnecting. A disabled MCP rejects every data-plane call with 403 mcp_disabled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mcps"
+                ],
+                "summary": "Enable or disable an MCP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "MCP name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Desired state",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controlplane.setEnabledRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controlplane.mcpRegistrationDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controlplane.errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controlplane.errorResponse"
+                        }
+                    }
+                }
             }
         }
     },
@@ -470,6 +521,9 @@ const docTemplate = `{
         "controlplane.accessPolicyDTO": {
             "type": "object",
             "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
                 "grants": {
                     "type": "array",
                     "items": {
@@ -490,6 +544,10 @@ const docTemplate = `{
         "controlplane.accessPolicyRequest": {
             "type": "object",
             "properties": {
+                "enabled": {
+                    "description": "Enabled is optional; omitting it means enabled (see enabledOrTrue).",
+                    "type": "boolean"
+                },
                 "grants": {
                     "type": "array",
                     "items": {
@@ -559,6 +617,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "enabled": {
+                    "type": "boolean"
+                },
                 "match": {
                     "type": "array",
                     "items": {
@@ -588,6 +649,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "enabled": {
+                    "description": "Enabled is optional; omitting it means enabled (see enabledOrTrue).",
+                    "type": "boolean"
                 },
                 "match": {
                     "type": "array",
@@ -629,6 +694,9 @@ const docTemplate = `{
                 "connect": {
                     "$ref": "#/definitions/controlplane.connectConfigDTO"
                 },
+                "enabled": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -655,11 +723,26 @@ const docTemplate = `{
                 "connect": {
                     "$ref": "#/definitions/controlplane.connectConfigDTO"
                 },
+                "enabled": {
+                    "description": "Enabled is optional; omitting it means enabled (see enabledOrTrue).",
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
                 "transport": {
                     "type": "string"
+                }
+            }
+        },
+        "controlplane.setEnabledRequest": {
+            "type": "object",
+            "required": [
+                "enabled"
+            ],
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
                 }
             }
         },

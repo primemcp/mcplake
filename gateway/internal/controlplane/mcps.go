@@ -22,6 +22,7 @@ type mcpRegistry interface {
 	Unregister(name string) error
 	Get(name string) (cache.MCPRegistration, bool)
 	List() []cache.MCPRegistration
+	SetEnabled(name string, enabled bool) (cache.MCPRegistration, bool)
 }
 
 // mcpRepository is the behavior RegisterMCPRoutes needs from the durable
@@ -45,6 +46,7 @@ func RegisterMCPRoutes(admin *gin.RouterGroup, registry mcpRegistry, repo mcpRep
 	h := &mcpHandlers{registry: registry, repo: repo}
 	admin.POST("/mcps", h.register)
 	admin.GET("/mcps", h.list)
+	admin.PATCH("/mcps/:name", h.setEnabled)
 	admin.DELETE("/mcps/:name", h.unregister)
 }
 
@@ -65,6 +67,7 @@ type mcpRegistrationDTO struct {
 	Transport string                   `json:"transport"`
 	Connect   connectConfigDTO         `json:"connect"`
 	Status    string                   `json:"status"`
+	Enabled   bool                     `json:"enabled"`
 	Tools     map[string]toolSchemaDTO `json:"tools,omitempty"`
 }
 
@@ -88,8 +91,9 @@ func mcpRegistrationDTOFrom(reg cache.MCPRegistration) mcpRegistrationDTO {
 			Arguments: reg.Connect.Arguments,
 			URL:       reg.Connect.URL,
 		},
-		Status: reg.Status,
-		Tools:  tools,
+		Status:  reg.Status,
+		Enabled: reg.Enabled,
+		Tools:   tools,
 	}
 }
 
@@ -97,6 +101,14 @@ type registerMCPRequest struct {
 	Name      string           `json:"name" binding:"required"`
 	Transport string           `json:"transport"`
 	Connect   connectConfigDTO `json:"connect"`
+	// Enabled is optional; omitting it means enabled (see enabledOrTrue).
+	Enabled *bool `json:"enabled"`
+}
+
+// setEnabledRequest is the PATCH /admin/mcps/:name body: the operator
+// on/off switch, nothing else.
+type setEnabledRequest struct {
+	Enabled *bool `json:"enabled" binding:"required"`
 }
 
 // register handles POST /admin/mcps: connects to and discovers tools on a
@@ -134,9 +146,7 @@ func (h *mcpHandlers) register(c *gin.Context) {
 			Arguments: req.Connect.Arguments,
 			URL:       req.Connect.URL,
 		},
-		// Enabled defaults to true — an MCP registered via the admin API is
-		// active. The enable/disable toggle is a follow-up (#98).
-		Enabled: true,
+		Enabled: enabledOrTrue(req.Enabled),
 	}
 
 	ctx := c.Request.Context()
@@ -174,6 +184,47 @@ func (h *mcpHandlers) list(c *gin.Context) {
 		dtos = append(dtos, mcpRegistrationDTOFrom(reg))
 	}
 	c.JSON(http.StatusOK, dtos)
+}
+
+// setEnabled handles PATCH /admin/mcps/:name: flips the operator on/off
+// switch for an already-registered MCP. It changes the live Registry first
+// (so the data plane sees it immediately) then persists, and never
+// reconnects or re-discovers the MCP — a disabled MCP stays connected with
+// its tools cached, and re-enabling is instant. Disabling is the reversible
+// alternative to DELETE, which drops the registration and its schema cache.
+//
+// @Summary      Enable or disable an MCP
+// @Description  Toggles the registration's `enabled` flag in place without reconnecting. A disabled MCP rejects every data-plane call with 403 mcp_disabled.
+// @Tags         mcps
+// @Accept       json
+// @Produce      json
+// @Param        name     path      string             true  "MCP name"
+// @Param        request  body      setEnabledRequest  true  "Desired state"
+// @Success      200      {object}  mcpRegistrationDTO
+// @Failure      400      {object}  errorResponse
+// @Failure      404      {object}  errorResponse
+// @Router       /mcps/{name} [patch]
+func (h *mcpHandlers) setEnabled(c *gin.Context) {
+	name := c.Param("name")
+
+	var req setEnabledRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid_request", Message: err.Error()})
+		return
+	}
+
+	reg, ok := h.registry.SetEnabled(name, *req.Enabled)
+	if !ok {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "not_found", Message: "mcp is not registered"})
+		return
+	}
+
+	if err := h.repo.Upsert(c.Request.Context(), reg); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, mcpRegistrationDTOFrom(reg))
 }
 
 // unregister handles DELETE /admin/mcps/:name.
