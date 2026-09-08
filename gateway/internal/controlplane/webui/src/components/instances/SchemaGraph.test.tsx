@@ -19,6 +19,26 @@ const NESTED_TOOLS: Record<string, ToolSchema> = {
   },
 };
 
+const THREE_LEVEL_TOOLS: Record<string, ToolSchema> = {
+  get_root: {
+    name: "get_root",
+    output_schema: {
+      type: "object",
+      properties: {
+        root: {
+          type: "object",
+          properties: {
+            user: {
+              type: "object",
+              properties: { id: { type: "string" }, name: { type: "string" } },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
 describe("SchemaGraph (via AllToolsFieldPicker's descendant-count badge)", () => {
   it("opens the graph modal and renders a node per field", async () => {
     const user = userEvent.setup();
@@ -47,5 +67,25 @@ describe("SchemaGraph (via AllToolsFieldPicker's descendant-count badge)", () =>
     await user.click(edge);
 
     expect(onChange).toHaveBeenLastCalledWith({ get_deep: ["$.entities[*].name"] });
+  });
+
+  it("dropping a node dashes every descendant edge too, not just the one clicked -- the real backend removes the whole subtree via one JSONPath", async () => {
+    const user = userEvent.setup();
+    render(<AllToolsFieldPicker tools={THREE_LEVEL_TOOLS} onChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "View schema graph for get_root" }));
+    await waitFor(() => expect(document.querySelector(".react-flow__edge")).toBeTruthy());
+
+    // Drop "user" itself -- never touching its "id"/"name" children.
+    const userEdge = document.querySelector('[data-id="$.root->$.root.user"]');
+    expect(userEdge).toBeTruthy();
+    await user.click(userEdge!);
+
+    const idEdgePath = document.querySelector('[data-id="$.root.user->$.root.user.id"] .react-flow__edge-path');
+    const nameEdgePath = document.querySelector(
+      '[data-id="$.root.user->$.root.user.name"] .react-flow__edge-path',
+    );
+    expect(idEdgePath).toHaveStyle({ stroke: "var(--color-track-off)" });
+    expect(nameEdgePath).toHaveStyle({ stroke: "var(--color-track-off)" });
   });
 });

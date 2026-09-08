@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { annotateFields, buildGraph, collapseFields, countDroppedDescendants, flattenSchema } from "./schema";
+import {
+  annotateFields,
+  buildGraph,
+  collapseFields,
+  countDroppedDescendants,
+  effectiveDropped,
+  flattenSchema,
+} from "./schema";
 
 describe("flattenSchema", () => {
   it("flattens top-level primitive fields", () => {
@@ -236,5 +243,64 @@ describe("countDroppedDescendants", () => {
     expect(a).toBe(1);
     expect(b).toBe(1);
     expect(c).toBe(0);
+  });
+});
+
+describe("effectiveDropped", () => {
+  it("a row is dropped if explicitly toggled", () => {
+    const rows = flattenSchema(DEEP_SCHEMA);
+    const dropped = new Set(["$.id"]);
+    const flags = effectiveDropped(rows, (r) => dropped.has(r.path));
+    expect(rows.map((r, i) => [r.path, flags[i]])).toEqual([
+      ["$.entities", false],
+      ["$.entities[*].name", false],
+      ["$.entities[*].tags", false],
+      ["$.id", true],
+    ]);
+  });
+
+  it("dropping a node propagates to every descendant, recursively -- the real backend removes the whole subtree via one JSONPath, so a child was never really still there", () => {
+    const rows = flattenSchema({
+      type: "object",
+      properties: {
+        a: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { b: { type: "array", items: { type: "object", properties: { c: { type: "string" } } } } },
+          },
+        },
+      },
+    });
+    const dropped = new Set(["$.a[*].b"]); // drop the middle node, not a leaf
+    const flags = effectiveDropped(rows, (r) => dropped.has(r.path));
+    expect(rows.map((r, i) => [r.path, flags[i]])).toEqual([
+      ["$.a", false], // an ancestor of the dropped node isn't itself dropped
+      ["$.a[*].b", true], // explicitly dropped
+      ["$.a[*].b[*].c", true], // inherits from its dropped parent
+    ]);
+  });
+
+  it("composes with countDroppedDescendants so a badge reflects every effectively-dropped descendant, not just explicit toggles", () => {
+    const rows = flattenSchema({
+      type: "object",
+      properties: {
+        root: {
+          type: "object",
+          properties: {
+            user: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } },
+          },
+        },
+      },
+    });
+    const dropped = new Set(["$.root.user"]); // toggle off "user" itself, not its children
+    const flags = effectiveDropped(rows, (r) => dropped.has(r.path));
+    const flagByPath = new Map(rows.map((r, i) => [r.path, flags[i]]));
+    const counts = countDroppedDescendants(rows, (r) => flagByPath.get(r.path)!);
+
+    // $.root has 3 descendants (user, user.id, user.name) -- all 3 are now
+    // effectively dropped, not just the 1 explicitly-toggled "user" row.
+    const rootIndex = rows.findIndex((r) => r.path === "$.root");
+    expect(counts[rootIndex]).toBe(3);
   });
 });

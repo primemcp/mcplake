@@ -3,6 +3,7 @@ import {
   annotateFields,
   collapseFields,
   countDroppedDescendants,
+  effectiveDropped,
   flattenSchema,
   matchesFieldQuery,
   type SchemaField,
@@ -82,11 +83,19 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
 
   const rows = useMemo(() => annotateFields(flattenAllTools(tools)), [tools]);
   const droppedSet = useMemo(() => new Set(dropped), [dropped]);
-  // Indexed by row, parallel to `rows` -- how many of *this* row's own
-  // descendants are currently dropped, so a collapsed row can still show
-  // "something under here got filtered" without opening the graph.
+  // How many of *this* row's own descendants are dropped *in effect* --
+  // explicitly toggled, or under a dropped ancestor (dropping a node
+  // removes its whole subtree via one JSONPath on the real backend, so a
+  // child was never really still there just because nobody clicked it
+  // individually). Indexed by row, parallel to `rows`, so a collapsed row
+  // can still show "something under here got filtered" at a glance,
+  // without opening the graph to check.
   const droppedBelowByKey = useMemo(() => {
-    const counts = countDroppedDescendants(rows, (r) => droppedSet.has(key(r.tool, r.path)));
+    const isExplicitlyDropped = (r: Row) => droppedSet.has(key(r.tool, r.path));
+    const effective = effectiveDropped(rows, isExplicitlyDropped);
+    const effectiveByPath = new Map<string, boolean>();
+    rows.forEach((r, i) => effectiveByPath.set(key(r.tool, r.path), effective[i]));
+    const counts = countDroppedDescendants(rows, (r) => effectiveByPath.get(key(r.tool, r.path)) ?? false);
     const m = new Map<string, number>();
     rows.forEach((r, i) => m.set(key(r.tool, r.path), counts[i]));
     return m;
