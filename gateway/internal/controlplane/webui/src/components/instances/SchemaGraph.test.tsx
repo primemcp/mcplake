@@ -69,6 +69,21 @@ describe("SchemaGraph (via AllToolsFieldPicker's descendant-count badge)", () =>
     expect(onChange).toHaveBeenLastCalledWith({ get_deep: ["$.entities[*].name"] });
   });
 
+  it("has an explicit toggle button on each edge, distinct from clicking the line -- and clicking it doesn't also double-toggle via the line's own click handler", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<AllToolsFieldPicker tools={NESTED_TOOLS} onChange={onChange} />);
+
+    await user.click(screen.getByRole("button", { name: "View schema graph for get_deep" }));
+    await waitFor(() => expect(document.querySelector(".react-flow__edge")).toBeTruthy());
+
+    await user.click(screen.getByTitle("Exclude this field"));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith({ get_deep: ["$.entities[*].name"] });
+    expect(screen.getByTitle("Include this field")).toBeInTheDocument();
+  });
+
   it("dropping a node dashes every descendant edge too, not just the one clicked -- the real backend removes the whole subtree via one JSONPath", async () => {
     const user = userEvent.setup();
     render(<AllToolsFieldPicker tools={THREE_LEVEL_TOOLS} onChange={vi.fn()} />);
