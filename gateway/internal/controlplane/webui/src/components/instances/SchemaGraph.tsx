@@ -11,7 +11,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useMemo } from "react";
-import { buildGraph, type SchemaField } from "../../lib/schema";
+import { buildGraph, effectiveDropped, type SchemaField } from "../../lib/schema";
 
 export type SchemaGraphProps = {
   /** The full, unfiltered, uncollapsed row list — the graph always shows
@@ -67,6 +67,12 @@ export function SchemaGraph({ rows, selected, onToggle }: SchemaGraphProps) {
   const { nodes, edges } = useMemo(() => {
     const { nodes: graphNodes, edges: graphEdges } = buildGraph(rows);
 
+    // Dropping a node removes its whole subtree via one JSONPath on the
+    // real backend -- a child edge should render as dropped too once any
+    // ancestor is, not just the one edge someone actually clicked.
+    const effective = effectiveDropped(rows, (r) => selected.includes(r.path));
+    const effectivelyDroppedPaths = new Set(rows.filter((_, i) => effective[i]).map((r) => r.path));
+
     const flowNodes: Node[] = graphNodes.map((n) => ({
       id: n.id,
       type: "field",
@@ -84,7 +90,7 @@ export function SchemaGraph({ rows, selected, onToggle }: SchemaGraphProps) {
     }));
 
     const flowEdges: Edge[] = graphEdges.map((e) => {
-      const dropped = selected.includes(e.target);
+      const dropped = effectivelyDroppedPaths.has(e.target);
       return {
         id: e.id,
         source: e.source,

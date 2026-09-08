@@ -141,6 +141,33 @@ export function countDroppedDescendants<T extends SchemaField>(
 }
 
 /**
+ * Whether each row is dropped *in effect* -- explicitly toggled off, or a
+ * descendant of a row that is (explicitly or, recursively, in effect).
+ * Dropping a field removes its whole subtree via one JSONPath (real
+ * backend semantics, see filter.Strip()), so a child was never really
+ * "still there" just because nobody toggled it individually -- browsing/
+ * the graph should show that, not just the one row someone actually
+ * clicked.
+ *
+ * Walked in the same depth-first order as annotateFields/countDroppedDescendants,
+ * tracking the nearest dropped ancestor's indent per level: a row inherits
+ * "dropped" from whichever tracked ancestor is directly above it, and
+ * itself becomes the tracked ancestor for its own indent going forward.
+ */
+export function effectiveDropped<T extends SchemaField>(
+  rows: T[],
+  isExplicitlyDropped: (row: T) => boolean,
+): boolean[] {
+  const droppedAtIndent = new Map<number, boolean>();
+  return rows.map((row) => {
+    const parentDropped = droppedAtIndent.get(row.indent - 1) ?? false;
+    const dropped = parentDropped || isExplicitlyDropped(row);
+    droppedAtIndent.set(row.indent, dropped);
+    return dropped;
+  });
+}
+
+/**
  * Filters an annotated, depth-first-ordered row list down to what should
  * actually render given which rows are expanded — collapsed by default
  * (isExpanded returning false hides that row's entire subtree, nested

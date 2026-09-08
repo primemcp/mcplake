@@ -156,5 +156,41 @@ describe("AllToolsFieldPicker", () => {
       const badge = screen.getByRole("button", { name: "View schema graph for create_entities" });
       expect(badge).toHaveTextContent("[1] -1");
     });
+
+    it("propagates the dropped count to every descendant once an ancestor is dropped, not just the one explicitly toggled", async () => {
+      const user = userEvent.setup();
+      const propagationTools: Record<string, ToolSchema> = {
+        get_root: {
+          name: "get_root",
+          output_schema: {
+            type: "object",
+            properties: {
+              root: {
+                type: "object",
+                properties: {
+                  mid: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } } },
+                },
+              },
+            },
+          },
+        },
+      };
+      render(<AllToolsFieldPicker tools={propagationTools} onChange={vi.fn()} />);
+
+      await user.click(screen.getByRole("button", { name: "View schema graph for get_root" }));
+      const edge = await waitFor(() => {
+        const el = document.querySelector('[data-id="$.root->$.root.mid"]');
+        expect(el).toBeTruthy();
+        return el!;
+      });
+      // Drop "mid" itself -- never touching its "a"/"b" children.
+      await user.click(edge);
+
+      // $.root has 3 descendants total (mid, mid.a, mid.b); dropping "mid"
+      // removes its whole subtree on the real backend, so all 3 are
+      // effectively dropped, not just the 1 explicitly-clicked "mid" edge.
+      const badge = screen.getByRole("button", { name: "View schema graph for get_root" });
+      expect(badge).toHaveTextContent("[3] -3");
+    });
   });
 });
