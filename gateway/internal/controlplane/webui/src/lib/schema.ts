@@ -174,14 +174,17 @@ export function effectiveDropped<T extends SchemaField>(
  * ancestor instead would resurrect every sibling subtree that was hidden
  * along with it, which is very likely not what was wanted (nothing else
  * was touched). This computes the minimal edit that makes exactly
- * `target` (and its path down from the nearest dropped ancestor) visible
- * again while everything else that was hidden stays hidden: remove the
- * blocking ancestor(s), then add an explicit drop for every sibling
- * branch along the path from there down to (but not including) `target`.
+ * `target` itself reachable -- and nothing more: every sibling branch
+ * along the path from the blocking ancestor down to `target` stays
+ * dropped, and so does everything *below* `target` (its own descendants
+ * were never asked for either -- enabling a branch node reveals that one
+ * node, not the subtree hanging off it).
  *
- * When `target` is itself explicitly dropped (the common, direct case),
- * this is just a plain removal -- the same as before this function
- * existed.
+ * When `target` is itself explicitly dropped (the common, direct case --
+ * toggling the exact thing you dropped back on), this is a plain removal
+ * instead, restoring its whole subtree: that's a single deliberate
+ * on/off action, not a "reach one specific nested field" one, so there's
+ * nothing to preserve.
  */
 export function enablePath<T extends SchemaField>(
   rows: T[],
@@ -230,6 +233,16 @@ export function enablePath<T extends SchemaField>(
     for (const child of directChildren(parent)) {
       if (child.path !== onPath.path) next.add(child.path);
     }
+  }
+
+  // `target` itself becoming reachable doesn't mean its own descendants
+  // should too -- nobody asked for those, they were just along for the
+  // ride under the original ancestor drop. Re-drop target's own direct
+  // children unconditionally (there's no "onPath" child to preserve here,
+  // unlike the loop above) so enabling a *branch* node lets you reach
+  // exactly that node and no further.
+  for (const child of directChildren(rows[targetIndex])) {
+    next.add(child.path);
   }
 
   return [...next];

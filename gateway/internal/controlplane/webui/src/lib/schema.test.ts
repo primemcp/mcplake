@@ -377,4 +377,35 @@ describe("enablePath", () => {
       new Set(["$.user.id", "$.user.roles", "$.user.profile.email", "$.user.profile.address"]),
     );
   });
+
+  it("enabling a branch node (not a leaf) reveals only that node and its ancestors -- not its own descendants", () => {
+    // A -> B -> C: dropping A drops B and C in effect. Enabling B should
+    // reveal A and B, but C -- never individually requested, just along
+    // for the ride under A's original drop -- must stay dropped.
+    const rows = flattenSchema({
+      type: "object",
+      properties: { a: { type: "object", properties: { b: { type: "object", properties: { c: { type: "string" } } } } } },
+    });
+    const next = enablePath(rows, ["$.a"], "$.a.b");
+
+    expect(next).toEqual(["$.a.b.c"]);
+  });
+
+  it("enabling a mid-level branch node re-drops both its siblings and its own children", () => {
+    const rows = flattenSchema(USER_SCHEMA);
+    const next = enablePath(rows, ["$.user"], "$.user.profile");
+
+    // "user" and "profile" become reachable; "id"/"roles" (profile's
+    // siblings) and "name"/"email"/"address" (profile's own children,
+    // never asked for) all stay dropped.
+    expect(new Set(next)).toEqual(
+      new Set([
+        "$.user.id",
+        "$.user.roles",
+        "$.user.profile.name",
+        "$.user.profile.email",
+        "$.user.profile.address",
+      ]),
+    );
+  });
 });
