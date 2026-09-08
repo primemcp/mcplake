@@ -1,11 +1,15 @@
 import dagre from "@dagrejs/dagre";
 import {
+  BaseEdge,
   Background,
   Controls,
+  EdgeLabelRenderer,
   Handle,
   Position,
   ReactFlow,
+  getSmoothStepPath,
   type Edge,
+  type EdgeProps,
   type Node,
   type NodeProps,
 } from "@xyflow/react";
@@ -40,6 +44,68 @@ function FieldNode({ data }: NodeProps<Node<FieldNodeData>>) {
 }
 
 const nodeTypes = { field: FieldNode };
+
+type ToggleEdgeData = { dropped: boolean; onToggle: () => void };
+
+/**
+ * A plain click anywhere on the edge already toggles it (onEdgeClick on
+ * <ReactFlow> below) -- this adds an explicit, unmissable control at the
+ * edge's midpoint, since a thin line is easy to miss as "clickable" at a
+ * glance. Same green/gray pill switch as every other toggle in this app
+ * (SchemaFieldRows, AllToolsFieldPicker), just sized down to fit on a
+ * connection. Rendered via EdgeLabelRenderer -- a separate DOM layer from
+ * the edge's own <g>, so its click doesn't also bubble into onEdgeClick.
+ */
+function ToggleEdge({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style,
+  markerEnd,
+  data,
+}: EdgeProps<Edge<ToggleEdgeData>>) {
+  const [path, labelX, labelY] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
+  const dropped = data?.dropped ?? false;
+
+  return (
+    <>
+      <BaseEdge path={path} style={style} markerEnd={markerEnd} />
+      <EdgeLabelRenderer>
+        {/* EdgeLabelRenderer's own wrapper is pointer-events:none by
+            default (so unrelated overlay content never blocks canvas
+            panning) -- pointer-events-auto opts this specific button back
+            in. Without it the click silently falls through to the edge's
+            own invisible, much wider hit-area path underneath, which real
+            browser hit-testing enforces but jsdom doesn't -- found only
+            once verified against real Chromium, not the unit tests. */}
+        <button
+          type="button"
+          title={dropped ? "Include this field" : "Exclude this field"}
+          onClick={(e) => {
+            e.stopPropagation();
+            data?.onToggle();
+          }}
+          className={`nodrag nopan pointer-events-auto absolute flex items-center w-[20px] h-[12px] rounded-full border-0 p-0.5 cursor-pointer shadow-sm ${dropped ? "bg-track-off justify-start" : "bg-success justify-end"}`}
+          style={{ left: labelX, top: labelY, transform: "translate(-50%, -50%)" }}
+        >
+          <span className="block w-[8px] h-[8px] rounded-full bg-white" />
+        </button>
+      </EdgeLabelRenderer>
+    </>
+  );
+}
+
+const edgeTypes = { field: ToggleEdge };
 
 function layout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new dagre.graphlib.Graph();
@@ -95,7 +161,8 @@ export function SchemaGraph({ rows, selected, onToggle }: SchemaGraphProps) {
         id: e.id,
         source: e.source,
         target: e.target,
-        type: "smoothstep",
+        type: "field",
+        data: { dropped, onToggle: () => onToggle(e.target) },
         style: {
           stroke: dropped ? "var(--color-track-off)" : "var(--color-success)",
           strokeWidth: 2,
@@ -105,7 +172,7 @@ export function SchemaGraph({ rows, selected, onToggle }: SchemaGraphProps) {
     });
 
     return { nodes: layout(flowNodes, flowEdges), edges: flowEdges };
-  }, [rows, selected]);
+  }, [rows, selected, onToggle]);
 
   return (
     <div className="flex-1 min-h-0 border border-border rounded-lg overflow-hidden">
@@ -113,6 +180,7 @@ export function SchemaGraph({ rows, selected, onToggle }: SchemaGraphProps) {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
