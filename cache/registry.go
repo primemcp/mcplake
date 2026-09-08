@@ -136,6 +136,23 @@ func (r *Registry) Disabled(mcp string) bool {
 	return ok && !reg.Enabled
 }
 
+// SetEnabled flips the operator on/off switch for name in place, without
+// touching its Status, tools, or live client — so toggling a running MCP
+// off and back on never reconnects or re-discovers it (see #95). It returns
+// the updated registration and true, or a zero value and false when no MCP
+// is registered under name.
+func (r *Registry) SetEnabled(name string, enabled bool) (MCPRegistration, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	reg, ok := r.byName[name]
+	if !ok {
+		return MCPRegistration{}, false
+	}
+	reg.Enabled = enabled
+	r.byName[name] = reg
+	return reg.clone(), true
+}
+
 // List returns a defensive copy of every registration currently stored:
 // callers cannot mutate Registry-internal state through the returned slice
 // or its elements' Tools maps.

@@ -59,6 +59,7 @@ Content-Type: application/json
 | `connect.command`  | string | for stdio| Binary to execute.                                |
 | `connect.arguments`| array  | no       | Command-line arguments.                           |
 | `connect.url`      | string | for sse/http | Endpoint URL.                                |
+| `enabled`          | bool   | no       | Operator on/off switch (default `true`). A disabled MCP still connects and caches its tools, but the data plane rejects every `POST /v1/call` for it with `403 mcp_disabled`. Toggle it later with `PATCH /admin/mcps/:name`. See [`CONFIG.md`](../CONFIG.md#4-mcp-servers). |
 
 | Status | Body `error` code    | When                                                    |
 |--------|-----------------------|-----------------------------------------------------------|
@@ -74,16 +75,49 @@ Response body (also the shape returned by `GET /admin/mcps`):
   "transport": "stdio",
   "connect": { "command": "mcp-server-postgres", "arguments": ["--read-only"] },
   "status": "active",
+  "enabled": true,
   "tools": {
     "get_user": { "name": "get_user", "input_schema": {}, "output_schema": {} }
   }
 }
 ```
 
+`status` (`connecting`/`active`/`unreachable`) reflects connection health and is owned
+by the gateway; `enabled` reflects operator intent and is only ever changed through
+this API or the seed `config.yaml`.
+
 ### `GET /admin/mcps`
 
 Lists every currently registered MCP — reads the live Registry (in-memory), not the
 database.
+
+### `PATCH /admin/mcps/:name`
+
+Enables or disables an already-registered MCP by flipping its `enabled` flag in the
+live Registry (effective immediately on the data plane) and then persisting it. It
+does **not** reconnect or re-discover the MCP: a disabled MCP keeps its cached tools
+and live client, so re-enabling is instant. This is the reversible alternative to
+`DELETE`, which drops the registration and its schema cache.
+
+```
+PATCH /admin/mcps/postgres-ro
+Content-Type: application/json
+
+{ "enabled": false }
+```
+
+| Field     | Type | Required | Description                     |
+|-----------|------|----------|---------------------------------|
+| `enabled` | bool | yes      | Desired state.                  |
+
+| Status | Body `error` code | When                                              |
+|--------|--------------------|--------------------------------------------------|
+| 200    | —                  | Toggled; body is the updated registration (same shape as `POST`). |
+| 400    | `invalid_request`  | Malformed JSON, or `enabled` missing.            |
+| 404    | `not_found`        | No MCP is registered under that name.            |
+
+While disabled, `POST /v1/call` for this MCP returns `403 mcp_disabled` (distinct from
+`404 mcp_not_found`).
 
 ### `DELETE /admin/mcps/:name`
 
@@ -119,6 +153,11 @@ Content-Type: application/json
 `config.yaml`'s `access_policies` (see [`docs/CONFIG.md`](../CONFIG.md#5-access-policies)
 and [ADR-0002](../architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)).
 
+An optional `enabled` field (bool, default `true`) is accepted here and echoed in
+every response. A disabled access policy is skipped during authorization — it grants
+nothing, so a caller authorized only by it gets `403 forbidden`. See
+[`CONFIG.md`](../CONFIG.md#5-access-policies).
+
 | Status | Body `error` code | When                                                        |
 |--------|--------------------|--------------------------------------------------------------|
 | 201    | —                  | Created; body is the resulting policy.                       |
@@ -135,8 +174,10 @@ Returns one policy, or `404 not_found`.
 
 ### `PUT /admin/access-policies/:name`
 
-Replaces the named policy's `match`/`grants` in place (creates it if absent). Same
-request body and `invalid_policy`/`invalid_request` responses as `POST`.
+Replaces the named policy's `match`/`grants`/`enabled` in place (creates it if
+absent). Same request body and `invalid_policy`/`invalid_request` responses as
+`POST`. Because it is a full replace, omitting `enabled` resets it to `true` (the
+policy is re-enabled).
 
 ### `DELETE /admin/access-policies/:name`
 
@@ -166,6 +207,11 @@ Content-Type: application/json
 always targets one specific tool response shape). `drop_fields` are JSONPath
 expressions into the tool's response body.
 
+An optional `enabled` field (bool, default `true`) is accepted here and echoed in
+every response. A disabled filter policy is skipped — it strips nothing, so a matching
+response is returned unfiltered by it (other enabled policies for the same
+`(mcp, tool)` still apply). See [`CONFIG.md`](../CONFIG.md#6-filter-policies).
+
 | Status | Body `error` code | When                                                        |
 |--------|--------------------|--------------------------------------------------------------|
 | 201    | —                  | Created; body is the resulting policy.                       |
@@ -182,8 +228,9 @@ Returns one policy, or `404 not_found`.
 
 ### `PUT /admin/filter-policies/:name`
 
-Replaces the named policy's `match`/`mcp`/`tool`/`drop_fields` in place (creates it
-if absent). Same request body and error responses as `POST`.
+Replaces the named policy's `match`/`mcp`/`tool`/`drop_fields`/`enabled` in place
+(creates it if absent). Same request body and error responses as `POST`. Because it
+is a full replace, omitting `enabled` resets it to `true`.
 
 ### `DELETE /admin/filter-policies/:name`
 

@@ -18,9 +18,10 @@ type grantDTO struct {
 }
 
 type accessPolicyDTO struct {
-	Name   string         `json:"name"`
-	Match  []claimRuleDTO `json:"match"`
-	Grants []grantDTO     `json:"grants"`
+	Name    string         `json:"name"`
+	Match   []claimRuleDTO `json:"match"`
+	Grants  []grantDTO     `json:"grants"`
+	Enabled bool           `json:"enabled"`
 }
 
 func accessPolicyDTOFrom(p router.AccessPolicy) accessPolicyDTO {
@@ -32,13 +33,15 @@ func accessPolicyDTOFrom(p router.AccessPolicy) accessPolicyDTO {
 	for i, g := range p.Grants {
 		grants[i] = grantDTO{MCP: g.MCP, Tools: g.Tools}
 	}
-	return accessPolicyDTO{Name: p.Name, Match: match, Grants: grants}
+	return accessPolicyDTO{Name: p.Name, Match: match, Grants: grants, Enabled: p.Enabled}
 }
 
 type accessPolicyRequest struct {
 	Name   string         `json:"name"`
 	Match  []claimRuleDTO `json:"match"`
 	Grants []grantDTO     `json:"grants"`
+	// Enabled is optional; omitting it means enabled (see enabledOrTrue).
+	Enabled *bool `json:"enabled"`
 }
 
 func (r accessPolicyRequest) toAccessPolicy(name string) router.AccessPolicy {
@@ -50,10 +53,12 @@ func (r accessPolicyRequest) toAccessPolicy(name string) router.AccessPolicy {
 	for i, g := range r.Grants {
 		grants[i] = router.Grant{MCP: g.MCP, Tools: g.Tools}
 	}
-	// Enabled defaults to true here — the admin API makes it configurable in
-	// a follow-up (#98); until then a policy created via the API is active,
-	// matching pre-#95 behaviour.
-	return router.AccessPolicy{Name: name, Match: router.ClaimMatcher{Rules: rules}, Grants: grants, Enabled: true}
+	return router.AccessPolicy{
+		Name:    name,
+		Match:   router.ClaimMatcher{Rules: rules},
+		Grants:  grants,
+		Enabled: enabledOrTrue(r.Enabled),
+	}
 }
 
 type accessPolicyHandlers struct {

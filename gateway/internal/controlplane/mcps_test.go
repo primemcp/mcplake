@@ -75,6 +75,18 @@ func (f *fakeMCPRegistry) List() []cache.MCPRegistration {
 	return out
 }
 
+func (f *fakeMCPRegistry) SetEnabled(name string, enabled bool) (cache.MCPRegistration, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	reg, ok := f.regs[name]
+	if !ok {
+		return cache.MCPRegistration{}, false
+	}
+	reg.Enabled = enabled
+	f.regs[name] = reg
+	return reg, true
+}
+
 // fakeMCPRepository is a minimal in-memory stand-in for
 // *persistence.MCPRegistrationRepo.
 type fakeMCPRepository struct {
