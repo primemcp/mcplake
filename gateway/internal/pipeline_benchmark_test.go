@@ -196,8 +196,9 @@ func benchmarkPolicyEngine(b *testing.B) *router.Engine {
 	return router.NewEngine(
 		[]router.AccessPolicy{
 			{
-				Name:  "bench-access",
-				Match: matcher,
+				Name:    "bench-access",
+				Enabled: true,
+				Match:   matcher,
 				Grants: []router.Grant{
 					{MCP: "postgres-ro", Tools: []string{"get_user"}},
 				},
@@ -206,6 +207,7 @@ func benchmarkPolicyEngine(b *testing.B) *router.Engine {
 		[]router.FilterPolicy{
 			{
 				Name:       "bench-filter",
+				Enabled:    true,
 				Match:      matcher,
 				MCP:        "postgres-ro",
 				Tool:       "get_user",

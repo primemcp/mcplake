@@ -45,11 +45,16 @@ type PolicyEngine interface {
 	FieldsToRemove(claims json.RawMessage, mcp, tool string) ([]string, error)
 }
 
-// MCPResolver resolves a registered MCP name to a live client, and answers
-// whether a given tool exists on it. Satisfied by *cache.Registry.
+// MCPResolver resolves a registered MCP name to a live client, answers
+// whether a given tool exists on it, and reports whether it is
+// administratively disabled. Satisfied by *cache.Registry.
 type MCPResolver interface {
 	Resolve(mcp string) (cache.MCPClient, bool)
 	HasTool(mcp, tool string) bool
+	// Disabled reports whether mcp is registered but turned off by an
+	// operator (see #95). A disabled MCP stays connected with its tools
+	// cached; the pipeline rejects calls to it without a downstream call.
+	Disabled(mcp string) bool
 }
 
 // Config configures the data-plane Gateway.

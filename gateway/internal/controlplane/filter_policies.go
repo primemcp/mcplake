@@ -48,6 +48,10 @@ func (r filterPolicyRequest) toFilterPolicy(name string) router.FilterPolicy {
 		MCP:        r.MCP,
 		Tool:       r.Tool,
 		DropFields: r.DropFields,
+		// Enabled defaults to true here — the admin API makes it
+		// configurable in a follow-up (#98); until then a policy created via
+		// the API is active, matching pre-#95 behaviour.
+		Enabled: true,
 	}
 }
 

@@ -60,6 +60,11 @@ func NewEngine(accessPolicies []AccessPolicy, filterPolicies []FilterPolicy) *En
 // covering that pair.
 func (e *Engine) Authorize(claims json.RawMessage, mcp, tool string) (bool, error) {
 	for _, policy := range e.accessPolicies {
+		if !policy.Enabled {
+			// A disabled policy grants nothing: skip it before its Match is
+			// even evaluated (see #95).
+			continue
+		}
 		matched, err := policy.Match.Matches(claims)
 		if err != nil {
 			return false, fmt.Errorf("router: evaluate access policy %q: %w", policy.Name, err)

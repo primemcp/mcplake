@@ -50,7 +50,10 @@ func (r accessPolicyRequest) toAccessPolicy(name string) router.AccessPolicy {
 	for i, g := range r.Grants {
 		grants[i] = router.Grant{MCP: g.MCP, Tools: g.Tools}
 	}
-	return router.AccessPolicy{Name: name, Match: router.ClaimMatcher{Rules: rules}, Grants: grants}
+	// Enabled defaults to true here — the admin API makes it configurable in
+	// a follow-up (#98); until then a policy created via the API is active,
+	// matching pre-#95 behaviour.
+	return router.AccessPolicy{Name: name, Match: router.ClaimMatcher{Rules: rules}, Grants: grants, Enabled: true}
 }
 
 type accessPolicyHandlers struct {

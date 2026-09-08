@@ -13,12 +13,14 @@ import (
 
 func TestPolicyStore_DelegatesToWrappedEngine(t *testing.T) {
 	accessPolicies := []router.AccessPolicy{{
-		Name:   "db-reader",
-		Match:  router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-reader$")}},
-		Grants: []router.Grant{{MCP: "postgres-ro", Tools: []string{"*"}}},
+		Name:    "db-reader",
+		Enabled: true,
+		Match:   router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-reader$")}},
+		Grants:  []router.Grant{{MCP: "postgres-ro", Tools: []string{"*"}}},
 	}}
 	filterPolicies := []router.FilterPolicy{{
 		Name:       "hide-pii",
+		Enabled:    true,
 		Match:      router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-reader$")}},
 		MCP:        "postgres-ro",
 		Tool:       "get_user",
@@ -41,9 +43,10 @@ func TestPolicyStore_DelegatesToWrappedEngine(t *testing.T) {
 func TestPolicyStore_ReloadReplacesNotAccumulates(t *testing.T) {
 	initial := router.NewEngine(
 		[]router.AccessPolicy{{
-			Name:   "db-reader",
-			Match:  router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-reader$")}},
-			Grants: []router.Grant{{MCP: "postgres-ro", Tools: []string{"*"}}},
+			Name:    "db-reader",
+			Enabled: true,
+			Match:   router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-reader$")}},
+			Grants:  []router.Grant{{MCP: "postgres-ro", Tools: []string{"*"}}},
 		}},
 		nil,
 	)
@@ -56,9 +59,10 @@ func TestPolicyStore_ReloadReplacesNotAccumulates(t *testing.T) {
 
 	store.Reload(
 		[]router.AccessPolicy{{
-			Name:   "db-writer",
-			Match:  router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-writer$")}},
-			Grants: []router.Grant{{MCP: "postgres-rw", Tools: []string{"*"}}},
+			Name:    "db-writer",
+			Enabled: true,
+			Match:   router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-writer$")}},
+			Grants:  []router.Grant{{MCP: "postgres-rw", Tools: []string{"*"}}},
 		}},
 		nil,
 	)
@@ -100,9 +104,10 @@ func TestPolicyStore_ConcurrentAuthorizeDuringReload(t *testing.T) {
 
 	for i := 0; i < 200; i++ {
 		store.Reload([]router.AccessPolicy{{
-			Name:   "db-reader",
-			Match:  router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-reader$")}},
-			Grants: []router.Grant{{MCP: "postgres-ro", Tools: []string{"*"}}},
+			Name:    "db-reader",
+			Enabled: true,
+			Match:   router.ClaimMatcher{Rules: []router.ClaimRule{mustRule(t, "$.role", "^db-reader$")}},
+			Grants:  []router.Grant{{MCP: "postgres-ro", Tools: []string{"*"}}},
 		}}, nil)
 	}
 

@@ -131,6 +131,32 @@ func TestToolCall_UnknownToolReturns404(t *testing.T) {
 	assert.Equal(t, "tool_not_found", body["error"])
 }
 
+func TestToolCall_DisabledMCPReturns403MCPDisabled(t *testing.T) {
+	resolver := newFakeResolver()
+	// The MCP is fully registered — client and tool present — but disabled.
+	resolver.addTool("postgres-ro", "get_user", &fakeMCPClient{
+		callTool: func(context.Context, string, map[string]any) (*mcp.ToolResponse, error) {
+			t.Fatal("downstream MCP must not be called when the MCP is disabled")
+			return nil, nil
+		},
+	})
+	resolver.setDisabled("postgres-ro")
+
+	addr, cleanup := startTestGatewayWithConfig(t, internal.Config{
+		Authenticator: &fakeAuthenticator{claims: validClaims()},
+		Policy:        &fakePolicyEngine{authorized: true},
+		Resolver:      resolver,
+	})
+	defer cleanup()
+
+	resp := postToolCall(t, addr, `{"mcp":"postgres-ro","tool":"get_user"}`, "Bearer token")
+	body := decodeJSONBody(t, resp)
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	assert.Equal(t, "mcp_disabled", body["error"],
+		"a disabled MCP must be rejected as mcp_disabled, distinct from mcp_not_found")
+}
+
 func TestToolCall_SuccessfulCallReturnsFilteredBody(t *testing.T) {
 	resolver := newFakeResolver()
 	resolver.addTool("postgres-ro", "get_user", &fakeMCPClient{

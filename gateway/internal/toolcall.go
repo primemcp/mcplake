@@ -212,6 +212,14 @@ func (g *Gateway) runPipeline(ctx context.Context, req ToolCallRequest) (json.Ra
 		return nil, forbidden("forbidden", "not authorized to call this tool")
 	}
 
+	// An administratively disabled MCP is a routing-stage rejection, kept
+	// distinct from an unknown one: the registration and its client still
+	// exist, an operator has just turned it off (see #95). Checked after
+	// authorization so its state is not disclosed to unauthorized callers.
+	if g.resolver.Disabled(req.MCP) {
+		return nil, forbidden("mcp_disabled", "mcp is disabled")
+	}
+
 	client, ok := g.resolver.Resolve(req.MCP)
 	if !ok {
 		return nil, notFound("mcp_not_found", "mcp not found or not active")
