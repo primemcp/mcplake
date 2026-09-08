@@ -72,6 +72,11 @@ func (r *Registry) Register(ctx context.Context, reg MCPRegistration) error {
 		Status:    StatusActive,
 		Tools:     toolMap,
 		Client:    client,
+		// Status/Tools/Client are recomputed here, but Enabled is operator
+		// intent carried in from the caller (like Connect), not a fresh
+		// value — so a registration seeded as disabled stays disabled
+		// across a (re-)Register.
+		Enabled: reg.Enabled,
 	})
 	if hadPrevious && previous.Client != nil {
 		_ = previous.Client.Close()
@@ -87,5 +92,6 @@ func unreachable(reg MCPRegistration) MCPRegistration {
 		Transport: reg.Transport,
 		Connect:   reg.Connect,
 		Status:    StatusUnreachable,
+		Enabled:   reg.Enabled,
 	}
 }

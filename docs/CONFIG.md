@@ -113,6 +113,14 @@ mcps:
 - `command` — Binary to execute (required)
 - `arguments` — Command-line arguments
 - `env` — Environment variables
+- `enabled` — operator on/off switch (optional, default `true`). When
+  `false`, the MCP is still registered and (at startup) still connected, its
+  tools stay cached, but the data plane rejects every `POST /v1/call` for it
+  with `403 mcp_disabled` — all pipelines stop for this MCP. Re-enabling
+  needs no reconnect. This is distinct from omitting the entry or calling
+  `DELETE /admin/mcps/:name`, which drop the registration and its schema
+  cache entirely. `enabled` reflects operator intent; the separate `status`
+  field (`connecting`/`active`/`unreachable`) reflects connection health.
 
 ### 5. Access Policies
 
@@ -146,6 +154,11 @@ access_policies:
 - `match` — a list of `{path, pattern}` rules, ANDed together (all must match)
 - `grants` — a list of `{mcp, tools}`; a call is authorized if this policy's
   `match` matches AND any grant covers the requested `(mcp, tool)`
+- `enabled` — operator on/off switch (optional, default `true`). When
+  `false`, the policy is skipped entirely during authorization, so it grants
+  nothing. A caller authorized only by a disabled policy is rejected with
+  `403 forbidden` and no downstream tool call is made — the pipeline never
+  starts.
 
 **How It Works:**
 1. Gateway validates the JWT and decodes its full claim set
@@ -183,6 +196,11 @@ filter_policies:
 - `mcp` / `tool` — the exact tool call this filter applies to (no wildcards)
 - `drop_fields` — JSONPath expressions identifying fields to remove from the
   response; a path that doesn't exist in a given response is a no-op
+- `enabled` — operator on/off switch (optional, default `true`). When
+  `false`, the policy is skipped entirely: its `drop_fields` contribute
+  nothing, so a response that this policy would have stripped is returned
+  with all fields intact. Other enabled filter policies for the same
+  `(mcp, tool)` still apply.
 
 **How It Works:**
 1. After a tool call succeeds, the gateway re-evaluates the caller's claims

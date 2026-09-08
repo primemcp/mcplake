@@ -59,6 +59,15 @@ type MCPRegistration struct {
 	// Client is the live connection for this registration, non-nil only
 	// when Status is StatusActive.
 	Client MCPClient
+	// Enabled is the operator's on/off switch for this MCP, independent of
+	// Status: a disabled MCP stays connected (Status may still be
+	// StatusActive) with its tools cached, so re-enabling needs no
+	// reconnect, but the data-plane pipeline refuses to route calls to it
+	// (see #95). Status reflects connection health and is owned by the
+	// gateway; Enabled reflects operator intent. It defaults to true at
+	// every boundary that constructs a registration (config, persistence,
+	// admin API).
+	Enabled bool
 }
 
 // Registry is the gateway's concurrency-safe, in-memory table of

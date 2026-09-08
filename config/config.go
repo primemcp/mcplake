@@ -86,6 +86,10 @@ type MCPConfig struct {
 	Type      string   `yaml:"type"` // "stdio", "sse", etc.
 	Command   string   `yaml:"command"`
 	Arguments []string `yaml:"arguments"`
+	// Enabled is the operator on/off switch for this MCP. It is a pointer so
+	// an omitted key is distinguishable from an explicit `enabled: false`;
+	// omitted defaults to enabled. See enabledOrDefault.
+	Enabled *bool `yaml:"enabled"`
 }
 
 // ClaimRuleConfig is the YAML shape of a router.ClaimRule. See ADR-0002.
@@ -106,6 +110,10 @@ type AccessPolicyConfig struct {
 	Name   string            `yaml:"name"`
 	Match  []ClaimRuleConfig `yaml:"match"`
 	Grants []GrantConfig     `yaml:"grants"`
+	// Enabled is the operator on/off switch for this policy. A pointer so an
+	// omitted key is distinguishable from an explicit `enabled: false`;
+	// omitted defaults to enabled. See enabledOrDefault.
+	Enabled *bool `yaml:"enabled"`
 }
 
 // FilterPolicyConfig is the YAML shape of a router.FilterPolicy. See
@@ -116,6 +124,10 @@ type FilterPolicyConfig struct {
 	MCP        string            `yaml:"mcp"`
 	Tool       string            `yaml:"tool"`
 	DropFields []string          `yaml:"drop_fields"`
+	// Enabled is the operator on/off switch for this policy. A pointer so an
+	// omitted key is distinguishable from an explicit `enabled: false`;
+	// omitted defaults to enabled. See enabledOrDefault.
+	Enabled *bool `yaml:"enabled"`
 }
 
 // Load reads and parses the YAML configuration file at path, then runs
@@ -189,6 +201,13 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+// enabledOrDefault resolves a config `enabled` pointer to a concrete bool:
+// an omitted key (nil) means enabled, matching the documented default in
+// docs/CONFIG.md. An explicit `enabled: false` disables the entry.
+func enabledOrDefault(enabled *bool) bool {
+	return enabled == nil || *enabled
 }
 
 // validateClaimRules compiles every rule via router.NewClaimRule, returning

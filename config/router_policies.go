@@ -23,7 +23,12 @@ func (c *Config) RouterAccessPolicies() ([]router.AccessPolicy, error) {
 			grants[i] = router.Grant{MCP: g.MCP, Tools: g.Tools}
 		}
 
-		policies = append(policies, router.AccessPolicy{Name: p.Name, Match: matcher, Grants: grants})
+		policies = append(policies, router.AccessPolicy{
+			Name:    p.Name,
+			Match:   matcher,
+			Grants:  grants,
+			Enabled: enabledOrDefault(p.Enabled),
+		})
 	}
 	return policies, nil
 }
@@ -44,6 +49,7 @@ func (c *Config) RouterFilterPolicies() ([]router.FilterPolicy, error) {
 			MCP:        p.MCP,
 			Tool:       p.Tool,
 			DropFields: p.DropFields,
+			Enabled:    enabledOrDefault(p.Enabled),
 		})
 	}
 	return policies, nil

@@ -39,7 +39,7 @@ func (r *FilterPolicyRepo) Upsert(ctx context.Context, policy router.FilterPolic
 	err = r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"match", "mcp", "tool", "drop_fields", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"match", "mcp", "tool", "drop_fields", enabledColumn, "updated_at"}),
 		}).
 		Create(&row).Error
 	if err != nil {
@@ -111,6 +111,7 @@ func filterPolicyRowFrom(policy router.FilterPolicy) (FilterPolicyRow, error) {
 		MCP:        policy.MCP,
 		Tool:       policy.Tool,
 		DropFields: datatypes.JSON(dropFields),
+		Enabled:    &policy.Enabled,
 	}, nil
 }
 
@@ -133,5 +134,6 @@ func filterPolicyFrom(row FilterPolicyRow) (router.FilterPolicy, error) {
 		MCP:        row.MCP,
 		Tool:       row.Tool,
 		DropFields: dropFields,
+		Enabled:    enabledValue(row.Enabled),
 	}, nil
 }
