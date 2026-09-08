@@ -27,5 +27,8 @@ RUN go install github.com/josharian/impl@v1.4.0 && \
     go install github.com/go-delve/delve/cmd/dlv@latest && \
     go install golang.org/x/tools/gopls@latest
 
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
 RUN curl -fsSL https://claude.ai/install.sh | bash
 ENV PATH="/root/.local/bin:${PATH}"
