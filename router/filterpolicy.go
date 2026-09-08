@@ -15,6 +15,13 @@ type FilterPolicy struct {
 	MCP        string
 	Tool       string
 	DropFields []string
+	// Enabled is the operator's on/off switch for this policy. A disabled
+	// policy is skipped entirely by Engine.FieldsToRemove, so it strips no
+	// fields and the response is returned unfiltered (see #95). It defaults
+	// to true at every boundary that constructs a policy (config,
+	// persistence, admin API); a zero-valued FilterPolicy literal is
+	// disabled, so in-process constructors must set it explicitly.
+	Enabled bool
 }
 
 // FieldsToRemove returns the union (deduplicated, order of first

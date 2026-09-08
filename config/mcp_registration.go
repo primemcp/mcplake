@@ -24,6 +24,7 @@ func (c *Config) MCPRegistrations() []cache.MCPRegistration {
 				Command:   m.Command,
 				Arguments: m.Arguments,
 			},
+			Enabled: enabledOrDefault(m.Enabled),
 		})
 	}
 	return regs

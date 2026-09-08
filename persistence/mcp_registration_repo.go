@@ -35,7 +35,7 @@ func (r *MCPRegistrationRepo) Upsert(ctx context.Context, reg cache.MCPRegistrat
 	err = r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"transport", "connect", "tools", "status", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"transport", "connect", "tools", "status", enabledColumn, "updated_at"}),
 		}).
 		Create(&row).Error
 	if err != nil {
@@ -109,6 +109,7 @@ func mcpRegistrationRowFrom(reg cache.MCPRegistration) (MCPRegistrationRow, erro
 		Connect:   datatypes.JSON(connect),
 		Tools:     datatypes.JSON(tools),
 		Status:    reg.Status,
+		Enabled:   &reg.Enabled,
 	}, nil
 }
 
@@ -133,5 +134,6 @@ func mcpRegistrationFrom(row MCPRegistrationRow) (cache.MCPRegistration, error) 
 		Connect:   connect,
 		Status:    row.Status,
 		Tools:     tools,
+		Enabled:   enabledValue(row.Enabled),
 	}, nil
 }

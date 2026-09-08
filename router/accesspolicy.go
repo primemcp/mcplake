@@ -33,6 +33,13 @@ type AccessPolicy struct {
 	Name   string
 	Match  ClaimMatcher
 	Grants []Grant
+	// Enabled is the operator's on/off switch for this policy. A disabled
+	// policy is skipped entirely by Engine.Authorize, so it grants nothing
+	// (see #95). It defaults to true at every boundary that constructs a
+	// policy (config, persistence, admin API); a zero-valued AccessPolicy
+	// literal is disabled, so in-process constructors must set it
+	// explicitly.
+	Enabled bool
 }
 
 // Engine evaluates a caller's claims against a set of AccessPolicy and

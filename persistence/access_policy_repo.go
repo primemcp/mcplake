@@ -39,7 +39,7 @@ func (r *AccessPolicyRepo) Upsert(ctx context.Context, policy router.AccessPolic
 	err = r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"match", "grants", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"match", "grants", enabledColumn, "updated_at"}),
 		}).
 		Create(&row).Error
 	if err != nil {
@@ -107,9 +107,10 @@ func accessPolicyRowFrom(policy router.AccessPolicy) (AccessPolicyRow, error) {
 		return AccessPolicyRow{}, fmt.Errorf("persistence: marshal grants for %q: %w", policy.Name, err)
 	}
 	return AccessPolicyRow{
-		Name:   policy.Name,
-		Match:  datatypes.JSON(match),
-		Grants: datatypes.JSON(grants),
+		Name:    policy.Name,
+		Match:   datatypes.JSON(match),
+		Grants:  datatypes.JSON(grants),
+		Enabled: &policy.Enabled,
 	}, nil
 }
 
@@ -127,8 +128,9 @@ func accessPolicyFrom(row AccessPolicyRow) (router.AccessPolicy, error) {
 	}
 
 	return router.AccessPolicy{
-		Name:   row.Name,
-		Match:  match,
-		Grants: grants,
+		Name:    row.Name,
+		Match:   match,
+		Grants:  grants,
+		Enabled: enabledValue(row.Enabled),
 	}, nil
 }
