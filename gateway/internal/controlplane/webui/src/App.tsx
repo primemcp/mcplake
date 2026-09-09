@@ -23,7 +23,7 @@ export function App() {
         connectedCount={connectedCount}
         totalCount={totalCount}
       >
-        {screen === "instances" ? <InstancesScreen /> : <UsersScreen />}
+        {screen === "instances" ? <InstancesScreen /> : <UsersScreen onGoInstances={goInstances} />}
       </AppShell>
     </ErrorBoundary>
   );

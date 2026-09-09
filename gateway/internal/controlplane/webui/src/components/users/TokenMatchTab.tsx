@@ -13,6 +13,14 @@ export type TokenMatchTabProps = {
  * pass/fail preview against a decoded JWT payload, but that needs the
  * same claim-matching reimplementation #81 (Request path tab) is scoped
  * to build — this is the editor only for now; the preview lands there.
+ *
+ * `router.ClaimMatcher.Matches` with zero rules matches *everything* (see
+ * router/claimrule.go's own doc comment) -- so a user with no conditions
+ * isn't unreachable, it's the opposite: it resolves for every token,
+ * granting whatever it grants to anyone. The empty-state copy below (and
+ * UserDetail's Save gate requiring at least one condition) reflects that
+ * real semantics, not the inverted "can never be resolved" framing an
+ * earlier pass of this file had.
  */
 export function TokenMatchTab({ match, onChange }: TokenMatchTabProps) {
   const setRule = (index: number, patch: Partial<ClaimRule>) => {
@@ -34,9 +42,9 @@ export function TokenMatchTab({ match, onChange }: TokenMatchTabProps) {
         </span>
       </div>
       {match.length === 0 ? (
-        <p className="text-[11.5px] text-subtle border border-dashed border-line rounded-[10px] p-3">
-          No condition yet — this user can never be resolved from a token. Add at least one JSONPath / regex
-          pair.
+        <p className="text-[11.5px] text-warn border border-dashed border-line rounded-[10px] p-3">
+          No condition yet — this resolves for every token, granting whatever it grants to anyone. Add at
+          least one JSONPath / regex pair to scope it.
         </p>
       ) : (
         <div className="flex flex-col gap-1.5">

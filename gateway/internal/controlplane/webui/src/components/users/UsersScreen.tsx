@@ -9,6 +9,12 @@ import { UserList } from "./UserList";
 
 type Selection = { kind: "user"; name: string } | { kind: "new" } | null;
 
+export type UsersScreenProps = {
+  /** Switches the app to the MCP connections screen -- the Access tab's
+   * "open in MCP connections" links use this. */
+  onGoInstances: () => void;
+};
+
 /**
  * The screen-level wiring for issue #80: composes `User`s from the real
  * AccessPolicy + FilterPolicy lists (see api/users.ts), and owns the one
@@ -17,7 +23,7 @@ type Selection = { kind: "user"; name: string } | { kind: "new" } | null;
  * comes from the same `useEndpoints` MCP connections screen uses, since
  * the Access tab's Step 1 grants against exactly that same set.
  */
-export function UsersScreen() {
+export function UsersScreen({ onGoInstances }: UsersScreenProps) {
   const { endpoints } = useEndpoints();
   const accessPolicies = useAccessPolicies();
   const filterPolicies = useFilterPolicies();
@@ -87,6 +93,8 @@ export function UsersScreen() {
               key={selection.kind === "user" ? selection.name : "__new__"}
               user={selection.kind === "user" ? selectedUser : null}
               endpoints={endpoints}
+              allFilters={filterPolicies.filterPolicies}
+              onGoInstances={onGoInstances}
               onCreateAccessPolicy={accessPolicies.create}
               onUpdateAccessPolicy={accessPolicies.update}
               onDeleteAccessPolicy={accessPolicies.remove}

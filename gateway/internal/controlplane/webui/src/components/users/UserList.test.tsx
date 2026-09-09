@@ -71,7 +71,7 @@ describe("UserList", () => {
     expect(onSelect).toHaveBeenCalledWith("admin-team");
   });
 
-  it("flags a user with no match conditions as unreachable from a token", () => {
+  it("flags a user with no match conditions as matching every token", () => {
     render(
       <UserList users={USERS} loading={false} error={null} onRetry={vi.fn()} selectedName={null} onSelect={vi.fn()} onAddNew={vi.fn()} />,
     );

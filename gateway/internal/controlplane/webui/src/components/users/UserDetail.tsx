@@ -3,7 +3,7 @@ import { Button } from "../primitives/Button";
 import { Card } from "../primitives/Card";
 import { Input } from "../primitives/Input";
 import { Tabs } from "../primitives/Tabs";
-import type { AccessPolicyRequest, ClaimRule, FilterPolicyRequest, Grant, MCPRegistration } from "../../api/types";
+import type { AccessPolicyRequest, ClaimRule, FilterPolicy, FilterPolicyRequest, Grant, MCPRegistration } from "../../api/types";
 import { planUserSave, type User, type UserFieldsByEndpoint } from "../../api/users";
 import { AccessTab } from "./AccessTab";
 import { TokenMatchTab } from "./TokenMatchTab";
@@ -16,6 +16,11 @@ export type UserDetailProps = {
    * ResponseFilterGroup. */
   user: User | null;
   endpoints: MCPRegistration[];
+  /** Every real FilterPolicy in the system, not just this user's -- the
+   * Access tab's "start from an existing filter" template picker offers
+   * these (ADR-0010: clone, never link). */
+  allFilters: FilterPolicy[];
+  onGoInstances: () => void;
   onCreateAccessPolicy: (req: AccessPolicyRequest) => Promise<void>;
   onUpdateAccessPolicy: (name: string, req: AccessPolicyRequest) => Promise<void>;
   onDeleteAccessPolicy: (name: string) => Promise<void>;
@@ -84,6 +89,8 @@ function draftOf(user: User | null): Draft {
 export function UserDetail({
   user,
   endpoints,
+  allFilters,
+  onGoInstances,
   onCreateAccessPolicy,
   onUpdateAccessPolicy,
   onDeleteAccessPolicy,
@@ -110,6 +117,10 @@ export function UserDetail({
     JSON.stringify(grants) !== JSON.stringify(initial.grants) ||
     JSON.stringify(fields) !== JSON.stringify(initial.fields);
 
+  // Requiring at least one condition guards against the *dangerous*
+  // direction, not a useless one: router.ClaimMatcher with zero rules
+  // matches every token (see router/claimrule.go), so an empty match
+  // would grant this user's access to anyone, not resolve to no one.
   const canSave = name.trim() !== "" && match.length > 0 && (isNew || dirty);
 
   const tabs = [
@@ -198,6 +209,8 @@ export function UserDetail({
                 onGrantsChange={setGrants}
                 fieldsByEndpoint={fields}
                 onFieldsByEndpointChange={setFields}
+                allFilters={allFilters}
+                onGoInstances={onGoInstances}
               />
             )}
           </div>

@@ -15,9 +15,11 @@ export type UserListProps = {
 
 /** Every condition, `path ~ pattern`, AND-ed -- matches TokenMatchTab's own
  * wording so the list and the detail panel never disagree about what "no
- * conditions" means for a user. */
+ * conditions" means for a user: `router.ClaimMatcher` with zero rules
+ * matches *every* token (see router/claimrule.go), so this is a warning
+ * about being wide open, not about being unreachable. */
 function condSummary(u: User): string {
-  if (u.match.length === 0) return "no conditions — unreachable from any token";
+  if (u.match.length === 0) return "no conditions — matches every token";
   return u.match.map((r) => `${r.path} ~ ${r.pattern}`).join(" · ");
 }
 
@@ -51,7 +53,10 @@ export function UserList({ users, loading, error, onRetry, selectedName, onSelec
             )}
             {hits.map((u) => {
               const selected = u.name === selectedName;
-              const reachable = u.match.length > 0;
+              // Scoped: has at least one condition, so it only resolves for
+              // tokens that satisfy them. Unscoped (0 conditions) matches
+              // every token -- a warning state, not a broken one.
+              const scoped = u.match.length > 0;
               return (
                 <button
                   key={u.name}
@@ -62,12 +67,12 @@ export function UserList({ users, loading, error, onRetry, selectedName, onSelec
                   }`}
                 >
                   <div className="flex items-center gap-[7px] min-w-0">
-                    <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${reachable ? "bg-success" : "bg-danger"}`} />
+                    <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${scoped ? "bg-success" : "bg-danger"}`} />
                     <span className={`text-[12.5px] font-semibold truncate ${selected ? "text-accent-hover" : "text-ink"}`}>
                       {u.name}
                     </span>
                   </div>
-                  <div className={`text-[10.5px] font-mono truncate ${reachable ? (selected ? "text-subtle" : "text-muted") : "text-danger"}`}>
+                  <div className={`text-[10.5px] font-mono truncate ${scoped ? (selected ? "text-subtle" : "text-muted") : "text-danger"}`}>
                     {condSummary(u)}
                   </div>
                   <div className={`text-[10.5px] ${selected ? "text-subtle" : "text-muted"}`}>

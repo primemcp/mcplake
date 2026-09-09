@@ -40,7 +40,7 @@ describe("UsersScreen", () => {
   it("switching the selected user does not leak the previous one's edited draft", async () => {
     const user = userEvent.setup();
     stubFetch([]);
-    render(<UsersScreen />);
+    render(<UsersScreen onGoInstances={vi.fn()} />);
 
     await user.click(await screen.findByRole("button", { name: /analyst-team/ }));
     await user.clear(await screen.findByLabelText("Condition 1 regex"));
@@ -55,7 +55,7 @@ describe("UsersScreen", () => {
     const user = userEvent.setup();
     const created: AccessPolicy[] = [];
     stubFetch(created);
-    render(<UsersScreen />);
+    render(<UsersScreen onGoInstances={vi.fn()} />);
 
     await user.click(await screen.findByRole("button", { name: /Add user/ }));
     await user.type(screen.getByPlaceholderText("user name"), "readonly-team");

@@ -9,7 +9,7 @@ const memory: MCPRegistration = {
   name: "demo-memory",
   transport: "stdio",
   connect: { command: "memory" },
-  status: "connected",
+  status: "active",
   tools: {
     add_observations: {
       name: "add_observations",
@@ -21,6 +21,8 @@ const memory: MCPRegistration = {
 function baseProps() {
   return {
     endpoints: [memory],
+    allFilters: [],
+    onGoInstances: vi.fn(),
     onCreateAccessPolicy: vi.fn().mockResolvedValue(undefined),
     onUpdateAccessPolicy: vi.fn().mockResolvedValue(undefined),
     onDeleteAccessPolicy: vi.fn().mockResolvedValue(undefined),
