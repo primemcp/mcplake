@@ -71,17 +71,19 @@ describe("UserDetail", () => {
     expect(props.onSaved).toHaveBeenCalledWith("analyst-team");
   });
 
-  it("editing an existing user: Save starts disabled and the name is fixed", () => {
+  it("editing an existing user: Save starts disabled, the name isn't re-editable, and the Access tab carries its live grant count", () => {
     const existing: User = {
       name: "analyst-team",
       match: [{ path: "$.role", pattern: "^analyst$" }],
-      grants: [],
+      grants: [{ mcp: "demo-memory", tools: ["*"] }],
       filters: [],
     };
     render(<UserDetail user={existing} {...baseProps()} />);
 
-    expect(screen.getByText("analyst-team")).toBeInTheDocument();
+    // The name is shown once, in the list row on the left (per the real
+    // mockup) -- this panel doesn't repeat it as its own heading.
     expect(screen.queryByPlaceholderText("user name")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Access 1" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
   });
@@ -139,7 +141,7 @@ describe("UserDetail", () => {
     };
     render(<UserDetail user={existing} {...props} />);
 
-    await user.click(screen.getByRole("tab", { name: "Access" }));
+    await user.click(screen.getByRole("tab", { name: "Access 0" }));
     await user.click(screen.getByRole("switch", { name: "Grant demo-memory" }));
     await user.click(screen.getByRole("button", { name: /^Save/ }));
 
@@ -163,7 +165,7 @@ describe("UserDetail", () => {
     };
     render(<UserDetail user={existing} {...props} />);
 
-    await user.click(screen.getByRole("tab", { name: "Access" }));
+    await user.click(screen.getByRole("tab", { name: "Access 1" }));
     await user.click(screen.getByRole("button", { name: "Hide add_observations $.id" }));
     await user.click(screen.getByRole("button", { name: /^Save/ }));
 

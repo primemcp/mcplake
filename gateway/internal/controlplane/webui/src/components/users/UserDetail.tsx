@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "../primitives/Button";
+import { Card } from "../primitives/Card";
 import { Input } from "../primitives/Input";
 import { Tabs } from "../primitives/Tabs";
 import type { AccessPolicyRequest, ClaimRule, FilterPolicyRequest, Grant, MCPRegistration } from "../../api/types";
@@ -39,11 +40,6 @@ function draftOf(user: User | null): Draft {
   return { name: user?.name ?? "", match: user?.match ?? [], grants: user?.grants ?? [], fields: fieldsFromUser(user) };
 }
 
-const TABS = [
-  { id: "match", label: "Token match" },
-  { id: "access", label: "Access" },
-];
-
 /**
  * Tab container + the sticky Save/Discard model the mockup's detail panel
  * uses: every edit (across both tabs) is local draft state until Save,
@@ -60,8 +56,30 @@ const TABS = [
  * every save, so a user's response filters always apply under the same
  * conditions their access grant does).
  *
- * Request path is issue #81's tab, not built here -- #80's own scope says
- * so explicitly ("this task covers the first two [tabs]").
+ * Header layout matches the real mockup source exactly (fetched via
+ * DesignSync, not guessed): one row -- tab bar (Access's label carries its
+ * live grant count, e.g. "Access 2"), a short hint for whichever tab is
+ * active, a spacer, then the panel's primary action on the right. The
+ * user's name is NOT repeated as a heading here -- the mockup shows it
+ * only once, in the list row on the left.
+ *
+ * Two disclosed deviations from that same mockup, both already decided
+ * earlier: the mockup's right-side action is an Enabled/Disabled toggle
+ * (soft-disable, `user.disabled`) -- there's no such flag on the real
+ * `AccessPolicy`, and faking it via delete would destroy grants/filters,
+ * so this ships a real "Delete user" button instead. And the mockup's
+ * match-status pill (next to that toggle, "Token matches" / "Token does
+ * not match") depends on a decoded-JWT preview this task doesn't build
+ * (issue #81 owns that) -- omitted along with the preview it describes.
+ * The plain tab hint text is static in the mockup (doesn't depend on that
+ * preview), so both tabs' hints are reproduced verbatim.
+ *
+ * Request path is issue #81's own tab, not built here -- #80's own scope
+ * says so explicitly ("this task covers the first two [tabs]"). The
+ * mockup's actual "new user" flow is a compact 3-field inline form in the
+ * left list (name, claim path, regex) rather than a full draft through
+ * this panel -- reusing this panel's tabs for `isNew` instead is a
+ * simplification, not yet re-verified against that flow.
  */
 export function UserDetail({
   user,
@@ -93,6 +111,15 @@ export function UserDetail({
     JSON.stringify(fields) !== JSON.stringify(initial.fields);
 
   const canSave = name.trim() !== "" && match.length > 0 && (isNew || dirty);
+
+  const tabs = [
+    { id: "match", label: "Token match" },
+    { id: "access", label: `Access ${grants.length}` },
+  ];
+  const tabHint =
+    tab === "access"
+      ? "one grant per endpoint · a filter belongs to exactly one endpoint"
+      : "JSONPath + regex · all conditions must pass (AND)";
 
   const discard = () => {
     setName(initial.name);
@@ -144,32 +171,37 @@ export function UserDetail({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-4">
-        <div className="flex items-center gap-2.5">
-          {isNew ? (
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="user name" className="flex-1" />
-          ) : (
-            <h2 className="m-0 text-base font-semibold tracking-tight">{name}</h2>
-          )}
-          {!isNew && (
-            <Button variant="danger" onClick={remove} disabled={deleting} className="ml-auto">
-              Delete user
-            </Button>
-          )}
-        </div>
-
-        <Tabs tabs={TABS} activeId={tab} onChange={setTab} />
-
-        {tab === "match" ? (
-          <TokenMatchTab match={match} onChange={setMatch} />
-        ) : (
-          <AccessTab
-            endpoints={endpoints}
-            grants={grants}
-            onGrantsChange={setGrants}
-            fieldsByEndpoint={fields}
-            onFieldsByEndpointChange={setFields}
-          />
+        {isNew && (
+          <Card className="p-3">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="user name" />
+          </Card>
         )}
+
+        <Card className="overflow-hidden">
+          <div className="p-[11px_16px] border-b border-border-soft flex flex-wrap items-center gap-[8px_12px]">
+            <Tabs tabs={tabs} activeId={tab} onChange={setTab} />
+            <div className="text-[11.5px] text-muted min-w-0">{tabHint}</div>
+            <span className="flex-1" />
+            {!isNew && (
+              <Button variant="danger" onClick={remove} disabled={deleting}>
+                Delete user
+              </Button>
+            )}
+          </div>
+          <div className="p-4">
+            {tab === "match" ? (
+              <TokenMatchTab match={match} onChange={setMatch} />
+            ) : (
+              <AccessTab
+                endpoints={endpoints}
+                grants={grants}
+                onGrantsChange={setGrants}
+                fieldsByEndpoint={fields}
+                onFieldsByEndpointChange={setFields}
+              />
+            )}
+          </div>
+        </Card>
 
         {error && <p className="text-[10.5px] text-danger">{error}</p>}
       </div>
