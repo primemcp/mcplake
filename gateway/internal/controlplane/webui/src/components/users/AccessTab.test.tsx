@@ -217,9 +217,10 @@ describe("AccessTab", () => {
     expect(within(step2).queryByText(/delete_entities/)).not.toBeInTheDocument();
   });
 
-  it("step 2 shows no filter section at all until at least one endpoint is granted", () => {
+  it("step 2 is always visible (the mockup's own 2-column layout), showing a hint instead of a filter card until an endpoint is granted", () => {
     render(<AccessTab endpoints={[memory]} grants={[]} fieldsByEndpoint={{}} {...baseProps()} />);
-    expect(screen.queryByText(/Response filters/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Response filters/)).toBeInTheDocument();
+    expect(screen.getByText("Select one or more endpoints.")).toBeInTheDocument();
   });
 
   it("dropping a field in step 2 reports the per-endpoint field selection", async () => {

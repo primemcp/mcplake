@@ -179,16 +179,25 @@ export function UserDetail({
     }
   };
 
+  // The Access tab's Step 1 / Step 2 columns scroll internally (see
+  // AccessTab) -- matches the mockup, where the whole detail card grows
+  // to fill the panel (flex: 1 1 auto) only on that tab, instead of the
+  // page itself scrolling. Token match stays a normal, page-scrolling
+  // panel since it never needs its own internal scroll region.
+  const isAccessTab = tab === "access";
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-4">
+      <div
+        className={`flex-1 min-h-0 flex flex-col gap-4 p-5 ${isAccessTab ? "overflow-hidden" : "overflow-y-auto"}`}
+      >
         {isNew && (
-          <Card className="p-3">
+          <Card className="p-3 shrink-0">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="user name" />
           </Card>
         )}
 
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden shrink-0">
           <div className="p-[11px_16px] border-b border-border-soft flex flex-wrap items-center gap-[8px_12px]">
             <Tabs tabs={tabs} activeId={tab} onChange={setTab} />
             <div className="text-[11.5px] text-muted min-w-0">{tabHint}</div>
@@ -199,24 +208,28 @@ export function UserDetail({
               </Button>
             )}
           </div>
-          <div className="p-4">
-            {tab === "match" ? (
+          {!isAccessTab && (
+            <div className="p-4">
               <TokenMatchTab match={match} onChange={setMatch} />
-            ) : (
-              <AccessTab
-                endpoints={endpoints}
-                grants={grants}
-                onGrantsChange={setGrants}
-                fieldsByEndpoint={fields}
-                onFieldsByEndpointChange={setFields}
-                allFilters={allFilters}
-                onGoInstances={onGoInstances}
-              />
-            )}
-          </div>
+            </div>
+          )}
         </Card>
 
-        {error && <p className="text-[10.5px] text-danger">{error}</p>}
+        {isAccessTab && (
+          <Card className="flex-1 min-h-0 overflow-hidden p-4">
+            <AccessTab
+              endpoints={endpoints}
+              grants={grants}
+              onGrantsChange={setGrants}
+              fieldsByEndpoint={fields}
+              onFieldsByEndpointChange={setFields}
+              allFilters={allFilters}
+              onGoInstances={onGoInstances}
+            />
+          </Card>
+        )}
+
+        {error && <p className="text-[10.5px] text-danger shrink-0">{error}</p>}
       </div>
 
       <div className="shrink-0 p-3.5 border-t border-border bg-surface flex items-center gap-2">

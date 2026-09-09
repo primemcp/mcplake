@@ -166,9 +166,17 @@ export function AccessTab({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
+    <div className="h-full min-h-0 grid grid-cols-2 gap-px bg-border-soft border border-border-soft rounded-lg overflow-hidden">
+      {/* Step 1's own header/filters/search stay put -- only the endpoint
+          list below them scrolls, matching the mockup's own nested
+          overflow-y-auto around just its `epCards` list, not the whole
+          column. Step 2 (the other grid column) scrolls as one unit
+          instead, also per the mockup. Both are independent regions, not
+          one page-level scroll -- the ask this replaces (a single long
+          page) came from an earlier stacked-sections layout that never
+          matched the mockup's actual 2-column grid. */}
+      <section className="bg-surface p-3.5 flex flex-col gap-2 min-h-0 overflow-hidden border-t-[3px] border-accent">
+        <div className="flex items-center gap-2 shrink-0">
           <span className="w-[18px] h-[18px] rounded-full bg-well grid place-items-center text-[10.5px] font-bold font-mono text-body">
             1
           </span>
@@ -184,7 +192,7 @@ export function AccessTab({
           </button>
         </div>
 
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap shrink-0">
           {connTabs.map((t) => (
             <button
               key={t.id}
@@ -199,13 +207,15 @@ export function AccessTab({
           ))}
         </div>
 
-        <SearchInput value={epQuery} onChange={setEpQuery} placeholder="Search endpoints, URLs" />
+        <div className="shrink-0">
+          <SearchInput value={epQuery} onChange={setEpQuery} placeholder="Search endpoints, URLs" />
+        </div>
 
         {filteredEndpoints.length === 0 && (
-          <p className="text-[11px] text-muted px-1">No endpoint matches that.</p>
+          <p className="text-[11px] text-muted px-1 shrink-0">No endpoint matches that.</p>
         )}
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5">
           {filteredEndpoints.map((endpoint) => {
             const grant = grants.find((g) => g.mcp === endpoint.name);
             const granted = grant !== undefined;
@@ -292,14 +302,16 @@ export function AccessTab({
         </div>
       </section>
 
-      {grantedEndpoints.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-[18px] h-[18px] rounded-full bg-well grid place-items-center text-[10.5px] font-bold font-mono text-body">
-              2
-            </span>
-            <span className="text-[12px] font-semibold">Response filters</span>
-          </div>
+      <section className="bg-surface p-3.5 flex flex-col gap-2 min-h-0 overflow-y-auto border-t-[3px] border-line">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="w-[18px] h-[18px] rounded-full bg-well grid place-items-center text-[10.5px] font-bold font-mono text-body">
+            2
+          </span>
+          <span className="text-[12px] font-semibold">Response filters</span>
+        </div>
+        {grantedEndpoints.length === 0 ? (
+          <p className="text-[11px] text-muted">Select one or more endpoints.</p>
+        ) : (
           <div className="flex flex-col gap-2.5">
             {grantedEndpoints.map((endpoint) => {
               const grant = grants.find((g) => g.mcp === endpoint.name)!;
@@ -358,8 +370,8 @@ export function AccessTab({
               );
             })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }
