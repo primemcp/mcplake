@@ -38,3 +38,8 @@ globalThis.DOMMatrixReadOnly ??= DOMMatrixReadOnlyStub as unknown as typeof DOMM
 // state, and no edges get drawn between them, without this.
 Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, value: 150 });
 Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, value: 46 });
+
+// jsdom doesn't implement scrollIntoView at all (no layout engine to
+// scroll) -- SchemaTree calls it to bring a search match into view, so
+// without a stub every test that types into its search box would throw.
+Element.prototype.scrollIntoView ??= () => {};

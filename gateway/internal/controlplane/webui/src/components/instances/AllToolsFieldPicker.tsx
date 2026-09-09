@@ -13,7 +13,7 @@ import type { FieldsByTool } from "../../lib/filterGroups";
 import { Modal } from "../primitives/Modal";
 import { SearchInput } from "../primitives/SearchInput";
 import type { ToolSchema } from "../../api/types";
-import { SchemaGraph } from "./SchemaGraph";
+import { SchemaExplorer } from "./SchemaExplorer";
 
 type Row = SchemaField & { tool: string };
 
@@ -228,7 +228,13 @@ export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllTools
           share a bare path like "$.id". */}
       <Modal open={graphTool !== null} onClose={() => setGraphTool(null)} title="Schema graph" size="wide">
         {graphTool && (
-          <SchemaGraph
+          <SchemaExplorer
+            // Remounts (back to the default Graph view) when a different
+            // tool's schema is opened -- otherwise switching tools would
+            // leak "still on the Tree tab" state across an unrelated
+            // schema, the same class of leak fixed elsewhere in this app
+            // by keying on whatever's selected.
+            key={graphTool}
             rows={rows.filter((r) => r.tool === graphTool)}
             selected={dropped.map(parseKey).filter(([tool]) => tool === graphTool).map(([, path]) => path)}
             onToggle={(path) => toggle(graphTool, path)}
