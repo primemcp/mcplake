@@ -76,7 +76,16 @@ export function UsersScreen({ onGoInstances }: UsersScreenProps) {
           onAddNew={() => setSelection({ kind: "new" })}
         />
 
-        <div className="flex-1 min-w-0 overflow-y-auto">
+        {/* min-h-0 is load-bearing here: without it, a flex row's cross-axis
+            item defaults to min-height:auto (its content's natural height),
+            so UserDetail could stretch this wrapper taller than the
+            available row height instead of ever being bounded by it. That
+            starves AccessTab's own internal scroll regions (Step 1/Step 2)
+            of a fixed height to scroll *within*, so this outer div's own
+            overflow-y-auto ends up swallowing everything as one long
+            scroll instead -- exactly the "MCP endpoints doesn't scroll"
+            symptom this fixes. */}
+        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
           {error ? (
             <div className="p-5">
               <ErrorNotice onRetry={retry} />

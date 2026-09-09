@@ -168,6 +168,7 @@ describe("UserDetail", () => {
     render(<UserDetail user={existing} {...props} />);
 
     await user.click(screen.getByRole("tab", { name: "Access 1" }));
+    await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Hide add_observations $.id" }));
     await user.click(screen.getByRole("button", { name: /^Save/ }));
 

@@ -200,7 +200,8 @@ describe("AccessTab", () => {
     expect(screen.getByRole("checkbox", { name: "delete_entities" })).not.toBeChecked();
   });
 
-  it("step 2 only shows a filter card for granted endpoints, scoped to their granted tools", () => {
+  it("step 2 only shows a filter card for granted endpoints, scoped to their granted tools", async () => {
+    const user = userEvent.setup();
     render(
       <AccessTab
         endpoints={[memory, analytics]}
@@ -213,6 +214,9 @@ describe("AccessTab", () => {
     const step2 = screen.getByText(/Response filters/).closest("section")!;
     expect(within(step2).getByRole("button", { name: /demo-memory/ })).toBeInTheDocument();
     expect(within(step2).queryByRole("button", { name: /^analytics/ })).not.toBeInTheDocument();
+
+    await user.click(within(step2).getByRole("button", { name: "Edit" }));
+
     expect(within(step2).getByText("$.results")).toBeInTheDocument();
     expect(within(step2).queryByText(/delete_entities/)).not.toBeInTheDocument();
   });
@@ -223,6 +227,59 @@ describe("AccessTab", () => {
     expect(screen.getByText("Select one or more endpoints.")).toBeInTheDocument();
   });
 
+  it("a granted endpoint's filter card starts collapsed to a one-line summary, not the full picker", () => {
+    render(
+      <AccessTab
+        endpoints={[memory]}
+        grants={[{ mcp: "demo-memory", tools: ["*"] }]}
+        fieldsByEndpoint={{ "demo-memory": { add_observations: ["$.results"] } }}
+        {...baseProps()}
+      />,
+    );
+
+    expect(screen.getByText("add_observations: $.results removed")).toBeInTheDocument();
+    expect(screen.queryByText("Discovered response fields")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("the single step 2 search box (shown once there's enough to search) narrows across every granted endpoint's filters at once", async () => {
+    const user = userEvent.setup();
+    const thirdEndpoint: MCPRegistration = {
+      name: "third",
+      transport: "stdio",
+      connect: { command: "third" },
+      status: "active",
+      tools: { do_thing: { name: "do_thing", output_schema: { type: "object", properties: { x: { type: "string" } } } } },
+    };
+    const fourthEndpoint: MCPRegistration = {
+      name: "fourth",
+      transport: "stdio",
+      connect: { command: "fourth" },
+      status: "active",
+      tools: { do_other: { name: "do_other", output_schema: { type: "object", properties: { y: { type: "string" } } } } },
+    };
+    render(
+      <AccessTab
+        endpoints={[memory, analytics, thirdEndpoint, fourthEndpoint]}
+        grants={[
+          { mcp: "demo-memory", tools: ["*"] },
+          { mcp: "analytics", tools: ["*"] },
+          { mcp: "third", tools: ["*"] },
+          { mcp: "fourth", tools: ["*"] },
+        ]}
+        fieldsByEndpoint={{}}
+        {...baseProps()}
+      />,
+    );
+
+    await user.type(screen.getByPlaceholderText("Search filters or fields"), "third");
+
+    const step2 = screen.getByText(/Response filters/).closest("section")!;
+    expect(within(step2).getByRole("button", { name: /third/ })).toBeInTheDocument();
+    expect(within(step2).queryByRole("button", { name: /demo-memory/ })).not.toBeInTheDocument();
+    expect(within(step2).queryByRole("button", { name: /^fourth/ })).not.toBeInTheDocument();
+  });
+
   it("dropping a field in step 2 reports the per-endpoint field selection", async () => {
     const user = userEvent.setup();
     const props = baseProps();
@@ -230,6 +287,7 @@ describe("AccessTab", () => {
       <AccessTab endpoints={[memory]} grants={[{ mcp: "demo-memory", tools: ["*"] }]} fieldsByEndpoint={{}} {...props} />,
     );
 
+    await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Hide add_observations $.results" }));
 
     expect(props.onFieldsByEndpointChange).toHaveBeenCalledWith({ "demo-memory": { add_observations: ["$.results"] } });
@@ -253,6 +311,7 @@ describe("AccessTab", () => {
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Start from an existing filter on demo-memory" }),
       template.name,

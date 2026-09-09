@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "../primitives/Button";
 import { Card } from "../primitives/Card";
 import { SearchInput } from "../primitives/SearchInput";
 import { statusFromString } from "../primitives/StatusDot";
@@ -41,6 +42,17 @@ function matchesQuery(endpoint: MCPRegistration, query: string): boolean {
   return haystack.includes(q);
 }
 
+/** One line per dropped field, tool-prefixed -- matches ResponseFilterGroup's
+ * own groupSummary on the MCP connections screen, so the same data reads
+ * the same way in both places. */
+function fieldSummary(fields: FieldsByTool): string {
+  const dropped = Object.entries(fields).flatMap(([tool, paths]) => paths.map((p) => `${tool}: ${p}`));
+  if (dropped.length === 0) return "full response";
+  const shown = dropped.slice(0, 3).join(" · ");
+  const rest = dropped.length > 3 ? ` +${dropped.length - 3}` : "";
+  return `${shown}${rest} removed`;
+}
+
 /**
  * Step 1 (endpoint picker) and step 2 (per-endpoint response filters) of
  * the mockup's Access tab. Purely controlled -- this owns no save state of
@@ -66,13 +78,17 @@ function matchesQuery(endpoint: MCPRegistration, query: string): boolean {
  *   working capability just to match a simplified reference would be a
  *   regression, not a fidelity fix.
  *
- * Step 2 reuses AllToolsFieldPicker exactly as the MCP connections screen
- * does (see ResponseFilterGroup), scoped to whichever tools the grant
- * covers. The mockup's Step 2 lets you pick from a shared pool of
- * existing filters -- the real backend has no such pool (a FilterPolicy
- * belongs to no one but itself; see ADR-0010), so "start from an existing
- * filter" here clones another filter's `drop_fields` as a one-time
- * starting point instead of a live link.
+ * Step 2 mirrors ResponseFilterGroup's own collapsed-row/Edit-to-expand
+ * pattern (MCP connections screen) rather than always showing every
+ * picker wide open: one search box across every granted endpoint's
+ * filters (the mockup has exactly one, not one per endpoint), a
+ * one-line summary + "Edit" per endpoint, and AllToolsFieldPicker only
+ * mounted for whichever one is being edited. The mockup's Step 2 lets
+ * you pick from a shared pool of existing filters -- the real backend
+ * has no such pool (a FilterPolicy belongs to no one but itself; see
+ * ADR-0010), so "start from an existing filter" (inside the Edit form)
+ * clones another filter's `drop_fields` as a one-time starting point
+ * instead of a live link.
  */
 export function AccessTab({
   endpoints,
@@ -85,6 +101,12 @@ export function AccessTab({
 }: AccessTabProps) {
   const [epQuery, setEpQuery] = useState("");
   const [connFilter, setConnFilter] = useState<ConnFilter>("all");
+  const [filQuery, setFilQuery] = useState("");
+  // Which granted endpoint's field picker is currently expanded -- only
+  // one at a time, matching ResponseFilterGroup's own editingId pattern on
+  // the MCP connections screen. Collapsed rows just show a summary + Edit,
+  // not the full picker, so step 2 stays scannable with several grants.
+  const [editingMcp, setEditingMcp] = useState<string | null>(null);
   // Bumped per endpoint whenever a template is applied, forced into
   // AllToolsFieldPicker's key -- its `initial` prop is only ever read on
   // mount, so picking a template (which changes fieldsByEndpoint out from
@@ -226,7 +248,7 @@ export function AccessTab({
             const filterCount = allFilters.filter((f) => f.mcp === endpoint.name).length;
 
             return (
-              <Card key={endpoint.name} className="overflow-hidden">
+              <Card key={endpoint.name} className="shrink-0 overflow-hidden">
                 <div className={`flex items-center gap-1 p-[10px_12px] ${granted ? "bg-select-soft" : "bg-surface"}`}>
                   <button
                     type="button"
@@ -308,68 +330,137 @@ export function AccessTab({
             2
           </span>
           <span className="text-[12px] font-semibold">Response filters</span>
+          <span className="flex-1" />
+          {grantedEndpoints.length > 0 && (
+            <span className="text-[10.5px] text-muted">
+              {grantedEndpoints.length} {grantedEndpoints.length === 1 ? "endpoint" : "endpoints"}
+            </span>
+          )}
         </div>
+
+        {grantedEndpoints.length > 3 && (
+          <div className="shrink-0">
+            <SearchInput value={filQuery} onChange={setFilQuery} placeholder="Search filters or fields" />
+          </div>
+        )}
+
         {grantedEndpoints.length === 0 ? (
           <p className="text-[11px] text-muted">Select one or more endpoints.</p>
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {grantedEndpoints.map((endpoint) => {
-              const grant = grants.find((g) => g.mcp === endpoint.name)!;
-              const scopedTools = toolsForGrant(endpoint, grant);
-              const templates = allFilters.filter(
-                (f) => f.mcp === endpoint.name && Object.keys(scopedTools).includes(f.tool),
-              );
+          (() => {
+            const visible = grantedEndpoints.filter((e) => {
+              const q = filQuery.trim().toLowerCase();
+              if (q === "") return true;
+              const fields = fieldsByEndpoint[e.name] ?? {};
+              return `${e.name} ${fieldSummary(fields)}`.toLowerCase().includes(q);
+            });
+            if (visible.length === 0) {
+              return <p className="text-[11px] text-muted">No filter matches that.</p>;
+            }
+            return (
+              <div className="shrink-0 flex flex-col gap-2">
+                {visible.map((endpoint) => {
+                  const grant = grants.find((g) => g.mcp === endpoint.name)!;
+                  const scopedTools = toolsForGrant(endpoint, grant);
+                  const fields = fieldsByEndpoint[endpoint.name] ?? {};
+                  const hasDropped = Object.values(fields).some((paths) => paths.length > 0);
+                  const templates = allFilters.filter(
+                    (f) => f.mcp === endpoint.name && Object.keys(scopedTools).includes(f.tool),
+                  );
+                  const isEditing = editingMcp === endpoint.name;
 
-              return (
-                <Card key={endpoint.name} className="p-3 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-well text-muted shrink-0">
-                      {endpoint.transport}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={onGoInstances}
-                      className="text-[12px] font-semibold text-accent border-0 bg-transparent p-0 cursor-pointer truncate text-left hover:underline"
-                    >
-                      <span>{endpoint.name}</span> ↗
-                    </button>
-                  </div>
+                  return (
+                    <Card key={endpoint.name} className="shrink-0 overflow-hidden">
+                      {isEditing ? (
+                        <div className="p-3 flex flex-col gap-2 border border-accent rounded-lg bg-form-soft">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-well text-muted shrink-0">
+                              {endpoint.transport}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={onGoInstances}
+                              className="text-[12px] font-semibold text-accent border-0 bg-transparent p-0 cursor-pointer truncate text-left hover:underline"
+                            >
+                              <span>{endpoint.name}</span> ↗
+                            </button>
+                          </div>
 
-                  {templates.length > 0 && (
-                    <label className="flex items-center gap-2 text-[10.5px] text-muted">
-                      Start from
-                      <select
-                        aria-label={`Start from an existing filter on ${endpoint.name}`}
-                        value=""
-                        onChange={(e) => {
-                          const src = templates.find((f) => f.name === e.target.value);
-                          if (src) applyTemplate(endpoint.name, src);
-                        }}
-                        className="flex-1 min-w-0 border border-border rounded-md bg-surface text-[10.5px] py-1 px-1.5"
-                      >
-                        <option value="" disabled>
-                          an existing filter…
-                        </option>
-                        {templates.map((f) => (
-                          <option key={f.name} value={f.name}>
-                            {f.name} · {f.tool} · {f.drop_fields.length} fields
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
+                          {templates.length > 0 && (
+                            <label className="flex items-center gap-2 text-[10.5px] text-muted">
+                              Start from
+                              <select
+                                aria-label={`Start from an existing filter on ${endpoint.name}`}
+                                value=""
+                                onChange={(e) => {
+                                  const src = templates.find((f) => f.name === e.target.value);
+                                  if (src) applyTemplate(endpoint.name, src);
+                                }}
+                                className="flex-1 min-w-0 border border-border rounded-md bg-surface text-[10.5px] py-1 px-1.5"
+                              >
+                                <option value="" disabled>
+                                  an existing filter…
+                                </option>
+                                {templates.map((f) => (
+                                  <option key={f.name} value={f.name}>
+                                    {f.name} · {f.tool} · {f.drop_fields.length} fields
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
 
-                  <AllToolsFieldPicker
-                    key={templateBump[endpoint.name] ?? 0}
-                    tools={scopedTools}
-                    initial={fieldsByEndpoint[endpoint.name] ?? {}}
-                    onChange={(fields) => setEndpointFields(endpoint.name, fields)}
-                    meta={endpoint.name}
-                  />
-                </Card>
-              );
-            })}
-          </div>
+                          <AllToolsFieldPicker
+                            key={templateBump[endpoint.name] ?? 0}
+                            tools={scopedTools}
+                            initial={fields}
+                            onChange={(next) => setEndpointFields(endpoint.name, next)}
+                            meta={endpoint.name}
+                          />
+
+                          <Button onClick={() => setEditingMcp(null)} className="self-start">
+                            Done
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="p-2.5 flex items-center gap-2.5">
+                          <span
+                            className={`w-4 h-4 rounded border grid place-items-center text-[10px] font-bold text-white shrink-0 ${
+                              hasDropped ? "bg-accent border-accent" : "bg-white border-line"
+                            }`}
+                          >
+                            {hasDropped ? "✓" : ""}
+                          </span>
+                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-well text-muted shrink-0">
+                                {endpoint.transport}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={onGoInstances}
+                                className="text-[12px] font-semibold text-accent border-0 bg-transparent p-0 cursor-pointer truncate text-left hover:underline"
+                              >
+                                <span>{endpoint.name}</span> ↗
+                              </button>
+                            </div>
+                            <div className="text-[10.5px] font-mono text-subtle truncate">{fieldSummary(fields)}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditingMcp(endpoint.name)}
+                            className="shrink-0 border border-border rounded-md bg-surface px-2 py-1 cursor-pointer text-[10.5px] font-medium text-body hover:border-accent hover:text-accent"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          })()
         )}
       </section>
     </div>
