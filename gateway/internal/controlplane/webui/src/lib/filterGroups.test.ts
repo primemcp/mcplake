@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupFilters, planGroupSave } from "./filterGroups";
+import { groupFilters, planGroupSave, stripGroupPrefix } from "./filterGroups";
 import type { FilterPolicy } from "../api/types";
 
 function policy(overrides: Partial<FilterPolicy>): FilterPolicy {
@@ -54,6 +54,16 @@ describe("groupFilters", () => {
       policy({ name: "b::t2", tool: "t2" }),
     ];
     expect(groupFilters(filters).map((g) => g.id)).toEqual(["b", "a"]);
+  });
+});
+
+describe("stripGroupPrefix", () => {
+  it("strips a confirmed '<prefix>::' segment", () => {
+    expect(stripGroupPrefix("alice::billing::get_user", "alice")).toBe("billing::get_user");
+  });
+
+  it("returns the name unchanged when it doesn't actually start with that prefix", () => {
+    expect(stripGroupPrefix("bob::get_user", "alice")).toBe("bob::get_user");
   });
 });
 

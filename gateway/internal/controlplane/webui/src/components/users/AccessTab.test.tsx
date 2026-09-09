@@ -1,9 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { FilterPolicy, Grant, MCPRegistration } from "../../api/types";
-import type { UserFieldsByEndpoint } from "../../api/users";
+import type { FilterPolicy, MCPRegistration } from "../../api/types";
 import { AccessTab } from "./AccessTab";
 
 const memory: MCPRegistration = {
@@ -39,46 +37,24 @@ const notConnected: MCPRegistration = {
 function baseProps() {
   return {
     onGrantsChange: vi.fn(),
-    onFieldsByEndpointChange: vi.fn(),
     allFilters: [] as FilterPolicy[],
     onGoInstances: vi.fn(),
+    userName: "alice" as string | null,
+    userMatch: [{ path: "$.role", pattern: "^analyst$" }],
+    onCreateFilter: vi.fn().mockResolvedValue(undefined),
+    onUpdateFilter: vi.fn().mockResolvedValue(undefined),
+    onDeleteFilter: vi.fn().mockResolvedValue(undefined),
   };
-}
-
-function StatefulAccessTab({
-  endpoints,
-  initialGrants,
-  initialFields,
-  allFilters,
-}: {
-  endpoints: MCPRegistration[];
-  initialGrants: Grant[];
-  initialFields: UserFieldsByEndpoint;
-  allFilters?: FilterPolicy[];
-}) {
-  const [grants, setGrants] = useState(initialGrants);
-  const [fieldsByEndpoint, setFieldsByEndpoint] = useState(initialFields);
-  return (
-    <AccessTab
-      endpoints={endpoints}
-      grants={grants}
-      onGrantsChange={setGrants}
-      fieldsByEndpoint={fieldsByEndpoint}
-      onFieldsByEndpointChange={setFieldsByEndpoint}
-      allFilters={allFilters ?? []}
-      onGoInstances={vi.fn()}
-    />
-  );
 }
 
 describe("AccessTab", () => {
   it("shows an empty state when there are no endpoints to grant", () => {
-    render(<AccessTab endpoints={[]} grants={[]} fieldsByEndpoint={{}} {...baseProps()} />);
+    render(<AccessTab endpoints={[]} grants={[]} {...baseProps()} />);
     expect(screen.getByText(/No MCP connections/)).toBeInTheDocument();
   });
 
   it("lists every endpoint in step 1, ungranted by default", () => {
-    render(<AccessTab endpoints={[memory, analytics]} grants={[]} fieldsByEndpoint={{}} {...baseProps()} />);
+    render(<AccessTab endpoints={[memory, analytics]} grants={[]} {...baseProps()} />);
     expect(screen.getByRole("switch", { name: "Grant demo-memory" })).toHaveAttribute("aria-checked", "false");
     expect(screen.getByRole("switch", { name: "Grant analytics" })).toHaveAttribute("aria-checked", "false");
   });
@@ -86,7 +62,7 @@ describe("AccessTab", () => {
   it("granting a connected endpoint adds a wildcard grant", async () => {
     const user = userEvent.setup();
     const props = baseProps();
-    render(<AccessTab endpoints={[memory]} grants={[]} fieldsByEndpoint={{}} {...props} />);
+    render(<AccessTab endpoints={[memory]} grants={[]} {...props} />);
 
     await user.click(screen.getByRole("switch", { name: "Grant demo-memory" }));
 
@@ -96,7 +72,7 @@ describe("AccessTab", () => {
   it("a not-connected endpoint can't be granted", async () => {
     const user = userEvent.setup();
     const props = baseProps();
-    render(<AccessTab endpoints={[notConnected]} grants={[]} fieldsByEndpoint={{}} {...props} />);
+    render(<AccessTab endpoints={[notConnected]} grants={[]} {...props} />);
 
     const row = screen.getByRole("switch", { name: "Grant flaky-mcp" });
     expect(row).toBeDisabled();
@@ -104,27 +80,19 @@ describe("AccessTab", () => {
     expect(props.onGrantsChange).not.toHaveBeenCalled();
   });
 
-  it("revoking an endpoint removes its grant and its saved field selection", async () => {
+  it("revoking an endpoint removes its grant", async () => {
     const user = userEvent.setup();
     const props = baseProps();
-    render(
-      <AccessTab
-        endpoints={[memory]}
-        grants={[{ mcp: "demo-memory", tools: ["*"] }]}
-        fieldsByEndpoint={{ "demo-memory": { add_observations: ["$.results"] } }}
-        {...props}
-      />,
-    );
+    render(<AccessTab endpoints={[memory]} grants={[{ mcp: "demo-memory", tools: ["*"] }]} {...props} />);
 
     await user.click(screen.getByRole("switch", { name: "Grant demo-memory" }));
 
     expect(props.onGrantsChange).toHaveBeenCalledWith([]);
-    expect(props.onFieldsByEndpointChange).toHaveBeenCalledWith({});
   });
 
   it("search narrows step 1 to matching endpoints", async () => {
     const user = userEvent.setup();
-    render(<AccessTab endpoints={[memory, analytics]} grants={[]} fieldsByEndpoint={{}} {...baseProps()} />);
+    render(<AccessTab endpoints={[memory, analytics]} grants={[]} {...baseProps()} />);
 
     await user.type(screen.getByPlaceholderText(/Search endpoints/), "analytics");
 
@@ -135,12 +103,7 @@ describe("AccessTab", () => {
   it("the Granted filter pill narrows step 1 to only granted endpoints", async () => {
     const user = userEvent.setup();
     render(
-      <AccessTab
-        endpoints={[memory, analytics]}
-        grants={[{ mcp: "demo-memory", tools: ["*"] }]}
-        fieldsByEndpoint={{}}
-        {...baseProps()}
-      />,
+      <AccessTab endpoints={[memory, analytics]} grants={[{ mcp: "demo-memory", tools: ["*"] }]} {...baseProps()} />,
     );
 
     await user.click(screen.getByRole("button", { name: /^Granted/ }));
@@ -152,7 +115,7 @@ describe("AccessTab", () => {
   it("Select all grants every connected endpoint currently shown, skipping ones that can't connect", async () => {
     const user = userEvent.setup();
     const props = baseProps();
-    render(<AccessTab endpoints={[memory, analytics, notConnected]} grants={[]} fieldsByEndpoint={{}} {...props} />);
+    render(<AccessTab endpoints={[memory, analytics, notConnected]} grants={[]} {...props} />);
 
     await user.click(screen.getByRole("button", { name: "Select all" }));
 
@@ -165,7 +128,7 @@ describe("AccessTab", () => {
   it("opening in MCP connections calls onGoInstances without toggling the grant", async () => {
     const user = userEvent.setup();
     const props = baseProps();
-    render(<AccessTab endpoints={[memory]} grants={[]} fieldsByEndpoint={{}} {...props} />);
+    render(<AccessTab endpoints={[memory]} grants={[]} {...props} />);
 
     await user.click(screen.getByRole("button", { name: "Open demo-memory in MCP connections" }));
 
@@ -175,12 +138,7 @@ describe("AccessTab", () => {
 
   it("a granted endpoint defaults to all tools and lists them for narrowing", () => {
     render(
-      <AccessTab
-        endpoints={[memory]}
-        grants={[{ mcp: "demo-memory", tools: ["*"] }]}
-        fieldsByEndpoint={{}}
-        {...baseProps()}
-      />,
+      <AccessTab endpoints={[memory]} grants={[{ mcp: "demo-memory", tools: ["*"] }]} {...baseProps()} />,
     );
     expect(screen.getByRole("switch", { name: "All tools for demo-memory" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("checkbox", { name: "add_observations" })).toBeChecked();
@@ -189,134 +147,198 @@ describe("AccessTab", () => {
 
   it("turning off All tools then unchecking one tool narrows the grant", async () => {
     const user = userEvent.setup();
-    render(
-      <StatefulAccessTab endpoints={[memory]} initialGrants={[{ mcp: "demo-memory", tools: ["*"] }]} initialFields={{}} />,
+    const props = baseProps();
+    const { rerender } = render(
+      <AccessTab endpoints={[memory]} grants={[{ mcp: "demo-memory", tools: ["*"] }]} {...props} />,
     );
 
     await user.click(screen.getByRole("switch", { name: "All tools for demo-memory" }));
+    const afterAllOff = props.onGrantsChange.mock.calls.at(-1)![0];
+    rerender(<AccessTab endpoints={[memory]} grants={afterAllOff} {...props} />);
+
     await user.click(screen.getByRole("checkbox", { name: "delete_entities" }));
+    const afterUncheck = props.onGrantsChange.mock.calls.at(-1)![0];
+    rerender(<AccessTab endpoints={[memory]} grants={afterUncheck} {...props} />);
 
     expect(screen.getByRole("checkbox", { name: "add_observations" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "delete_entities" })).not.toBeChecked();
   });
 
-  it("step 2 only shows a filter card for granted endpoints, scoped to their granted tools", async () => {
-    const user = userEvent.setup();
-    render(
-      <AccessTab
-        endpoints={[memory, analytics]}
-        grants={[{ mcp: "demo-memory", tools: ["add_observations"] }]}
-        fieldsByEndpoint={{}}
-        {...baseProps()}
-      />,
-    );
+  describe("step 2 -- response filters", () => {
+    it("is always visible (the mockup's own 2-column layout), showing a hint until an endpoint is granted", () => {
+      render(<AccessTab endpoints={[memory]} grants={[]} {...baseProps()} />);
+      expect(screen.getByText(/Response filters/)).toBeInTheDocument();
+      expect(screen.getByText("Select one or more endpoints.")).toBeInTheDocument();
+    });
 
-    const step2 = screen.getByText(/Response filters/).closest("section")!;
-    expect(within(step2).getByRole("button", { name: /demo-memory/ })).toBeInTheDocument();
-    expect(within(step2).queryByRole("button", { name: /^analytics/ })).not.toBeInTheDocument();
+    it("prompts to save the user first when drafting a brand new one -- filters need a real AccessPolicy name to belong to", () => {
+      render(
+        <AccessTab
+          endpoints={[memory]}
+          grants={[{ mcp: "demo-memory", tools: ["*"] }]}
+          {...baseProps()}
+          userName={null}
+        />,
+      );
+      expect(screen.getByText(/Save the user first/)).toBeInTheDocument();
+    });
 
-    await user.click(within(step2).getByRole("button", { name: "Edit" }));
+    it("shows one collapsed row per named filter this user owns on the endpoint, with a dropped-field-count badge", () => {
+      const filters: FilterPolicy[] = [
+        {
+          name: "alice::Mask customer PII::add_observations",
+          match: [],
+          mcp: "demo-memory",
+          tool: "add_observations",
+          drop_fields: ["$.results", "$.entityName"],
+        },
+      ];
+      render(
+        <AccessTab
+          endpoints={[memory]}
+          grants={[{ mcp: "demo-memory", tools: ["*"] }]}
+          {...baseProps()}
+          allFilters={filters}
+        />,
+      );
 
-    expect(within(step2).getByText("$.results")).toBeInTheDocument();
-    expect(within(step2).queryByText(/delete_entities/)).not.toBeInTheDocument();
-  });
+      expect(screen.getByText("Mask customer PII")).toBeInTheDocument();
+      expect(screen.getByText(/add_observations: \$\.results.*\[2\]/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Edit Mask customer PII" })).toBeInTheDocument();
+      // Collapsed -- the full picker isn't mounted until Edit is clicked.
+      expect(screen.queryByText("Discovered response fields")).not.toBeInTheDocument();
+    });
 
-  it("step 2 is always visible (the mockup's own 2-column layout), showing a hint instead of a filter card until an endpoint is granted", () => {
-    render(<AccessTab endpoints={[memory]} grants={[]} fieldsByEndpoint={{}} {...baseProps()} />);
-    expect(screen.getByText(/Response filters/)).toBeInTheDocument();
-    expect(screen.getByText("Select one or more endpoints.")).toBeInTheDocument();
-  });
+    it("a different user's filter on the same endpoint never shows up", () => {
+      const filters: FilterPolicy[] = [
+        { name: "bob::Something::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"] },
+      ];
+      render(
+        <AccessTab
+          endpoints={[memory]}
+          grants={[{ mcp: "demo-memory", tools: ["*"] }]}
+          {...baseProps()}
+          allFilters={filters}
+        />,
+      );
+      expect(screen.queryByText("Something")).not.toBeInTheDocument();
+    });
 
-  it("a granted endpoint's filter card starts collapsed to a one-line summary, not the full picker", () => {
-    render(
-      <AccessTab
-        endpoints={[memory]}
-        grants={[{ mcp: "demo-memory", tools: ["*"] }]}
-        fieldsByEndpoint={{ "demo-memory": { add_observations: ["$.results"] } }}
-        {...baseProps()}
-      />,
-    );
+    it("editing an existing named filter updates its members in place, keeping the user-prefixed name and current match", async () => {
+      const user = userEvent.setup();
+      const props = baseProps();
+      const filters: FilterPolicy[] = [
+        {
+          name: "alice::Mask customer PII::add_observations",
+          match: [{ path: "$.role", pattern: "^old$" }],
+          mcp: "demo-memory",
+          tool: "add_observations",
+          drop_fields: ["$.results"],
+        },
+      ];
+      render(
+        <AccessTab
+          endpoints={[memory]}
+          grants={[{ mcp: "demo-memory", tools: ["*"] }]}
+          {...props}
+          allFilters={filters}
+        />,
+      );
 
-    expect(screen.getByText("add_observations: $.results removed")).toBeInTheDocument();
-    expect(screen.queryByText("Discovered response fields")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-  });
+      await user.click(screen.getByRole("button", { name: "Edit Mask customer PII" }));
+      // Adds a second tool to the same named filter -- the group now
+      // spans two real FilterPolicy records sharing the "Mask customer
+      // PII" label, same convention as ResponseFilterGroup's own
+      // multi-tool groups.
+      await user.click(screen.getByRole("button", { name: "Hide delete_entities $.ok" }));
 
-  it("the single step 2 search box (shown once there's enough to search) narrows across every granted endpoint's filters at once", async () => {
-    const user = userEvent.setup();
-    const thirdEndpoint: MCPRegistration = {
-      name: "third",
-      transport: "stdio",
-      connect: { command: "third" },
-      status: "active",
-      tools: { do_thing: { name: "do_thing", output_schema: { type: "object", properties: { x: { type: "string" } } } } },
-    };
-    const fourthEndpoint: MCPRegistration = {
-      name: "fourth",
-      transport: "stdio",
-      connect: { command: "fourth" },
-      status: "active",
-      tools: { do_other: { name: "do_other", output_schema: { type: "object", properties: { y: { type: "string" } } } } },
-    };
-    render(
-      <AccessTab
-        endpoints={[memory, analytics, thirdEndpoint, fourthEndpoint]}
-        grants={[
-          { mcp: "demo-memory", tools: ["*"] },
-          { mcp: "analytics", tools: ["*"] },
-          { mcp: "third", tools: ["*"] },
-          { mcp: "fourth", tools: ["*"] },
-        ]}
-        fieldsByEndpoint={{}}
-        {...baseProps()}
-      />,
-    );
+      expect(props.onCreateFilter).toHaveBeenCalledWith({
+        name: "alice::Mask customer PII::delete_entities",
+        match: props.userMatch,
+        mcp: "demo-memory",
+        tool: "delete_entities",
+        drop_fields: ["$.ok"],
+      });
+    });
 
-    await user.type(screen.getByPlaceholderText("Search filters or fields"), "third");
+    it("creating a new named filter mints a '<user>::<label>::<tool>' name", async () => {
+      const user = userEvent.setup();
+      const props = baseProps();
+      render(
+        <AccessTab endpoints={[memory]} grants={[{ mcp: "demo-memory", tools: ["*"] }]} {...props} />,
+      );
 
-    const step2 = screen.getByText(/Response filters/).closest("section")!;
-    expect(within(step2).getByRole("button", { name: /third/ })).toBeInTheDocument();
-    expect(within(step2).queryByRole("button", { name: /demo-memory/ })).not.toBeInTheDocument();
-    expect(within(step2).queryByRole("button", { name: /^fourth/ })).not.toBeInTheDocument();
-  });
+      await user.click(screen.getByRole("button", { name: /Add response filter/ }));
+      await user.type(screen.getByPlaceholderText("filter name"), "Mask PII");
+      await user.click(screen.getByRole("button", { name: "Hide add_observations $.results" }));
+      await user.click(screen.getByRole("button", { name: "Create filter" }));
 
-  it("dropping a field in step 2 reports the per-endpoint field selection", async () => {
-    const user = userEvent.setup();
-    const props = baseProps();
-    render(
-      <AccessTab endpoints={[memory]} grants={[{ mcp: "demo-memory", tools: ["*"] }]} fieldsByEndpoint={{}} {...props} />,
-    );
+      expect(props.onCreateFilter).toHaveBeenCalledWith({
+        name: "alice::Mask PII::add_observations",
+        match: props.userMatch,
+        mcp: "demo-memory",
+        tool: "add_observations",
+        drop_fields: ["$.results"],
+      });
+    });
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "Hide add_observations $.results" }));
+    it("deleting a named filter removes every one of its members", async () => {
+      const user = userEvent.setup();
+      const props = baseProps();
+      const filters: FilterPolicy[] = [
+        { name: "alice::Mask PII::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"] },
+        { name: "alice::Mask PII::delete_entities", match: [], mcp: "demo-memory", tool: "delete_entities", drop_fields: ["$.ok"] },
+      ];
+      render(
+        <AccessTab
+          endpoints={[memory]}
+          grants={[{ mcp: "demo-memory", tools: ["*"] }]}
+          {...props}
+          allFilters={filters}
+        />,
+      );
 
-    expect(props.onFieldsByEndpointChange).toHaveBeenCalledWith({ "demo-memory": { add_observations: ["$.results"] } });
-  });
+      await user.click(screen.getByRole("button", { name: "Edit Mask PII" }));
+      await user.click(screen.getByRole("button", { name: "Delete" }));
 
-  it("offers other existing filters on the same endpoint as a starting template, and applying one prefills the picker", async () => {
-    const user = userEvent.setup();
-    const template: FilterPolicy = {
-      name: "other-user::demo-memory::add_observations",
-      match: [{ path: "$.role", pattern: "^other$" }],
-      mcp: "demo-memory",
-      tool: "add_observations",
-      drop_fields: ["$.results"],
-    };
-    render(
-      <StatefulAccessTab
-        endpoints={[memory]}
-        initialGrants={[{ mcp: "demo-memory", tools: ["*"] }]}
-        initialFields={{}}
-        allFilters={[template]}
-      />,
-    );
+      expect(props.onDeleteFilter).toHaveBeenCalledWith("alice::Mask PII::add_observations");
+      expect(props.onDeleteFilter).toHaveBeenCalledWith("alice::Mask PII::delete_entities");
+    });
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Start from an existing filter on demo-memory" }),
-      template.name,
-    );
+    it("the single search box narrows named filters across every granted endpoint at once", async () => {
+      const user = userEvent.setup();
+      const filters: FilterPolicy[] = [
+        { name: "alice::Mask PII::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"] },
+        { name: "alice::Report scrub::get_report", match: [], mcp: "analytics", tool: "get_report", drop_fields: ["$.total"] },
+      ];
+      render(
+        <AccessTab
+          endpoints={[memory, analytics]}
+          grants={[
+            { mcp: "demo-memory", tools: ["*"] },
+            { mcp: "analytics", tools: ["*"] },
+          ]}
+          {...baseProps()}
+          allFilters={filters}
+        />,
+      );
 
-    expect(screen.getByRole("button", { name: "Stop hiding add_observations $.results" })).toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText("Search filters or fields"), "Report");
+
+      expect(screen.getByText("Report scrub")).toBeInTheDocument();
+      expect(screen.queryByText("Mask PII")).not.toBeInTheDocument();
+    });
+
+    it("rejects a typed filter name containing '::' -- reserved for internal grouping", async () => {
+      const user = userEvent.setup();
+      render(
+        <AccessTab endpoints={[memory]} grants={[{ mcp: "demo-memory", tools: ["*"] }]} {...baseProps()} />,
+      );
+
+      await user.click(screen.getByRole("button", { name: /Add response filter/ }));
+      await user.type(screen.getByPlaceholderText("filter name"), "bad::name");
+
+      expect(screen.getByRole("button", { name: "Create filter" })).toBeDisabled();
+    });
   });
 });

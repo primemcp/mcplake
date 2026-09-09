@@ -4,7 +4,7 @@ import { Card } from "../primitives/Card";
 import { Input } from "../primitives/Input";
 import { Tabs } from "../primitives/Tabs";
 import type { AccessPolicyRequest, ClaimRule, FilterPolicy, FilterPolicyRequest, Grant, MCPRegistration } from "../../api/types";
-import { planUserSave, type User, type UserFieldsByEndpoint } from "../../api/users";
+import type { User } from "../../api/users";
 import { AccessTab } from "./AccessTab";
 import { TokenMatchTab } from "./TokenMatchTab";
 
@@ -17,8 +17,7 @@ export type UserDetailProps = {
   user: User | null;
   endpoints: MCPRegistration[];
   /** Every real FilterPolicy in the system, not just this user's -- the
-   * Access tab's "start from an existing filter" template picker offers
-   * these (ADR-0010: clone, never link). */
+   * Access tab groups these under `<user>::...` (see AccessTab/ADR-0010). */
   allFilters: FilterPolicy[];
   onGoInstances: () => void;
   onCreateAccessPolicy: (req: AccessPolicyRequest) => Promise<void>;
@@ -31,36 +30,28 @@ export type UserDetailProps = {
   onDeleted: () => void;
 };
 
-function fieldsFromUser(user: User | null): UserFieldsByEndpoint {
-  const result: UserFieldsByEndpoint = {};
-  for (const f of user?.filters ?? []) {
-    (result[f.mcp] ??= {})[f.tool] = f.drop_fields;
-  }
-  return result;
-}
-
-type Draft = { name: string; match: ClaimRule[]; grants: Grant[]; fields: UserFieldsByEndpoint };
+type Draft = { name: string; match: ClaimRule[]; grants: Grant[] };
 
 function draftOf(user: User | null): Draft {
-  return { name: user?.name ?? "", match: user?.match ?? [], grants: user?.grants ?? [], fields: fieldsFromUser(user) };
+  return { name: user?.name ?? "", match: user?.match ?? [], grants: user?.grants ?? [] };
 }
 
 /**
  * Tab container + the sticky Save/Discard model the mockup's detail panel
- * uses: every edit (across both tabs) is local draft state until Save,
- * which reconciles the whole thing in one go via planUserSave (see
- * api/users.ts) -- one AccessPolicy upsert plus whatever FilterPolicy
- * create/update/delete calls the diff against what's currently persisted
- * actually needs. No per-tab auto-save (unlike ResponseFilterGroup on the
- * MCP connections screen, which saves each filter the moment its own form
- * is submitted) -- this panel's Save commits everything together, matching
- * the mockup's explicit footer.
+ * uses for Token match and Access's *grants*: both are local draft state
+ * until Save, which upserts the AccessPolicy in one call. Response
+ * filters (Access tab, step 2) are the one exception -- they save
+ * immediately as they're created/edited/deleted (see AccessTab's own doc
+ * comment for why: a FilterPolicy is a fully independent backend record,
+ * not part of any atomic transaction with the AccessPolicy).
  *
- * A saved FilterPolicy always carries the *user's* current match rules,
- * never its own -- TokenMatchTab's doc comment covers why (kept in sync on
- * every save, so a user's response filters always apply under the same
- * conditions their access grant does).
+ * Because filters save independently, editing Token match here and then
+ * clicking Save wouldn't otherwise reach a filter that was created
+ * earlier under the old match -- so `save()` also re-PUTs every existing
+ * filter whose match has drifted from the current draft, keeping them in
+ * sync the way TokenMatchTab's own doc comment describes.
  *
+
  * Header layout matches the real mockup source exactly (fetched via
  * DesignSync, not guessed): one row -- tab bar (Access's label carries its
  * live grant count, e.g. "Access 2"), a short hint for whichever tab is
@@ -105,7 +96,6 @@ export function UserDetail({
   const [name, setName] = useState(initial.name);
   const [match, setMatch] = useState(initial.match);
   const [grants, setGrants] = useState(initial.grants);
-  const [fields, setFields] = useState(initial.fields);
   const [tab, setTab] = useState("match");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -114,8 +104,7 @@ export function UserDetail({
   const dirty =
     name !== initial.name ||
     JSON.stringify(match) !== JSON.stringify(initial.match) ||
-    JSON.stringify(grants) !== JSON.stringify(initial.grants) ||
-    JSON.stringify(fields) !== JSON.stringify(initial.fields);
+    JSON.stringify(grants) !== JSON.stringify(initial.grants);
 
   // Requiring at least one condition guards against the *dangerous*
   // direction, not a useless one: router.ClaimMatcher with zero rules
@@ -136,7 +125,6 @@ export function UserDetail({
     setName(initial.name);
     setMatch(initial.match);
     setGrants(initial.grants);
-    setFields(initial.fields);
     setError(null);
   };
 
@@ -144,21 +132,21 @@ export function UserDetail({
     setSaving(true);
     setError(null);
     try {
-      const plan = planUserSave(name.trim(), user, { match, grants }, fields);
+      const accessPolicy: AccessPolicyRequest = { name: name.trim(), match, grants };
       if (isNew) {
-        await onCreateAccessPolicy(plan.accessPolicy);
+        await onCreateAccessPolicy(accessPolicy);
       } else {
-        await onUpdateAccessPolicy(user.name, plan.accessPolicy);
+        await onUpdateAccessPolicy(user.name, accessPolicy);
+        // Filters save independently as they're edited in the Access
+        // tab (see its own doc comment) -- re-sync any that were created
+        // or last updated under an older match, so a Token-match edit
+        // here doesn't leave them silently out of date.
+        await Promise.all(
+          user.filters
+            .filter((f) => JSON.stringify(f.match) !== JSON.stringify(match))
+            .map((f) => onUpdateFilter(f.name, { ...f, match })),
+        );
       }
-      await Promise.all([
-        ...plan.filtersToCreate.map((f) =>
-          onCreateFilter({ name: f.name, match, mcp: f.mcp, tool: f.tool, drop_fields: f.dropFields }),
-        ),
-        ...plan.filtersToUpdate.map((f) =>
-          onUpdateFilter(f.name, { name: f.name, match, mcp: f.mcp, tool: f.tool, drop_fields: f.dropFields }),
-        ),
-        ...plan.filtersToDelete.map((n) => onDeleteFilter(n)),
-      ]);
       onSaved(name.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save.");
@@ -221,10 +209,13 @@ export function UserDetail({
               endpoints={endpoints}
               grants={grants}
               onGrantsChange={setGrants}
-              fieldsByEndpoint={fields}
-              onFieldsByEndpointChange={setFields}
               allFilters={allFilters}
               onGoInstances={onGoInstances}
+              userName={isNew ? null : user.name}
+              userMatch={match}
+              onCreateFilter={onCreateFilter}
+              onUpdateFilter={onUpdateFilter}
+              onDeleteFilter={onDeleteFilter}
             />
           </Card>
         )}

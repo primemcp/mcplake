@@ -154,7 +154,7 @@ describe("UserDetail", () => {
     });
   });
 
-  it("saving reconciles filters: keeps an existing member's name, drops a deselected one", async () => {
+  it("editing a filter in the Access tab saves immediately -- it doesn't wait for the panel's own Save", async () => {
     const user = userEvent.setup();
     const props = baseProps();
     const existing: User = {
@@ -162,25 +162,62 @@ describe("UserDetail", () => {
       match: [{ path: "$.role", pattern: "^analyst$" }],
       grants: [{ mcp: "demo-memory", tools: ["*"] }],
       filters: [
-        { name: "analyst-team::demo-memory::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: [] },
+        {
+          name: "analyst-team::Mask id::add_observations",
+          match: [{ path: "$.role", pattern: "^analyst$" }],
+          mcp: "demo-memory",
+          tool: "add_observations",
+          drop_fields: [],
+        },
       ],
     };
-    render(<UserDetail user={existing} {...props} />);
+    render(<UserDetail user={existing} {...props} allFilters={existing.filters} />);
 
     await user.click(screen.getByRole("tab", { name: "Access 1" }));
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Edit Mask id" }));
     await user.click(screen.getByRole("button", { name: "Hide add_observations $.id" }));
-    await user.click(screen.getByRole("button", { name: /^Save/ }));
 
-    expect(props.onUpdateFilter).toHaveBeenCalledWith("analyst-team::demo-memory::add_observations", {
-      name: "analyst-team::demo-memory::add_observations",
+    expect(props.onUpdateFilter).toHaveBeenCalledWith("analyst-team::Mask id::add_observations", {
+      name: "analyst-team::Mask id::add_observations",
       match: [{ path: "$.role", pattern: "^analyst$" }],
       mcp: "demo-memory",
       tool: "add_observations",
       drop_fields: ["$.id"],
     });
-    expect(props.onCreateFilter).not.toHaveBeenCalled();
-    expect(props.onDeleteFilter).not.toHaveBeenCalled();
+    // The panel's own Save button was never clicked.
+    expect(props.onUpdateAccessPolicy).not.toHaveBeenCalled();
+  });
+
+  it("clicking Save re-syncs any existing filter whose match has drifted from the current draft", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    const existing: User = {
+      name: "analyst-team",
+      match: [{ path: "$.role", pattern: "^analyst$" }],
+      grants: [{ mcp: "demo-memory", tools: ["*"] }],
+      filters: [
+        {
+          name: "analyst-team::Mask id::add_observations",
+          match: [{ path: "$.role", pattern: "^stale$" }],
+          mcp: "demo-memory",
+          tool: "add_observations",
+          drop_fields: ["$.id"],
+        },
+      ],
+    };
+    render(<UserDetail user={existing} {...props} />);
+
+    await user.clear(screen.getByLabelText("Condition 1 regex"));
+    await user.type(screen.getByLabelText("Condition 1 regex"), "^analyst-v2$");
+    await user.click(screen.getByRole("button", { name: /^Save/ }));
+
+    expect(props.onUpdateFilter).toHaveBeenCalledWith("analyst-team::Mask id::add_observations", {
+      name: "analyst-team::Mask id::add_observations",
+      match: [{ path: "$.role", pattern: "^analyst-v2$" }],
+      mcp: "demo-memory",
+      tool: "add_observations",
+      drop_fields: ["$.id"],
+    });
   });
 
   it("deleting an existing user removes its access policy and every one of its filters", async () => {

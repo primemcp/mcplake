@@ -15,6 +15,19 @@ export function groupIdOf(filterName: string): string {
   return i === -1 ? filterName : filterName.slice(0, i);
 }
 
+/**
+ * Strips a `<prefix>::` segment a caller already confirmed via
+ * `groupIdOf(name) === prefix` -- e.g. the Users & access screen strips a
+ * filter's `<user>::` segment before re-grouping the remainder by its own
+ * next segment, so one user can have several independently-named filters
+ * per endpoint (mirroring this same convention one level down). Returns
+ * `name` unchanged if it doesn't actually start with that prefix.
+ */
+export function stripGroupPrefix(name: string, prefix: string): string {
+  const full = prefix + GROUP_SEP;
+  return name.startsWith(full) ? name.slice(full.length) : name;
+}
+
 // A single qualifier ("::<tool>") is enough when the group is already
 // scoped to one mcp (the MCP-connections response-filter case below). The
 // Users & access screen reuses this same convention but needs a second
