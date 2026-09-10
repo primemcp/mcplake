@@ -109,6 +109,12 @@ described in [`data.md`](data.md).
   [ADR-0003](decisions/0003-dynamic-mcp-registration-and-schema-discovery.md):
   connect → `tools/list` → persist `{name, inputSchema, outputSchema}` per tool →
   mark MCP `active` → refresh the in-memory cache.
+- **Schema refresh** ([ADR-0013](decisions/0013-periodic-mcp-schema-refresh.md)):
+  when `mcp.schema_refresh_interval` is set, a `cache.SchemaRefresher` loop
+  (run from `app.Run`) re-runs `tools/list` on every active MCP's *existing*
+  client on that interval and atomically swaps in the fresh schema — no
+  reconnect. A `tools/list` failure is logged and leaves the previous schema
+  and `status` in place. Off by default.
 - Supports registration both from static config at startup and from the
   Control-Plane API at runtime, through the same internal `Register()` path — there
   is no separate "static" vs. "dynamic" code path; both end up as a row in the same
