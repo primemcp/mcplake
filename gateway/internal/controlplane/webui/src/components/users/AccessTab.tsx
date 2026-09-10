@@ -374,8 +374,8 @@ export function AccessTab({
                     }`}
                   >
                     <span
-                      className={`w-4 h-4 rounded border grid place-items-center text-[10px] font-bold text-white mt-0.5 shrink-0 ${
-                        granted ? "bg-accent border-accent" : "bg-white border-line"
+                      className={`w-4 h-4 rounded border-2 grid place-items-center text-[10px] font-bold text-white mt-0.5 shrink-0 ${
+                        granted ? "bg-accent border-accent" : "bg-white border-muted"
                       }`}
                     >
                       {granted ? "✓" : ""}
@@ -549,8 +549,8 @@ export function AccessTab({
                                     aria-checked={groupEnabled}
                                     aria-label={`Enable ${g.id}`}
                                     onClick={() => toggleGroupEnabled(endpoint.name, g)}
-                                    className={`w-4 h-4 rounded border grid place-items-center text-[10px] font-bold text-white shrink-0 mt-0.5 border-0 cursor-pointer ${
-                                      groupEnabled ? "bg-accent border-accent" : "bg-white border-line"
+                                    className={`w-4 h-4 rounded border-2 grid place-items-center text-[10px] font-bold text-white shrink-0 mt-0.5 cursor-pointer ${
+                                      groupEnabled ? "bg-accent border-accent" : "bg-white border-muted"
                                     }`}
                                   >
                                     {groupEnabled ? "✓" : ""}
