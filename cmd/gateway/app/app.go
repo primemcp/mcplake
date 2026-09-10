@@ -77,7 +77,7 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 		JWKSURL:      cfg.OIDC.JWKSURL,
 		Issuer:       cfg.OIDC.Issuer,
 		Audience:     cfg.OIDC.Audience,
-		JWKSCacheTTL: cfg.OIDC.JWKSCacheTTL,
+		JWKSCacheTTL: cfg.OIDC.JWKSCacheTTL.Duration,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("app: init auth validator: %w", err)

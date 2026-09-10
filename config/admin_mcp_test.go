@@ -9,12 +9,13 @@ import (
 )
 
 const adminMCPBaseConfig = `
-server:
-  data_plane_addr: ":8080"
-oidc:
-  jwks_url: "https://auth.example.com/jwks.json"
-  issuer: "https://auth.example.com"
-  audience: "mcp-gateway"
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "https://auth.example.com/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
 `
 
 func TestLoad_AdminMCPDefaultsOffWithDefaultPath(t *testing.T) {
@@ -27,9 +28,9 @@ func TestLoad_AdminMCPDefaultsOffWithDefaultPath(t *testing.T) {
 
 func TestLoad_AdminMCPEnabledWithCustomPath(t *testing.T) {
 	body := adminMCPBaseConfig + `
-admin_mcp:
-  enabled: true
-  path: /admin/control/mcp
+[admin_mcp]
+enabled = true
+path = "/admin/control/mcp"
 `
 	cfg, err := config.Load(writeConfig(t, body))
 	require.NoError(t, err)
@@ -40,9 +41,9 @@ admin_mcp:
 
 func TestLoad_AdminMCPRejectsPathOutsideAdmin(t *testing.T) {
 	body := adminMCPBaseConfig + `
-admin_mcp:
-  enabled: true
-  path: /mcp
+[admin_mcp]
+enabled = true
+path = "/mcp"
 `
 	_, err := config.Load(writeConfig(t, body))
 
@@ -52,9 +53,9 @@ admin_mcp:
 
 func TestLoad_AdminMCPExplicitDisabled(t *testing.T) {
 	body := adminMCPBaseConfig + `
-admin_mcp:
-  enabled: false
-  path: /admin/mcp
+[admin_mcp]
+enabled = false
+path = "/admin/mcp"
 `
 	cfg, err := config.Load(writeConfig(t, body))
 	require.NoError(t, err)

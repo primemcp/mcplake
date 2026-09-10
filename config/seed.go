@@ -11,7 +11,7 @@ import (
 // Seed upserts c's mcps/access_policies/filter_policies entries into the
 // given persistence repositories, by name. Per ADR-0006, this is a boot-time
 // reconciliation, run before the in-memory Registry/Policy Engine caches are
-// built: config.yaml becomes a seed mechanism, and the database is the
+// built: the config file becomes a seed mechanism, and the database is the
 // source of truth from then on. Running Seed again with the same Config
 // against the same repositories is idempotent — each entry is upserted by
 // name, so no duplicate rows are created (see the repositories' own Upsert

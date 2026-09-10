@@ -4,21 +4,20 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/atsokha/mcplake/router"
-	"go.yaml.in/yaml/v3"
 )
 
 type Config struct {
-	Server         ServerConfig         `yaml:"server"`
-	OIDC           OIDCConfig           `yaml:"oidc"`
-	AdminAuth      AdminAuthConfig      `yaml:"admin_auth"`
-	AdminMCP       AdminMCPConfig       `yaml:"admin_mcp"`
-	Persistence    PersistenceConfig    `yaml:"persistence"`
-	MCPs           []MCPConfig          `yaml:"mcps"`
-	AccessPolicies []AccessPolicyConfig `yaml:"access_policies"`
-	FilterPolicies []FilterPolicyConfig `yaml:"filter_policies"`
+	Server         ServerConfig         `toml:"server"`
+	OIDC           OIDCConfig           `toml:"oidc"`
+	AdminAuth      AdminAuthConfig      `toml:"admin_auth"`
+	AdminMCP       AdminMCPConfig       `toml:"admin_mcp"`
+	Persistence    PersistenceConfig    `toml:"persistence"`
+	MCPs           []MCPConfig          `toml:"mcps"`
+	AccessPolicies []AccessPolicyConfig `toml:"access_policies"`
+	FilterPolicies []FilterPolicyConfig `toml:"filter_policies"`
 }
 
 // DefaultAdminMCPPath is where the MCP control server mounts when
@@ -34,10 +33,10 @@ type AdminMCPConfig struct {
 	// Enabled turns the MCP control server on. It is a pointer only for
 	// symmetry with the other on/off switches; unlike them it defaults to
 	// OFF — an omitted admin_mcp section mounts nothing.
-	Enabled *bool `yaml:"enabled"`
+	Enabled *bool `toml:"enabled"`
 	// Path is where the streamable-HTTP handler mounts. Defaults to
 	// DefaultAdminMCPPath. Must be under "/admin/" so admin_auth applies.
-	Path string `yaml:"path"`
+	Path string `toml:"path"`
 }
 
 func (a AdminMCPConfig) enabled() bool {
@@ -65,11 +64,11 @@ type AdminAuthConfig struct {
 	// AdminAuthConfig.active. An explicit `enabled: true` with an empty Match
 	// is a configuration error (it would make every authenticated caller an
 	// admin) and is rejected by Config.Validate.
-	Enabled *bool `yaml:"enabled"`
+	Enabled *bool `toml:"enabled"`
 	// Match is a list of {path, pattern} claim rules, ANDed together, using
 	// the same JSONPath+regexp syntax as access_policies (ADR-0002). A
 	// verified token is an admin only if every rule matches its claims.
-	Match []ClaimRuleConfig `yaml:"match"`
+	Match []ClaimRuleConfig `toml:"match"`
 }
 
 // active reports whether admin auth should be enforced: an explicit Enabled
@@ -84,120 +83,89 @@ func (a AdminAuthConfig) active() bool {
 	return len(a.Match) > 0
 }
 
-// PersistenceConfig is the YAML shape of a persistence.Config. See
+// PersistenceConfig is the config shape of a persistence.Config. See
 // ADR-0006: Driver is "sqlite" (default) or "postgres"; DSN is the SQLite
 // file path or the PostgreSQL connection string, depending on Driver.
 type PersistenceConfig struct {
-	Driver string `yaml:"driver"`
-	DSN    string `yaml:"dsn"`
+	Driver string `toml:"driver"`
+	DSN    string `toml:"dsn"`
 }
 
 type ServerConfig struct {
 	// DataPlaneAddr is the listen address (host:port) for the fasthttp
 	// tool-call proxy. See ADR-0001.
-	DataPlaneAddr string `yaml:"data_plane_addr"`
+	DataPlaneAddr string `toml:"data_plane_addr"`
 	// ControlPlaneAddr is the listen address (host:port) for the Gin admin
 	// API. See ADR-0005.
-	ControlPlaneAddr string `yaml:"control_plane_addr"`
+	ControlPlaneAddr string `toml:"control_plane_addr"`
 	// TODO: Add TLS configuration
 }
 
 type OIDCConfig struct {
 	// JWKSURL is the OIDC provider's JWKS endpoint. See auth.Config.JWKSURL;
 	// OIDC discovery from a provider/issuer URL is not yet implemented.
-	JWKSURL string `yaml:"jwks_url"`
+	JWKSURL string `toml:"jwks_url"`
 	// Issuer is the required `iss` claim value. See auth.Config.Issuer.
-	Issuer string `yaml:"issuer"`
+	Issuer string `toml:"issuer"`
 	// Audience is the required `aud` claim value. See auth.Config.Audience.
-	Audience string `yaml:"audience"`
+	Audience string `toml:"audience"`
 	// JWKSCacheTTL is how long fetched keys are cached before a background
-	// refresh. See auth.Config.JWKSCacheTTL.
-	JWKSCacheTTL time.Duration `yaml:"-"`
-}
-
-// oidcConfigYAML mirrors OIDCConfig but with JWKSCacheTTL as a duration
-// string (e.g. "1h"), since time.Duration has no native YAML representation.
-type oidcConfigYAML struct {
-	JWKSURL      string `yaml:"jwks_url"`
-	Issuer       string `yaml:"issuer"`
-	Audience     string `yaml:"audience"`
-	JWKSCacheTTL string `yaml:"jwks_cache_ttl"`
-}
-
-// UnmarshalYAML decodes JWKSCacheTTL from its string form (e.g. "1h") via
-// time.ParseDuration; an empty/absent value leaves JWKSCacheTTL at its zero
-// value, letting callers (e.g. auth.NewValidator) apply their own default.
-func (c *OIDCConfig) UnmarshalYAML(node *yaml.Node) error {
-	var raw oidcConfigYAML
-	if err := node.Decode(&raw); err != nil {
-		return err
-	}
-	c.JWKSURL = raw.JWKSURL
-	c.Issuer = raw.Issuer
-	c.Audience = raw.Audience
-	if raw.JWKSCacheTTL == "" {
-		c.JWKSCacheTTL = 0
-		return nil
-	}
-	ttl, err := time.ParseDuration(raw.JWKSCacheTTL)
-	if err != nil {
-		return fmt.Errorf("config: oidc.jwks_cache_ttl: %w", err)
-	}
-	c.JWKSCacheTTL = ttl
-	return nil
+	// refresh, as a Go duration string ("1h"). Absent/empty leaves it 0, so
+	// auth.NewValidator applies its own default. See auth.Config.JWKSCacheTTL.
+	JWKSCacheTTL Duration `toml:"jwks_cache_ttl"`
 }
 
 type MCPConfig struct {
-	Name      string   `yaml:"name"`
-	Type      string   `yaml:"type"` // "stdio", "sse", etc.
-	Command   string   `yaml:"command"`
-	Arguments []string `yaml:"arguments"`
+	Name      string   `toml:"name"`
+	Type      string   `toml:"type"` // "stdio", "sse", etc.
+	Command   string   `toml:"command"`
+	Arguments []string `toml:"arguments"`
 	// Enabled is the operator on/off switch for this MCP. It is a pointer so
-	// an omitted key is distinguishable from an explicit `enabled: false`;
+	// an omitted key is distinguishable from an explicit `enabled = false`;
 	// omitted defaults to enabled. See enabledOrDefault.
-	Enabled *bool `yaml:"enabled"`
+	Enabled *bool `toml:"enabled"`
 }
 
-// ClaimRuleConfig is the YAML shape of a router.ClaimRule. See ADR-0002.
+// ClaimRuleConfig is the config shape of a router.ClaimRule. See ADR-0002.
 type ClaimRuleConfig struct {
-	Path    string `yaml:"path"`
-	Pattern string `yaml:"pattern"`
+	Path    string `toml:"path"`
+	Pattern string `toml:"pattern"`
 }
 
-// GrantConfig is the YAML shape of a router.Grant.
+// GrantConfig is the config shape of a router.Grant.
 type GrantConfig struct {
-	MCP   string   `yaml:"mcp"`
-	Tools []string `yaml:"tools"`
+	MCP   string   `toml:"mcp"`
+	Tools []string `toml:"tools"`
 }
 
-// AccessPolicyConfig is the YAML shape of a router.AccessPolicy. See
+// AccessPolicyConfig is the config shape of a router.AccessPolicy. See
 // ADR-0004 and docs/architecture/data.md#access-policy.
 type AccessPolicyConfig struct {
-	Name   string            `yaml:"name"`
-	Match  []ClaimRuleConfig `yaml:"match"`
-	Grants []GrantConfig     `yaml:"grants"`
+	Name   string            `toml:"name"`
+	Match  []ClaimRuleConfig `toml:"match"`
+	Grants []GrantConfig     `toml:"grants"`
 	// Enabled is the operator on/off switch for this policy. A pointer so an
-	// omitted key is distinguishable from an explicit `enabled: false`;
+	// omitted key is distinguishable from an explicit `enabled = false`;
 	// omitted defaults to enabled. See enabledOrDefault.
-	Enabled *bool `yaml:"enabled"`
+	Enabled *bool `toml:"enabled"`
 }
 
-// FilterPolicyConfig is the YAML shape of a router.FilterPolicy. See
+// FilterPolicyConfig is the config shape of a router.FilterPolicy. See
 // ADR-0004 and docs/architecture/data.md#filter-policy.
 type FilterPolicyConfig struct {
-	Name       string            `yaml:"name"`
-	Match      []ClaimRuleConfig `yaml:"match"`
-	MCP        string            `yaml:"mcp"`
-	Tool       string            `yaml:"tool"`
-	DropFields []string          `yaml:"drop_fields"`
+	Name       string            `toml:"name"`
+	Match      []ClaimRuleConfig `toml:"match"`
+	MCP        string            `toml:"mcp"`
+	Tool       string            `toml:"tool"`
+	DropFields []string          `toml:"drop_fields"`
 	// Enabled is the operator on/off switch for this policy. A pointer so an
-	// omitted key is distinguishable from an explicit `enabled: false`;
+	// omitted key is distinguishable from an explicit `enabled = false`;
 	// omitted defaults to enabled. See enabledOrDefault.
-	Enabled *bool `yaml:"enabled"`
+	Enabled *bool `toml:"enabled"`
 }
 
-// Load reads and parses the YAML configuration file at path, then runs
-// Validate on the result so a malformed policy rule (or any other
+// Load reads and parses the TOML configuration file at path (see ADR-0012),
+// then runs Validate on the result so a malformed policy rule (or any other
 // structural problem Validate checks) is reported at load time rather than
 // discovered later during request handling.
 func Load(path string) (*Config, error) {
@@ -207,7 +175,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	if err := toml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("config: parse %s: %w", path, err)
 	}
 
