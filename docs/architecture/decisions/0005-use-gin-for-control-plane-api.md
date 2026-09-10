@@ -135,9 +135,11 @@ performance story or hand-rolling CRUD scaffolding on fasthttp.
 
 ### Follow-up
 
-- Design control-plane authN/authZ (likely a dedicated admin claim/policy, reusing
+- ~~Design control-plane authN/authZ (likely a dedicated admin claim/policy, reusing
   the ADR-0002 claim-rule engine) before exposing `/admin/*` beyond localhost/trusted
-  networks.
+  networks.~~ Resolved by [ADR-0010](0010-control-plane-admin-authentication.md): a
+  Gin middleware reusing `auth.Validator` for JWT verification plus an
+  `admin_auth.match` claim-rule list (ADR-0002 syntax) from `config.yaml`.
 - Document the two-port topology (data-plane port, control-plane port) in
   `config.example.yaml` and `docs/CONFIG.md` once implemented.
 
