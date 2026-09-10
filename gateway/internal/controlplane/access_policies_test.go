@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/atsokha/mcplake/internal/controlplane"
+	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/atsokha/mcplake/router"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -89,7 +90,7 @@ func newAccessPolicyTestRouter(t *testing.T) (*gin.Engine, *fakeAccessPolicyRepo
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	admin := engine.Group("/admin")
-	controlplane.RegisterAccessPolicyRoutes(admin, repo, reloader)
+	controlplane.RegisterAccessPolicyRoutes(admin, adminservice.NewAccessPolicyService(repo, reloader))
 	return engine, repo, store
 }
 
