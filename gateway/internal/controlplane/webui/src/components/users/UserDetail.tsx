@@ -92,7 +92,7 @@ export function UserDetail({
   onDeleted,
 }: UserDetailProps) {
   const isNew = user === null;
-  const [initial] = useState(() => draftOf(user));
+  const [initial, setInitial] = useState(() => draftOf(user));
   const [name, setName] = useState(initial.name);
   const [match, setMatch] = useState(initial.match);
   const [grants, setGrants] = useState(initial.grants);
@@ -147,6 +147,12 @@ export function UserDetail({
             .map((f) => onUpdateFilter(f.name, { ...f, match })),
         );
       }
+      // Saving an *existing* user keeps the same selection.name, so the
+      // parent's `key` doesn't change and this component never remounts
+      // -- without re-baselining here, `dirty`/`canSave` would keep
+      // comparing against the pre-save draft and the button would stay
+      // active forever after a successful save.
+      setInitial({ name: name.trim(), match, grants });
       onSaved(name.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save.");

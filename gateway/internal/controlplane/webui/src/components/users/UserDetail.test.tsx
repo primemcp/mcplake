@@ -132,6 +132,27 @@ describe("UserDetail", () => {
     expect(props.onCreateAccessPolicy).not.toHaveBeenCalled();
   });
 
+  it("Save goes back to disabled after a successful save of an existing user -- the panel isn't remounted since the selection name doesn't change", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    const existing: User = {
+      name: "analyst-team",
+      match: [{ path: "$.role", pattern: "^analyst$" }],
+      grants: [],
+      filters: [],
+    };
+    render(<UserDetail user={existing} {...props} />);
+
+    await user.clear(screen.getByLabelText("Condition 1 regex"));
+    await user.type(screen.getByLabelText("Condition 1 regex"), "^lead$");
+    expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: /^Save/ }));
+
+    expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
+  });
+
   it("granting an endpoint on the Access tab and saving creates a filter carrying the user's match", async () => {
     const user = userEvent.setup();
     const props = baseProps();
