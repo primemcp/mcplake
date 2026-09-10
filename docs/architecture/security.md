@@ -62,7 +62,7 @@ Per request to `/admin/*` except `GET /admin/healthz`
 
 ### Backward-compatible default
 
-If `admin_auth` is absent or `enabled: false`, the control plane is
+If `admin_auth` is absent or `enabled = false`, the control plane is
 **unauthenticated** and the gateway logs a prominent startup `WARN`. This
 preserves existing deployments and the current web UI (which does not yet send a
 token — [#76](https://github.com/atsokha/mcplake/issues/76)). Operators opt in

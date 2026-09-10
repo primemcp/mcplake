@@ -19,7 +19,7 @@ Requirements:
   the data plane verifies agent tokens (signature against the OIDC provider's
   JWKS, plus `exp`/`iss`/`aud`) — the deployment already runs an OIDC provider
   for the data plane ([ADR-0002](0002-jsonpath-regexp-claim-rule-engine.md)).
-- "Who is an admin" must be **operator-controlled configuration in the YAML
+- "Who is an admin" must be **operator-controlled configuration in the
   config file, not a database table**. The control-plane's own persistence
   ([ADR-0006](0006-gorm-sqlite-postgres-persistence.md)) stores the objects the
   admin API *manages*; letting that same store also decide who may call the API
@@ -47,14 +47,17 @@ header and calls `ValidateToken`.
 
 **Authorization** is a new `admin_auth` config section:
 
-```yaml
-admin_auth:
-  enabled: true            # optional, default true
-  match:                   # ADR-0002 {path, pattern} rules, ANDed
-    - path: "$.role"
-      pattern: "^admin$"
-    - path: "$.iss"
-      pattern: "^https://auth\\.example\\.com$"
+```toml
+# [admin_auth]
+# enabled = true           # optional, default true
+
+[[admin_auth.match]]        # ADR-0002 {path, pattern} rules, ANDed
+path = "$.role"
+pattern = "^admin$"
+
+[[admin_auth.match]]
+path = "$.iss"
+pattern = "^https://auth\\.example\\.com$"
 ```
 
 `match` is loaded into a `router.ClaimMatcher` and evaluated against the decoded
@@ -74,7 +77,7 @@ shape:
 | 403    | `forbidden`              | Token valid but claims don't satisfy `admin_auth.match`.|
 
 **Backward compatibility / rollout.** When `admin_auth` is absent or
-`enabled: false`, the middleware is not installed: `/admin/*` stays open exactly
+`enabled = false`, the middleware is not installed: `/admin/*` stays open exactly
 as today, and the gateway logs a single prominent `WARN` at startup
 ("control-plane admin API is UNAUTHENTICATED — set admin_auth.match or bind
 control_plane_addr to a trusted interface"). This keeps existing deployments and
@@ -169,7 +172,7 @@ already has answers for: `auth.Validator` verifies JWTs, and
 `config.Validate()` already compiles. Composing them in a Gin middleware is the
 smallest change that satisfies the requirement, adds no new credential system,
 and produces an identity that a later audit trail can attribute. Keeping the
-rules in `config.yaml` rather than the database is a deliberate blast-radius
+rules in `config.toml` rather than the database is a deliberate blast-radius
 choice: the guard must not live inside the store it guards. The "absent config ⇒
 open + warning" default trades a strict-by-default posture for a non-breaking
 upgrade, which is acceptable because ADR-0005 already documents binding the
@@ -221,7 +224,7 @@ control plane to a trusted network as the operational baseline.
 ## Validation
 
 - `auth`: unchanged — reused as-is.
-- `config`: `admin_auth` present / absent / `enabled: false` / malformed `match`
+- `config`: `admin_auth` present / absent / `enabled = false` / malformed `match`
   rule parsing and compilation via `Config.Validate()`.
 - `gateway/internal/controlplane`: middleware handler tests for all four
   rejection paths and the pass-through path; `/admin/healthz` reachable with no

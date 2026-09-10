@@ -30,7 +30,7 @@ go build -o mcp-gateway ./cmd/gateway
 ### Running
 
 ```bash
-./mcp-gateway --config config.yaml
+./mcp-gateway --config config.toml
 ```
 
 ## Architecture
@@ -57,7 +57,7 @@ See [docs/OVERVIEW.md](docs/OVERVIEW.md) for detailed architecture and design ra
 
 ## Configuration
 
-Configuration is managed via YAML files. See [`docs/CONFIG.md`](docs/CONFIG.md) for detailed configuration options.
+Configuration is a single TOML file ([ADR-0012](docs/architecture/decisions/0012-toml-configuration-format.md)), passed with `--config` (default `config.toml`). See [`config.example.toml`](config.example.toml) and [`docs/CONFIG.md`](docs/CONFIG.md) for all options.
 
 ## Contributing
 

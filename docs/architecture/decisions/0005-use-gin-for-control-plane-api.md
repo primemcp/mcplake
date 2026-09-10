@@ -139,9 +139,9 @@ performance story or hand-rolling CRUD scaffolding on fasthttp.
   the ADR-0002 claim-rule engine) before exposing `/admin/*` beyond localhost/trusted
   networks.~~ Resolved by [ADR-0010](0010-control-plane-admin-authentication.md): a
   Gin middleware reusing `auth.Validator` for JWT verification plus an
-  `admin_auth.match` claim-rule list (ADR-0002 syntax) from `config.yaml`.
+  `admin_auth.match` claim-rule list (ADR-0002 syntax) from `config.toml`.
 - Document the two-port topology (data-plane port, control-plane port) in
-  `config.example.yaml` and `docs/CONFIG.md` once implemented.
+  `config.example.toml` and `docs/CONFIG.md` once implemented.
 
 ## Validation
 

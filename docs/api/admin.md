@@ -108,7 +108,7 @@ Response body (also the shape returned by `GET /admin/mcps`):
 
 `status` (`connecting`/`active`/`unreachable`) reflects connection health and is owned
 by the gateway; `enabled` reflects operator intent and is only ever changed through
-this API or the seed `config.yaml`.
+this API or the seed `config.toml`.
 
 ### `GET /admin/mcps`
 
@@ -174,7 +174,7 @@ Content-Type: application/json
 ```
 
 `match` uses the same `{path, pattern}` JSONPath+regexp rule syntax as
-`config.yaml`'s `access_policies` (see [`docs/CONFIG.md`](../CONFIG.md#5-access-policies)
+`config.toml`'s `access_policies` (see [`docs/CONFIG.md`](../CONFIG.md#5-access-policies)
 and [ADR-0002](../architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)).
 
 An optional `enabled` field (bool, default `true`) is accepted here and echoed in

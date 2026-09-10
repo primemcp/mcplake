@@ -28,15 +28,15 @@ pre-existing database row, and an admin request without the field all mean
 
 ## Setting it
 
-**Seed config** (`config.yaml`) — an optional `enabled:` key on any entry under
-`mcps`, `access_policies`, or `filter_policies`. See
-[CONFIG.md](../CONFIG.md#4-mcp-servers) and `config.example.yaml`.
+**Seed config** (`config.toml`) — an optional `enabled` key on any entry in the
+`[[mcps]]`, `[[access_policies]]`, or `[[filter_policies]]` arrays. See
+[CONFIG.md](../CONFIG.md#4-mcp-servers) and `config.example.toml`.
 
-```yaml
-mcps:
-  - name: filesystem
-    command: mcp-server-filesystem
-    enabled: false
+```toml
+[[mcps]]
+name = "filesystem"
+command = "mcp-server-filesystem"
+enabled = false
 ```
 
 **Admin API** ([admin.md](../api/admin.md)) — the database is the source of
@@ -57,5 +57,5 @@ live-refresh path every other admin write uses.
 
 Disabling an MCP is the reversible alternative to `DELETE /admin/mcps/:name`,
 which removes the registration *and* its cached tool schemas and forces a full
-re-register (reconnect + re-discover) to bring it back. Use `enabled: false` to
+re-register (reconnect + re-discover) to bring it back. Use `enabled = false` to
 pause an MCP you intend to bring back; use `DELETE` to retire one for good.

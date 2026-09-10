@@ -66,8 +66,8 @@ described in [`data.md`](data.md).
 - Sole owner of durable state for `MCPRegistration`, `AccessPolicy`, and
   `FilterPolicy`. Nested rule/grant data is stored as JSON text columns so the same
   schema works unchanged across both dialects.
-- Startup reconciles `config.yaml`'s static `mcps:`/`access_policies:`/
-  `filter_policies:` entries into this store (upsert), so config becomes a seed
+- Startup reconciles `config.toml`'s static `[[mcps]]` / `[[access_policies]]` /
+  `[[filter_policies]]` entries into this store (upsert), so config becomes a seed
   mechanism rather than a second source of truth.
 - Never touched by the data plane directly — only by the Control-Plane API (writes)
   and by the MCP Registry / Policy Engine's cache-load-on-startup and

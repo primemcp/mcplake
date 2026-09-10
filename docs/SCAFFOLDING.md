@@ -53,7 +53,7 @@ This is a **multi-module Go workspace** using `go.work` (Go 1.18+). Each library
 ├── CONTRIBUTING.md             # Contribution guidelines
 ├── LICENSE                      # Apache 2.0 license
 ├── Makefile                     # Build and test commands
-├── config.example.yaml          # Example configuration
+├── config.example.toml          # Example configuration
 └── .gitignore                   # Git ignore patterns
 ```
 
@@ -74,7 +74,7 @@ This ensures that modules don't accidentally depend on the workspace and can be 
 ### Phase 1: Core Infrastructure
 
 1. **Config Module** (`config/config.go`)
-   - Parse YAML configuration
+   - Parse TOML configuration
    - Validate required fields
    - Provide sensible defaults
 
@@ -179,7 +179,7 @@ Custom claims (role, org, team, etc.) drive routing and filtering decisions.
 - `github.com/golang-jwt/jwt/v5` — JWT parsing and validation
 
 ### config
-- `gopkg.in/yaml.v3` — YAML configuration parsing
+- `github.com/BurntSushi/toml` — TOML configuration parsing (ADR-0012)
 
 ### gateway
 - All other modules as internal dependencies
@@ -201,7 +201,7 @@ go work sync
 make build
 
 # Run with example config
-./cmd/gateway/mcp-gateway --config config.example.yaml
+./cmd/gateway/mcp-gateway --config config.example.toml
 
 # Run all tests
 make test
@@ -231,7 +231,7 @@ Commit both `go.work` and each module's `go.mod` and `go.sum` files.
 
 ## Next Steps
 
-1. Implement `config.Load()` to parse YAML configuration
+1. Implement `config.Load()` to parse TOML configuration
 2. Implement `auth.Validator` with OIDC provider integration  
 3. Implement `mcp.Client` and MCP transport
 4. Build schema caching in `cache` module

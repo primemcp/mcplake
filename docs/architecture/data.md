@@ -48,25 +48,26 @@ type Grant struct {
 }
 ```
 
-Config shape (extends today's `routing` block in `config.example.yaml`):
+Config shape (see `config.example.toml`):
 
-```yaml
-access_policies:
-  - name: db-reader
-    match:
-      - path: "$.role"
-        pattern: "^db-reader$"
-    grants:
-      - mcp: postgres-ro
-        tools: ["*"]
+```toml
+[[access_policies]]
+name = "db-reader"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+[[access_policies.grants]]
+mcp = "postgres-ro"
+tools = ["*"]
 
-  - name: on-call
-    match:
-      - path: "$.groups[*]"
-        pattern: "^oncall-.*$"
-    grants:
-      - mcp: postgres-rw
-        tools: ["get_user", "list_incidents"]
+[[access_policies]]
+name = "on-call"
+[[access_policies.match]]
+path = "$.groups[*]"
+pattern = "^oncall-.*$"
+[[access_policies.grants]]
+mcp = "postgres-rw"
+tools = ["get_user", "list_incidents"]
 ```
 
 At request time, a call to `(mcp, tool)` is authorized if **any** `AccessPolicy` whose
@@ -91,18 +92,15 @@ type FilterPolicy struct {
 
 Config shape (extends today's `filtering` block):
 
-```yaml
-filter_policies:
-  - name: hide-pii-for-plain-users
-    match:
-      - path: "$.role"
-        pattern: "^user$"
-    mcp: postgres-ro
-    tool: get_user
-    drop_fields:
-      - "$.hashed_password"
-      - "$.api_key"
-      - "$.internal_id"
+```toml
+[[filter_policies]]
+name = "hide-pii-for-plain-users"
+mcp = "postgres-ro"
+tool = "get_user"
+drop_fields = ["$.hashed_password", "$.api_key", "$.internal_id"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^user$"
 ```
 
 At response time, the set of fields removed is the **union** of `DropFields` across
@@ -181,7 +179,7 @@ milestone — they're stored alongside the owning `MCPRegistrationRow` (as JSON)
 rebuilt into the in-memory `MCPRegistry` cache on load, since they're only ever read
 as a whole per-MCP tool set, never queried individually in SQL.
 
-At startup, `config.yaml`'s `mcps:`, `access_policies:`, and `filter_policies:`
+At startup, `config.toml`'s `[[mcps]]`, `[[access_policies]]`, and `[[filter_policies]]`
 entries are upserted into these tables by name (matching the `uniqueIndex`) before
 the caches are built — config is a seed mechanism, the database is the source of
 truth from that point on. Every Control-Plane API write goes through the same
