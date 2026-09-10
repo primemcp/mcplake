@@ -7,12 +7,12 @@ other tool. It is a thin adapter over the same application layer the REST
 handlers use, so the two surfaces always behave identically. See
 [ADR-0011](../architecture/decisions/0011-mcp-control-server.md).
 
-It is **off by default**. Enable it in `config.yaml`:
+It is **off by default**. Enable it in `config.toml`:
 
-```yaml
-admin_mcp:
-  enabled: true
-  path: /admin/mcp   # optional, default /admin/mcp; must be under /admin/
+```toml
+[admin_mcp]
+enabled = true
+# path = "/admin/mcp"   # optional, default /admin/mcp; must be under /admin/
 ```
 
 ## Connecting

@@ -20,7 +20,7 @@ mean one uniform thing.
 ## Decision
 
 Add a single boolean `Enabled` (default `true`) to all three objects, persisted
-(GORM column, `NOT NULL DEFAULT true`), seedable from `config.yaml` (`enabled:`
+(GORM column, `NOT NULL DEFAULT true`), seedable from `config.toml` (`enabled`
 key), and editable via the admin API. Enforcement differs per object, matching
 where each already acts:
 
@@ -52,17 +52,18 @@ property — the point of disable over delete.
 ### `Disabled bool` on the domain types instead of `Enabled bool`
 
 The zero value of `Disabled` is "active", which is safer against a forgotten
-struct field. Rejected for naming consistency: the persisted column, the YAML
+struct field. Rejected for naming consistency: the persisted column, the config
 key, the API field, and the webui toggle all speak `enabled` (default true).
 Mitigated instead by setting `Enabled` explicitly at every production
 construction site and in tests, and by the `*bool` boundary types below.
 
 ### Plain `bool` at the config/DB/API boundaries
 
-A YAML `bool` cannot distinguish an omitted key from `enabled: false`, and GORM
-treats a zero-valued `bool` field with a `default:` tag as "unset" and
-substitutes the default on write — so an explicit `false` could never be
-persisted. `*bool` at each boundary (nil ⇒ default true) avoids both.
+A plain `bool` at a decode boundary cannot distinguish an omitted key from
+`enabled = false`, and GORM treats a zero-valued `bool` field with a `default:`
+tag as "unset" and substitutes the default on write — so an explicit `false`
+could never be persisted. `*bool` at each boundary (nil ⇒ default true) avoids
+both.
 
 ## Consequences
 

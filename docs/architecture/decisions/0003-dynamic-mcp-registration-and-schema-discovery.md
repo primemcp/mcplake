@@ -7,7 +7,7 @@
 
 `docs/OVERVIEW.md` and `docs/SCAFFOLDING.md` describe MCP schema caching as a
 one-time, startup-only step: the gateway connects to every MCP listed in
-`config.yaml` and fetches its tools once. That model does not support the
+`config.toml` and fetches its tools once. That model does not support the
 requirement to *register downstream MCPs* as an operation in its own right — the
 design brief calls for the ability to add an MCP to a running gateway, at which point
 its tools and request/response schemas are fetched, without requiring the operator to
@@ -18,7 +18,7 @@ Constraints:
   MCP must be fully known (name + tool list) before any policy can reference it
   meaningfully.
 - The gateway must still support the existing startup-time config path
-  (`mcps:` in `config.yaml`) — this is not being removed, only generalized.
+  (the `[[mcps]]` array in `config.toml`) — this is not being removed, only generalized.
 - Air-gapped/operational simplicity: no external service registry; the gateway is the
   only place registration state lives.
 
@@ -27,7 +27,7 @@ Constraints:
 Introduce a single internal registration operation,
 `Registry.Register(reg MCPRegistration) error`, used by both:
 
-1. **Startup path** — for each entry under `mcps:` in `config.yaml`, the gateway calls
+1. **Startup path** — for each `[[mcps]]` entry in `config.toml`, the gateway calls
    `Registry.Register` during boot, before the HTTP server starts accepting traffic.
 2. **Runtime path** — an admin endpoint (`POST /admin/mcps`) accepts the same
    `MCPRegistration` shape and calls the identical `Registry.Register`.

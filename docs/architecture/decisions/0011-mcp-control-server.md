@@ -95,10 +95,10 @@ connection before the handler sees it — no separate auth for this surface.
 
 New config section:
 
-```yaml
-admin_mcp:
-  enabled: false          # default; true mounts the handler
-  path: /admin/mcp        # must be under /admin/
+```toml
+[admin_mcp]
+enabled = false           # default; true mounts the handler
+path = "/admin/mcp"       # must be under /admin/
 ```
 
 When `enabled` is false (the default) nothing is mounted.

@@ -7,7 +7,7 @@
 
 Until now, `AccessPolicy`/`FilterPolicy` ([ADR-0004](0004-unified-policy-engine-for-access-and-filtering.md))
 and `MCPRegistration` ([ADR-0003](0003-dynamic-mcp-registration-and-schema-discovery.md))
-were described as config-file-driven (loaded from `config.yaml` at startup) plus
+were described as config-file-driven (loaded from `config.toml` at startup) plus
 in-memory state. [ADR-0005](0005-use-gin-for-control-plane-api.md) now adds a
 control-plane API that creates, updates, and deletes these records at runtime. That
 changes the requirement:
@@ -45,9 +45,9 @@ data), with:
   milestone, but the schema and query patterns are constrained now (see
   Consequences) so the switch is a configuration change, not a rewrite.
 
-Startup-time `config.yaml` entries for MCPs and policies (ADR-0003's static path) are
+Startup-time `config.toml` entries for MCPs and policies (ADR-0003's static path) are
 **upserted into the database** at boot rather than living only in memory — the
-database becomes the single source of truth for the control-plane state; config.yaml
+database becomes the single source of truth for the control-plane state; config.toml
 becomes a convenience bootstrap/seed mechanism for the default (SQLite,
 single-instance) deployment, not a parallel state store. The in-memory Policy Engine
 and MCP Registry (ADR-0003, ADR-0004) remain as read-optimized caches over this data,
@@ -63,7 +63,7 @@ Advantages:
 
 Disadvantages:
 - Cannot support runtime CRUD from the admin API (ADR-0005) — every change would
-  require editing `config.yaml` and restarting, defeating the purpose of the admin
+  require editing `config.toml` and restarting, defeating the purpose of the admin
   API.
 - No path to a distributed deployment at all.
 
@@ -176,7 +176,7 @@ rest of the architecture (ADR-0001, air-gapped design) is built around.
   target (e.g. via a container) so both dialects are continuously verified, not just
   SQLite.
 - Document the two-backend configuration (`persistence.driver: sqlite|postgres`) in
-  `config.example.yaml` and `docs/CONFIG.md`.
+  `config.example.toml` and `docs/CONFIG.md`.
 
 ## Validation
 

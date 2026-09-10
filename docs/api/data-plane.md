@@ -55,7 +55,7 @@ The full pipeline (auth → authorize → route → call → filter) is describe
 | 404    | `mcp_not_found`          | `mcp` isn't registered, or isn't currently active.               |
 | 404    | `tool_not_found`         | `mcp` exists but doesn't advertise `tool`.                       |
 | 502    | `upstream_error`         | The downstream MCP call itself failed (connection issue, tool-level error). |
-| 504    | `upstream_timeout`       | The downstream MCP call didn't complete within the gateway's call timeout (`internal.Config.CallTimeout`, default 30s — not yet exposed as a `config.yaml` key). |
+| 504    | `upstream_timeout`       | The downstream MCP call didn't complete within the gateway's call timeout (`internal.Config.CallTimeout`, default 30s — not yet exposed as a `config.toml` key). |
 | 500    | `internal_error`         | The Policy Engine or response filter failed unexpectedly — not a caller error. |
 | 501    | `not_implemented`        | The gateway was started without a configured auth/policy/MCP pipeline (should not happen in a real deployment). |
 

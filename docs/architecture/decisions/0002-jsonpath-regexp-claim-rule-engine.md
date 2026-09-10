@@ -95,7 +95,7 @@ Disadvantages:
 
 - Functional fit against the two explicit requirements (path extraction; list "any
   element matches" semantics).
-- Operational simplicity for operators writing policy YAML.
+- Operational simplicity for operators writing policy config.
 - Dependency footprint and auditability (security-sensitive, air-gapped deployments).
 - Performance (evaluated per request, potentially against multiple policies).
 

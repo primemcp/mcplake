@@ -2,7 +2,10 @@
 
 ## Overview
 
-The MCP Gateway is configured via YAML files. This guide covers all available configuration options.
+The MCP Gateway is configured with a single **TOML** file
+([ADR-0012](architecture/decisions/0012-toml-configuration-format.md)), passed
+with `--config` (default `config.toml`). This guide covers every option. See
+[`config.example.toml`](../config.example.toml) for a complete file.
 
 ## Configuration Sections
 
@@ -12,15 +15,12 @@ Controls the gateway's two HTTP surfaces — see
 [`docs/architecture/overview.md`](architecture/overview.md) for why they're
 separate.
 
-```yaml
-server:
-  data_plane_addr: ":8080"    # fasthttp tool-call proxy (ADR-0001)
-  control_plane_addr: ":8081" # Gin admin API (ADR-0005)
-  # tls:
-  #   cert_file: /path/to/cert.pem
-  #   key_file: /path/to/key.pem
-  # read_timeout: 30s
-  # write_timeout: 30s
+```toml
+[server]
+data_plane_addr = ":8080"     # fasthttp tool-call proxy (ADR-0001)
+control_plane_addr = ":8081"  # Gin admin API (ADR-0005)
+# tls.cert_file = "/path/to/cert.pem"
+# tls.key_file  = "/path/to/key.pem"
 ```
 
 **Fields:**
@@ -34,12 +34,12 @@ server:
 
 Configures JWT validation and OIDC provider integration.
 
-```yaml
-oidc:
-  jwks_url: "https://auth.example.com/.well-known/jwks.json"
-  issuer: "https://auth.example.com"
-  audience: "mcp-gateway"
-  # jwks_cache_ttl: 1h
+```toml
+[oidc]
+jwks_url = "https://auth.example.com/.well-known/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
+# jwks_cache_ttl = "1h"
 ```
 
 **Fields:**
@@ -49,8 +49,9 @@ oidc:
   tracked as future work, not implemented in `auth.Validator` yet.
 - `issuer` — required `iss` claim value (required)
 - `audience` — required `aud` claim value (required)
-- `jwks_cache_ttl` — how long fetched keys are cached before a background
-  refresh (default: `1h`). The cache is also refreshed out-of-band, rate-limited
+- `jwks_cache_ttl` — a Go duration string (`"1h"`, `"30m"`) for how long
+  fetched keys are cached before a background refresh (default: `1h` when
+  omitted or `"0"`). The cache is also refreshed out-of-band, rate-limited
   to once per minute, whenever a token references an unrecognized key ID
   (e.g. right after the provider rotates its signing key) — see
   [`auth.Validator`](../auth/validator.go).
@@ -65,39 +66,43 @@ Authenticates and authorizes callers of the control-plane admin API
 (`/admin/*`). See
 [ADR-0010](architecture/decisions/0010-control-plane-admin-authentication.md).
 
-```yaml
-admin_auth:
-  # enabled: true          # optional; see the default rule below
-  match:
-    - path: "$.role"        # JSONPath into the decoded claim set
-      pattern: "^admin$"     # regexp tested against the extracted value(s)
-    - path: "$.iss"
-      pattern: "^https://auth\\.example\\.com$"
+```toml
+# [admin_auth]
+# enabled = true          # optional; see the default rule below
+
+[[admin_auth.match]]
+path = "$.role"           # JSONPath into the decoded claim set
+pattern = "^admin$"       # regexp tested against the extracted value(s)
+
+[[admin_auth.match]]
+path = "$.iss"
+pattern = "^https://auth\\.example\\.com$"
 ```
 
 **How it works:**
 1. Every request to `/admin/*` except `GET /admin/healthz` must carry an
    `Authorization: Bearer <jwt>` header.
 2. The token is verified exactly like a data-plane token — signature against
-   the `oidc:` JWKS, plus `exp`/`iss`/`aud`. There is no separate admin
-   provider; the admin surface reuses the `oidc:` section above.
+   the `[oidc]` JWKS, plus `exp`/`iss`/`aud`. There is no separate admin
+   provider; the admin surface reuses the `[oidc]` section above.
 3. The decoded claim set is then tested against `admin_auth.match` — the same
    `{path, pattern}` JSONPath+regexp rule syntax as `access_policies`
    ([ADR-0002](architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)).
    All rules are ANDed. A caller whose claims fail any rule gets `403`.
 
 **Fields:**
-- `match` — a list of `{path, pattern}` rules, ANDed. Pin a claim that only
-  admin tokens carry (a role, a group, a dedicated `aud`); an over-broad rule
-  makes every authenticated user an admin. Anchor every pattern with `^…$`.
+- `match` — a list of `{path, pattern}` rules (each `[[admin_auth.match]]`
+  block is one rule), ANDed. Pin a claim that only admin tokens carry (a role,
+  a group, a dedicated `aud`); an over-broad rule makes every authenticated
+  user an admin. Anchor every pattern with `^…$`.
 - `enabled` — optional on/off switch.
   - **Omitted:** admin auth is **on** iff `match` has at least one rule. So a
     config with no `admin_auth` section at all leaves `/admin/*` **open**, and
     the gateway logs a prominent `WARN` at startup. This is the
     backward-compatible default; bind `control_plane_addr` to a trusted
     interface until you configure `match`.
-  - `enabled: false` — force admin auth off even if `match` rules are present.
-  - `enabled: true` with an empty `match` is a configuration error (it would
+  - `enabled = false` — force admin auth off even if `match` rules are present.
+  - `enabled = true` with an empty `match` is a configuration error (it would
     authorize every authenticated caller) and fails at startup.
 
 **Consequences:**
@@ -106,7 +111,7 @@ admin_auth:
 - The embedded admin web UI calls `/admin/*` without a token today; enabling
   admin auth will make those calls fail until the UI is taught to attach one
   (tracked in the Admin UI epic, #76). Until then, run with `admin_auth`
-  unset (or `enabled: false`) behind network isolation.
+  unset (or `enabled = false`) behind network isolation.
 - A malformed `path`/`pattern` fails `Config.Validate()` at startup, like
   every other claim rule.
 
@@ -117,10 +122,10 @@ an MCP tool on the control-plane listener, for MCP-speaking clients. See
 [ADR-0011](architecture/decisions/0011-mcp-control-server.md) and
 [`docs/api/admin-mcp.md`](api/admin-mcp.md).
 
-```yaml
-admin_mcp:
-  enabled: true
-  # path: /admin/mcp
+```toml
+[admin_mcp]
+enabled = true
+# path = "/admin/mcp"
 ```
 
 **Fields:**
@@ -130,9 +135,28 @@ admin_mcp:
   `Config.Validate()` rejects anything else at startup.
 
 The MCP endpoint is under `/admin/`, so it is authenticated and claim-gated by
-`admin_auth` exactly like the REST admin API. With `admin_mcp.enabled: true` and
+`admin_auth` exactly like the REST admin API. With `admin_mcp.enabled = true` and
 no `admin_auth`, the control server is unauthenticated and the gateway logs a
 warning — bind `control_plane_addr` to a trusted interface.
+
+### MCP (global)
+
+Settings that apply to every registered MCP.
+
+```toml
+[mcp]
+schema_refresh_interval = "15m"
+```
+
+**Fields:**
+- `schema_refresh_interval` — a Go duration string. When set, the gateway
+  re-runs `tools/list` on each active MCP's **existing** client on this
+  interval (no reconnect) and swaps in the fresh schema, so a tool added or
+  removed downstream is picked up within roughly one interval. Omitted or
+  `"0"` disables periodic refresh (the default — schemas are then fetched only
+  at registration). A `tools/list` failure during a refresh is logged and
+  leaves the previous schema in place. See
+  [ADR-0013](architecture/decisions/0013-periodic-mcp-schema-refresh.md).
 
 ### 3. Persistence
 
@@ -140,10 +164,10 @@ Configures the control-plane's durable store for MCP registrations and
 access/filter policies. See
 [ADR-0006](architecture/decisions/0006-gorm-sqlite-postgres-persistence.md).
 
-```yaml
-persistence:
-  driver: sqlite       # sqlite (default) | postgres
-  dsn: "gateway.db"     # SQLite file path, or a Postgres connection string
+```toml
+[persistence]
+driver = "sqlite"    # sqlite (default) | postgres
+dsn = "gateway.db"   # SQLite file path, or a Postgres connection string
 ```
 
 **Fields:**
@@ -151,43 +175,38 @@ persistence:
   pure-Go driver (no CGO, no external service) — the default for a
   single-instance, air-gapped deployment. `postgres` is for distributed
   deployments sharing one control-plane store.
-- `dsn` — the SQLite file path when `driver: sqlite`, or a PostgreSQL
-  connection string when `driver: postgres`.
+- `dsn` — the SQLite file path when `driver = "sqlite"`, or a PostgreSQL
+  connection string when `driver = "postgres"`.
 
-At startup, this section's entries plus `mcps:`/`access_policies:`/
-`filter_policies:` below are upserted into this store by name — the database
-becomes the source of truth from then on; `config.yaml` is a seed mechanism,
-not a parallel state store.
+At startup, this section's entries plus the `[[mcps]]` / `[[access_policies]]` /
+`[[filter_policies]]` arrays below are upserted into this store by name — the
+database becomes the source of truth from then on; the config file is a seed
+mechanism, not a parallel state store.
 
 ### 4. MCP Servers
 
-Defines all MCP servers the gateway connects to.
+Defines all MCP servers the gateway connects to. Each server is one
+`[[mcps]]` block.
 
-```yaml
-mcps:
-  - name: postgres-ro
-    type: stdio               # stdio, sse, etc.
-    command: mcp-server-postgres
-    arguments:
-      - "--connection-string"
-      - "postgresql://user@localhost/db"
-      - "--read-only"
+```toml
+[[mcps]]
+name = "postgres-ro"
+type = "stdio"               # stdio, sse, etc.
+command = "mcp-server-postgres"
+arguments = ["--connection-string", "postgresql://user@localhost/db", "--read-only"]
 
-  - name: filesystem
-    type: stdio
-    command: mcp-server-filesystem
-    arguments:
-      - "/data"
-    # env:
-    #   LOG_LEVEL: debug
+[[mcps]]
+name = "filesystem"
+type = "stdio"
+command = "mcp-server-filesystem"
+arguments = ["/data"]
 ```
 
 **Fields:**
 - `name` — Unique identifier for this MCP instance (required)
-- `type` — Transport type (default: "stdio")
+- `type` — Transport type (default: `"stdio"`)
 - `command` — Binary to execute (required)
 - `arguments` — Command-line arguments
-- `env` — Environment variables
 - `enabled` — operator on/off switch (optional, default `true`). When
   `false`, the MCP is still registered and (at startup) still connected, its
   tools stay cached, but the data plane rejects every `POST /v1/call` for it
@@ -205,30 +224,33 @@ for the `match` rule syntax and
 [ADR-0004](architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.md)
 for policy semantics.
 
-```yaml
-access_policies:
-  - name: db-reader
-    match:
-      - path: "$.role"       # JSONPath into the decoded claim set
-        pattern: "^db-reader$" # regexp tested against the extracted value(s)
-    grants:
-      - mcp: postgres-ro      # "*" grants every registered MCP
-        tools: ["*"]          # "*" grants every tool on the matched MCP(s)
+```toml
+[[access_policies]]
+name = "db-reader"
+[[access_policies.match]]
+path = "$.role"              # JSONPath into the decoded claim set
+pattern = "^db-reader$"      # regexp tested against the extracted value(s)
+[[access_policies.grants]]
+mcp = "postgres-ro"          # "*" grants every registered MCP
+tools = ["*"]                # "*" grants every tool on the matched MCP(s)
 
-  - name: db-writer
-    match:
-      - path: "$.role"
-        pattern: "^db-writer$"
-    grants:
-      - mcp: postgres-rw
-        tools: ["*"]
+[[access_policies]]
+name = "db-writer"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^db-writer$"
+[[access_policies.grants]]
+mcp = "postgres-rw"
+tools = ["*"]
 ```
 
 **Fields:**
 - `name` — unique identifier for the policy, used in error messages (required)
-- `match` — a list of `{path, pattern}` rules, ANDed together (all must match)
-- `grants` — a list of `{mcp, tools}`; a call is authorized if this policy's
-  `match` matches AND any grant covers the requested `(mcp, tool)`
+- `match` — a list of `{path, pattern}` rules (`[[access_policies.match]]`
+  blocks), ANDed together (all must match)
+- `grants` — a list of `{mcp, tools}` (`[[access_policies.grants]]` blocks); a
+  call is authorized if this policy's `match` matches AND any grant covers the
+  requested `(mcp, tool)`
 - `enabled` — operator on/off switch (optional, default `true`). When
   `false`, the policy is skipped entirely during authorization, so it grants
   nothing. A caller authorized only by a disabled policy is rejected with
@@ -251,23 +273,21 @@ Strips response fields for a specific `(mcp, tool)` call when the caller's
 claims match. Reuses the exact same `match` rule syntax as access policies —
 see ADR-0004 for why one engine drives both.
 
-```yaml
-filter_policies:
-  - name: hide-pii-for-plain-users-get-user
-    match:
-      - path: "$.role"
-        pattern: "^user$"
-    mcp: postgres-ro   # exact match, no "*" — a filter targets one tool
-    tool: get_user
-    drop_fields:
-      - "$.hashed_password" # JSONPath into the tool's response body
-      - "$.api_key"
-      - "$.internal_id"
+```toml
+[[filter_policies]]
+name = "hide-pii-for-plain-users-get-user"
+mcp = "postgres-ro"   # exact match, no "*" — a filter targets one tool
+tool = "get_user"
+drop_fields = ["$.hashed_password", "$.api_key", "$.internal_id"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^user$"
 ```
 
 **Fields:**
 - `name` — unique identifier (required)
 - `match` — same `{path, pattern}` rule list as access policies
+  (`[[filter_policies.match]]` blocks)
 - `mcp` / `tool` — the exact tool call this filter applies to (no wildcards)
 - `drop_fields` — JSONPath expressions identifying fields to remove from the
   response; a path that doesn't exist in a given response is a no-op
@@ -285,33 +305,22 @@ filter_policies:
 
 ## Complete Example
 
-See `config.example.yaml` for a complete configuration file.
+See [`config.example.toml`](../config.example.toml) for a complete configuration
+file.
 
 ## Environment Variables
 
-You can override configuration values with environment variables:
-
-```bash
-# Server
-GATEWAY_SERVER_DATA_PLANE_ADDR=:9000
-GATEWAY_SERVER_CONTROL_PLANE_ADDR=:9001
-
-# OIDC
-GATEWAY_OIDC_PROVIDER_URL=https://auth.example.com
-GATEWAY_OIDC_CLIENT_ID=my-gateway
-GATEWAY_OIDC_AUDIENCE=my-gateway
-
-# Debug logging
-GATEWAY_LOG_LEVEL=debug
-```
+Environment-variable overrides are **not** currently supported — every setting
+comes from the config file. (An earlier draft of this guide listed `GATEWAY_*`
+variables; they were never implemented.)
 
 ## Best Practices
 
 1. **Start Simple** — start with one or two access policies, add filter policies incrementally
 2. **Test Policies** — verify access policies grant what you expect before layering filter policies on top
-3. **Secure Secrets** — use environment variables or external secret management for sensitive values
+3. **Secure Secrets** — keep the config file readable only by the gateway user; use an external secret store for connection strings where possible
 4. **Validate Config** — `Config.Validate()` compiles every policy's JSONPath/regexp up front; a malformed rule fails at startup, not at request time
-5. **Monitor** — enable debug logging during initial rollout
+5. **Monitor** — run at debug log level during initial rollout
 
 ## Troubleshooting
 
@@ -324,11 +333,11 @@ GATEWAY_LOG_LEVEL=debug
   being called, or uses `"*"` for the field(s) that should be wildcarded
 
 ### "MCP not found"
-- Verify the MCP name in `grants`/`filter_policies` matches a name under
-  `mcps:` (or a runtime-registered MCP, once the admin API exists)
+- Verify the MCP name in `grants` / `filter_policies` matches a name in a
+  `[[mcps]]` block (or a runtime-registered MCP)
 
 ### "Field filtering not working"
-- Ensure the filter policy's `mcp`/`tool` match exactly (no wildcards
+- Ensure the filter policy's `mcp` / `tool` match exactly (no wildcards
   supported here, unlike access policy grants)
 - Verify the caller's claims satisfy the filter policy's `match` rules
 - Check that `drop_fields` paths match the actual response shape (a
@@ -336,6 +345,10 @@ GATEWAY_LOG_LEVEL=debug
 
 ### Startup fails with "config: access_policies[N] ... match[M]: ..."
 - The named policy's JSONPath expression or regexp failed to compile;
-  fix the `path`/`pattern` at that index before restarting
+  fix the `path` / `pattern` at that index before restarting
+
+### Startup fails with "config: parse ...: ..."
+- The file is not valid TOML. A common cause is pasting an old YAML snippet;
+  rewrite it in TOML (see the examples above and `config.example.toml`).
 
 See `docs/DEBUG.md` for advanced debugging guidance.
