@@ -374,8 +374,8 @@ export function AccessTab({
                     }`}
                   >
                     <span
-                      className={`w-4 h-4 rounded border-2 grid place-items-center text-[10px] font-bold text-white mt-0.5 shrink-0 ${
-                        granted ? "bg-accent border-accent" : "bg-white border-muted"
+                      className={`w-4 h-4 rounded-[5px] border grid place-items-center text-[10px] font-bold leading-none text-white mt-[1px] shrink-0 ${
+                        granted ? "bg-accent border-accent" : "bg-white border-line"
                       }`}
                     >
                       {granted ? "✓" : ""}
@@ -549,8 +549,8 @@ export function AccessTab({
                                     aria-checked={groupEnabled}
                                     aria-label={`Enable ${g.id}`}
                                     onClick={() => toggleGroupEnabled(endpoint.name, g)}
-                                    className={`w-4 h-4 rounded border-2 grid place-items-center text-[10px] font-bold text-white shrink-0 mt-0.5 cursor-pointer ${
-                                      groupEnabled ? "bg-accent border-accent" : "bg-white border-muted"
+                                    className={`appearance-none w-4 h-4 p-0 rounded-[5px] border grid place-items-center text-[10px] font-bold leading-none text-white shrink-0 mt-[1px] cursor-pointer ${
+                                      groupEnabled ? "bg-accent border-accent" : "bg-white border-line"
                                     }`}
                                   >
                                     {groupEnabled ? "✓" : ""}
@@ -624,7 +624,7 @@ export function AccessTab({
                             disabled={Object.keys(scopedTools).length === 0}
                             className="flex items-center gap-2 p-2 border border-dashed border-line rounded-[9px] bg-surface cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <span className="w-3.5 h-3.5 rounded border border-dashed border-muted grid place-items-center text-[10px] text-muted">
+                            <span className="w-4 h-4 rounded-[5px] border border-dashed border-line grid place-items-center text-[11px] leading-none text-muted shrink-0">
                               +
                             </span>
                             <span className="text-[11.5px] font-semibold">Add response filter</span>
