@@ -138,6 +138,11 @@ adds no external dependency, consistent with the project's deployment goals.
 - Decide whether unreachable MCPs are retried automatically (e.g. periodic
   reconnect) or require an explicit re-`Register` call — deferred until the failure
   mode is observed in practice.
+- ~~The one-time-at-registration schema fetch goes stale if a running MCP adds or
+  removes a tool.~~ Addressed by
+  [ADR-0013](0013-periodic-mcp-schema-refresh.md): an optional
+  `mcp.schema_refresh_interval` re-runs `tools/list` on the live client on a
+  timer and swaps the cached schema in, without reconnecting.
 
 ## Validation
 
