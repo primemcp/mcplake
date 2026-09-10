@@ -21,6 +21,14 @@ oidc:
 #     - path: "$.role"
 #       pattern: "^admin$"
 
+# In-process MCP control server (ADR-0011): the admin operations below,
+# exposed as MCP tools on the control-plane listener. Off by default. When
+# on, it mounts under /admin/ and is gated by admin_auth like the rest of
+# the admin API.
+# admin_mcp:
+#   enabled: true
+#   path: /admin/mcp   # optional, default /admin/mcp; must be under /admin/
+
 # Control-plane persistence (ADR-0006). Defaults to embedded SQLite — no
 # external service required for a single-instance, air-gapped deployment.
 persistence:

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/atsokha/mcplake/router"
@@ -13,10 +14,41 @@ type Config struct {
 	Server         ServerConfig         `yaml:"server"`
 	OIDC           OIDCConfig           `yaml:"oidc"`
 	AdminAuth      AdminAuthConfig      `yaml:"admin_auth"`
+	AdminMCP       AdminMCPConfig       `yaml:"admin_mcp"`
 	Persistence    PersistenceConfig    `yaml:"persistence"`
 	MCPs           []MCPConfig          `yaml:"mcps"`
 	AccessPolicies []AccessPolicyConfig `yaml:"access_policies"`
 	FilterPolicies []FilterPolicyConfig `yaml:"filter_policies"`
+}
+
+// DefaultAdminMCPPath is where the MCP control server mounts when
+// admin_mcp.path is omitted. It is under /admin/ so the admin-auth
+// middleware covers it. See
+// docs/architecture/decisions/0011-mcp-control-server.md.
+const DefaultAdminMCPPath = "/admin/mcp"
+
+// AdminMCPConfig configures the in-process MCP control server: the
+// control-plane admin operations exposed as MCP tools, mounted on the
+// control-plane listener.
+type AdminMCPConfig struct {
+	// Enabled turns the MCP control server on. It is a pointer only for
+	// symmetry with the other on/off switches; unlike them it defaults to
+	// OFF — an omitted admin_mcp section mounts nothing.
+	Enabled *bool `yaml:"enabled"`
+	// Path is where the streamable-HTTP handler mounts. Defaults to
+	// DefaultAdminMCPPath. Must be under "/admin/" so admin_auth applies.
+	Path string `yaml:"path"`
+}
+
+func (a AdminMCPConfig) enabled() bool {
+	return a.Enabled != nil && *a.Enabled
+}
+
+func (a AdminMCPConfig) path() string {
+	if a.Path == "" {
+		return DefaultAdminMCPPath
+	}
+	return a.Path
 }
 
 // AdminAuthConfig configures authentication/authorization for the
@@ -210,6 +242,10 @@ func (c *Config) Validate() error {
 	}
 	if err := validateClaimRules(c.AdminAuth.Match); err != nil {
 		return fmt.Errorf("config: admin_auth: %w", err)
+	}
+
+	if c.AdminMCP.Path != "" && !strings.HasPrefix(c.AdminMCP.Path, "/admin/") {
+		return fmt.Errorf("config: admin_mcp.path must be under /admin/ (got %q)", c.AdminMCP.Path)
 	}
 
 	for i, policy := range c.AccessPolicies {
