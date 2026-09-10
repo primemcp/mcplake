@@ -20,9 +20,16 @@ type fakeMCPClient struct {
 	listErr  error
 	closed   bool
 	closeErr error
+	// onListTools, if set, runs at the start of each ListTools call — used
+	// by the refresh tests to simulate a registration swap racing the
+	// discovery call.
+	onListTools func()
 }
 
 func (f *fakeMCPClient) ListTools(context.Context) ([]mcp.ToolSchema, error) {
+	if f.onListTools != nil {
+		f.onListTools()
+	}
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
