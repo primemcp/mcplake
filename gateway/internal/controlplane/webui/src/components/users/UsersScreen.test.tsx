@@ -5,8 +5,8 @@ import type { AccessPolicy } from "../../api/types";
 import { UsersScreen } from "./UsersScreen";
 
 const ACCESS_POLICIES: AccessPolicy[] = [
-  { name: "analyst-team", match: [{ path: "$.role", pattern: "^analyst$" }], grants: [] },
-  { name: "admin-team", match: [{ path: "$.role", pattern: "^admin$" }], grants: [] },
+  { name: "analyst-team", match: [{ path: "$.role", pattern: "^analyst$" }], grants: [], enabled: true },
+  { name: "admin-team", match: [{ path: "$.role", pattern: "^admin$" }], grants: [], enabled: true },
 ];
 
 function jsonResponse(body: unknown) {

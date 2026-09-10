@@ -232,15 +232,51 @@ export function AccessTab({
     if (!userName) return;
     const plan = planGroupSave(groupId, existing, desired);
     const real = (n: string) => `${userName}${GROUP_SEP}${n}`;
+    // planGroupSave only knows about (tool, dropFields) -- carry each
+    // existing member's own enabled state through an edit unchanged
+    // (toggling it is a separate, explicit action; see
+    // toggleGroupEnabled), and default a newly-created tool to enabled.
+    const enabledByTool = new Map(existing.map((m) => [m.tool, m.enabled]));
     await Promise.all([
       ...plan.toCreate.map((c) =>
-        onCreateFilter({ name: real(c.name), match: userMatch, mcp, tool: c.tool, drop_fields: c.dropFields }),
+        onCreateFilter({ name: real(c.name), match: userMatch, mcp, tool: c.tool, drop_fields: c.dropFields, enabled: true }),
       ),
       ...plan.toUpdate.map((u) =>
-        onUpdateFilter(real(u.name), { name: real(u.name), match: userMatch, mcp, tool: u.tool, drop_fields: u.dropFields }),
+        onUpdateFilter(real(u.name), {
+          name: real(u.name),
+          match: userMatch,
+          mcp,
+          tool: u.tool,
+          drop_fields: u.dropFields,
+          enabled: enabledByTool.get(u.tool) ?? true,
+        }),
       ),
       ...plan.toDelete.map((n) => onDeleteFilter(real(n))),
     ]);
+  };
+
+  // The mockup's per-filter checkbox-mark, repurposed: rather than
+  // "selected from a shared pool" (which ADR-0010 rules out), it toggles
+  // the real `FilterPolicy.enabled` flag the enable/disable epic (#95)
+  // added -- a disabled filter is skipped entirely by the real filtering
+  // engine (see router/filterpolicy.go), so this is a genuine, working
+  // on/off switch, not a fake one. All of a named filter's members (it
+  // can span several tools) toggle together, matching one visible row.
+  const toggleGroupEnabled = async (mcp: string, g: FilterGroup) => {
+    if (!userName) return;
+    const nowEnabled = g.members.every((m) => m.enabled);
+    await Promise.all(
+      g.members.map((m) =>
+        onUpdateFilter(`${userName}${GROUP_SEP}${m.name}`, {
+          name: `${userName}${GROUP_SEP}${m.name}`,
+          match: userMatch,
+          mcp,
+          tool: m.tool,
+          drop_fields: m.drop_fields,
+          enabled: !nowEnabled,
+        }),
+      ),
+    );
   };
 
   const deleteGroup = async (group: FilterGroup) => {
@@ -450,7 +486,10 @@ export function AccessTab({
                     const addOpen = editingKey === addKey;
 
                     return (
-                      <Card key={endpoint.name} className="shrink-0 p-3 flex flex-col gap-2">
+                      <div
+                        key={endpoint.name}
+                        className="shrink-0 p-3 flex flex-col gap-2 bg-well border border-border rounded-[14px]"
+                      >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-well text-muted shrink-0">
                             {endpoint.transport}
@@ -499,8 +538,25 @@ export function AccessTab({
                           ) : (
                             <div
                               key={key}
-                              className="p-2.5 flex items-start gap-2.5 border border-border rounded-[9px]"
+                              className="p-2.5 flex items-start gap-2.5 border border-border rounded-[9px] bg-surface"
                             >
+                              {(() => {
+                                const groupEnabled = g.members.every((m) => m.enabled);
+                                return (
+                                  <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={groupEnabled}
+                                    aria-label={`Enable ${g.id}`}
+                                    onClick={() => toggleGroupEnabled(endpoint.name, g)}
+                                    className={`w-4 h-4 rounded border grid place-items-center text-[10px] font-bold text-white shrink-0 mt-0.5 border-0 cursor-pointer ${
+                                      groupEnabled ? "bg-accent border-accent" : "bg-white border-line"
+                                    }`}
+                                  >
+                                    {groupEnabled ? "✓" : ""}
+                                  </button>
+                                );
+                              })()}
                               <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                                 <div className="text-[12.5px] font-medium truncate">{g.id}</div>
                                 <div className="text-[10.5px] font-mono text-subtle truncate">{groupSummary(g)}</div>
@@ -574,7 +630,7 @@ export function AccessTab({
                             <span className="text-[11.5px] font-semibold">Add response filter</span>
                           </button>
                         )}
-                      </Card>
+                      </div>
                     );
                   })}
                 </div>

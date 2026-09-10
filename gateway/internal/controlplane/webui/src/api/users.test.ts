@@ -3,11 +3,11 @@ import { composeUsers } from "./users";
 import type { AccessPolicy, FilterPolicy } from "./types";
 
 function accessPolicy(overrides: Partial<AccessPolicy>): AccessPolicy {
-  return { name: "alice", match: [], grants: [], ...overrides };
+  return { name: "alice", match: [], grants: [], enabled: true, ...overrides };
 }
 
 function filterPolicy(overrides: Partial<FilterPolicy>): FilterPolicy {
-  return { name: "x", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: [], ...overrides };
+  return { name: "x", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: [], enabled: true, ...overrides };
 }
 
 describe("composeUsers", () => {

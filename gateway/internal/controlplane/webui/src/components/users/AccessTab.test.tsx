@@ -191,6 +191,7 @@ describe("AccessTab", () => {
           mcp: "demo-memory",
           tool: "add_observations",
           drop_fields: ["$.results", "$.entityName"],
+          enabled: true,
         },
       ];
       render(
@@ -205,13 +206,51 @@ describe("AccessTab", () => {
       expect(screen.getByText("Mask customer PII")).toBeInTheDocument();
       expect(screen.getByText(/add_observations: \$\.results.*\[2\]/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Edit Mask customer PII" })).toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: "Enable Mask customer PII" })).toHaveAttribute("aria-checked", "true");
       // Collapsed -- the full picker isn't mounted until Edit is clicked.
       expect(screen.queryByText("Discovered response fields")).not.toBeInTheDocument();
     });
 
+    it("the row checkbox reflects and toggles the filter's real Enabled flag -- a disabled filter is skipped entirely by the engine, not a fake switch", async () => {
+      const user = userEvent.setup();
+      const props = baseProps();
+      const filters: FilterPolicy[] = [
+        {
+          name: "alice::Mask customer PII::add_observations",
+          match: [],
+          mcp: "demo-memory",
+          tool: "add_observations",
+          drop_fields: ["$.results"],
+          enabled: false,
+        },
+      ];
+      render(
+        <AccessTab
+          endpoints={[memory]}
+          grants={[{ mcp: "demo-memory", tools: ["*"] }]}
+          {...props}
+          allFilters={filters}
+        />,
+      );
+
+      const toggle = screen.getByRole("switch", { name: "Enable Mask customer PII" });
+      expect(toggle).toHaveAttribute("aria-checked", "false");
+
+      await user.click(toggle);
+
+      expect(props.onUpdateFilter).toHaveBeenCalledWith("alice::Mask customer PII::add_observations", {
+        name: "alice::Mask customer PII::add_observations",
+        match: props.userMatch,
+        mcp: "demo-memory",
+        tool: "add_observations",
+        drop_fields: ["$.results"],
+        enabled: true,
+      });
+    });
+
     it("a different user's filter on the same endpoint never shows up", () => {
       const filters: FilterPolicy[] = [
-        { name: "bob::Something::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"] },
+        { name: "bob::Something::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"], enabled: true },
       ];
       render(
         <AccessTab
@@ -234,6 +273,7 @@ describe("AccessTab", () => {
           mcp: "demo-memory",
           tool: "add_observations",
           drop_fields: ["$.results"],
+          enabled: true,
         },
       ];
       render(
@@ -258,6 +298,7 @@ describe("AccessTab", () => {
         mcp: "demo-memory",
         tool: "delete_entities",
         drop_fields: ["$.ok"],
+        enabled: true,
       });
     });
 
@@ -279,6 +320,7 @@ describe("AccessTab", () => {
         mcp: "demo-memory",
         tool: "add_observations",
         drop_fields: ["$.results"],
+        enabled: true,
       });
     });
 
@@ -286,8 +328,8 @@ describe("AccessTab", () => {
       const user = userEvent.setup();
       const props = baseProps();
       const filters: FilterPolicy[] = [
-        { name: "alice::Mask PII::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"] },
-        { name: "alice::Mask PII::delete_entities", match: [], mcp: "demo-memory", tool: "delete_entities", drop_fields: ["$.ok"] },
+        { name: "alice::Mask PII::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"], enabled: true },
+        { name: "alice::Mask PII::delete_entities", match: [], mcp: "demo-memory", tool: "delete_entities", drop_fields: ["$.ok"], enabled: true },
       ];
       render(
         <AccessTab
@@ -308,8 +350,8 @@ describe("AccessTab", () => {
     it("the single search box narrows named filters across every granted endpoint at once", async () => {
       const user = userEvent.setup();
       const filters: FilterPolicy[] = [
-        { name: "alice::Mask PII::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"] },
-        { name: "alice::Report scrub::get_report", match: [], mcp: "analytics", tool: "get_report", drop_fields: ["$.total"] },
+        { name: "alice::Mask PII::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: ["$.results"], enabled: true },
+        { name: "alice::Report scrub::get_report", match: [], mcp: "analytics", tool: "get_report", drop_fields: ["$.total"], enabled: true },
       ];
       render(
         <AccessTab

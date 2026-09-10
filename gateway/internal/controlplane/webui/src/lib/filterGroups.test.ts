@@ -3,7 +3,7 @@ import { groupFilters, planGroupSave, stripGroupPrefix } from "./filterGroups";
 import type { FilterPolicy } from "../api/types";
 
 function policy(overrides: Partial<FilterPolicy>): FilterPolicy {
-  return { name: "x", match: [], mcp: "local-fs", tool: "t", drop_fields: [], ...overrides };
+  return { name: "x", match: [], mcp: "local-fs", tool: "t", drop_fields: [], enabled: true, ...overrides };
 }
 
 describe("groupFilters", () => {

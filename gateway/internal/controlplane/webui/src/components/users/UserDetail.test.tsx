@@ -168,6 +168,7 @@ describe("UserDetail", () => {
           mcp: "demo-memory",
           tool: "add_observations",
           drop_fields: [],
+          enabled: true,
         },
       ],
     };
@@ -183,6 +184,7 @@ describe("UserDetail", () => {
       mcp: "demo-memory",
       tool: "add_observations",
       drop_fields: ["$.id"],
+      enabled: true,
     });
     // The panel's own Save button was never clicked.
     expect(props.onUpdateAccessPolicy).not.toHaveBeenCalled();
@@ -202,6 +204,7 @@ describe("UserDetail", () => {
           mcp: "demo-memory",
           tool: "add_observations",
           drop_fields: ["$.id"],
+          enabled: true,
         },
       ],
     };
@@ -217,6 +220,7 @@ describe("UserDetail", () => {
       mcp: "demo-memory",
       tool: "add_observations",
       drop_fields: ["$.id"],
+      enabled: true,
     });
   });
 
@@ -229,7 +233,7 @@ describe("UserDetail", () => {
       match: [{ path: "$.role", pattern: "^analyst$" }],
       grants: [{ mcp: "demo-memory", tools: ["*"] }],
       filters: [
-        { name: "analyst-team::demo-memory::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: [] },
+        { name: "analyst-team::demo-memory::add_observations", match: [], mcp: "demo-memory", tool: "add_observations", drop_fields: [], enabled: true },
       ],
     };
     render(<UserDetail user={existing} {...props} />);
