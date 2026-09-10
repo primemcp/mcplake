@@ -10,6 +10,17 @@ oidc:
   audience: "mcp-gateway"
   # jwks_cache_ttl: 1h
 
+# Authentication for the control-plane admin API (/admin/*). ADR-0010.
+# Callers present a Bearer JWT verified against the oidc: JWKS above; their
+# claims must then satisfy every match rule (ANDed, ADR-0002 syntax).
+# Omitting this section leaves /admin/* OPEN (with a startup warning) for
+# backward compatibility — bind control_plane_addr to a trusted interface
+# until you set match rules. `enabled: false` also forces it off.
+# admin_auth:
+#   match:
+#     - path: "$.role"
+#       pattern: "^admin$"
+
 # Control-plane persistence (ADR-0006). Defaults to embedded SQLite — no
 # external service required for a single-instance, air-gapped deployment.
 persistence:
