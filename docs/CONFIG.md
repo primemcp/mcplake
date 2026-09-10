@@ -59,6 +59,57 @@ Every JWT validation failure (bad signature, expired, wrong `iss`/`aud`,
 malformed token) is reported the same way — as `auth.ErrUnauthorized` — and
 maps to a 401 at the gateway's tool-call endpoint.
 
+### Admin Authentication
+
+Authenticates and authorizes callers of the control-plane admin API
+(`/admin/*`). See
+[ADR-0010](architecture/decisions/0010-control-plane-admin-authentication.md).
+
+```yaml
+admin_auth:
+  # enabled: true          # optional; see the default rule below
+  match:
+    - path: "$.role"        # JSONPath into the decoded claim set
+      pattern: "^admin$"     # regexp tested against the extracted value(s)
+    - path: "$.iss"
+      pattern: "^https://auth\\.example\\.com$"
+```
+
+**How it works:**
+1. Every request to `/admin/*` except `GET /admin/healthz` must carry an
+   `Authorization: Bearer <jwt>` header.
+2. The token is verified exactly like a data-plane token — signature against
+   the `oidc:` JWKS, plus `exp`/`iss`/`aud`. There is no separate admin
+   provider; the admin surface reuses the `oidc:` section above.
+3. The decoded claim set is then tested against `admin_auth.match` — the same
+   `{path, pattern}` JSONPath+regexp rule syntax as `access_policies`
+   ([ADR-0002](architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)).
+   All rules are ANDed. A caller whose claims fail any rule gets `403`.
+
+**Fields:**
+- `match` — a list of `{path, pattern}` rules, ANDed. Pin a claim that only
+  admin tokens carry (a role, a group, a dedicated `aud`); an over-broad rule
+  makes every authenticated user an admin. Anchor every pattern with `^…$`.
+- `enabled` — optional on/off switch.
+  - **Omitted:** admin auth is **on** iff `match` has at least one rule. So a
+    config with no `admin_auth` section at all leaves `/admin/*` **open**, and
+    the gateway logs a prominent `WARN` at startup. This is the
+    backward-compatible default; bind `control_plane_addr` to a trusted
+    interface until you configure `match`.
+  - `enabled: false` — force admin auth off even if `match` rules are present.
+  - `enabled: true` with an empty `match` is a configuration error (it would
+    authorize every authenticated caller) and fails at startup.
+
+**Consequences:**
+- `GET /admin/swagger/*` (the interactive API explorer) is behind this gate
+  once admin auth is on.
+- The embedded admin web UI calls `/admin/*` without a token today; enabling
+  admin auth will make those calls fail until the UI is taught to attach one
+  (tracked in the Admin UI epic, #76). Until then, run with `admin_auth`
+  unset (or `enabled: false`) behind network isolation.
+- A malformed `path`/`pattern` fails `Config.Validate()` at startup, like
+  every other claim rule.
+
 ### 3. Persistence
 
 Configures the control-plane's durable store for MCP registrations and

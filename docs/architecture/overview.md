@@ -4,8 +4,9 @@ This document describes the current architectural direction for the MCP Gateway,
 superseding the high-level sketch in [`/docs/OVERVIEW.md`](../OVERVIEW.md) with the
 concrete pipeline being built for Phase 1. Component detail lives in
 [`components.md`](components.md); data structures and request/response flow live in
-[`data.md`](data.md). Individual technology and pattern choices are recorded as ADRs in
-[`decisions/`](decisions/).
+[`data.md`](data.md); trust boundaries and what is authenticated/authorized where
+live in [`security.md`](security.md). Individual technology and pattern choices are
+recorded as ADRs in [`decisions/`](decisions/).
 
 ## System Boundary
 

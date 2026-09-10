@@ -4,8 +4,32 @@ The control-plane is the Gin-based HTTP surface described in
 [ADR-0005](../architecture/decisions/0005-use-gin-for-control-plane-api.md). It
 listens on `server.control_plane_addr` (see [`docs/CONFIG.md`](../CONFIG.md)) and is
 a separate surface from the data plane — agents never talk to it. Bind it to a
-trusted network/interface only: there is no admin authN/authZ yet (tracked as an
-ADR-0005 follow-up).
+trusted network/interface regardless of authentication.
+
+## Authentication
+
+Every endpoint below except `GET /admin/healthz` requires an
+`Authorization: Bearer <jwt>` header when `admin_auth` is configured (see
+[ADR-0010](../architecture/decisions/0010-control-plane-admin-authentication.md)
+and [`CONFIG.md`](../CONFIG.md#admin-authentication)). The token is verified the
+same way data-plane tokens are — signature against the `oidc:` JWKS, plus
+`exp`/`iss`/`aud` — and its claims must then satisfy the `admin_auth.match`
+rules.
+
+| Status | `error` code            | When                                                        |
+|--------|-------------------------|-------------------------------------------------------------|
+| 401    | `missing_authorization` | No `Authorization` header.                                  |
+| 401    | `invalid_authorization` | Header present but not a non-empty `Bearer` token.          |
+| 401    | `unauthorized`          | Token fails signature / `exp` / `iss` / `aud` validation.   |
+| 403    | `forbidden`             | Token valid but its claims don't satisfy `admin_auth.match`.|
+
+These four responses are possible on **every** route documented below (again,
+except `GET /admin/healthz`) and are not repeated in each endpoint's own status
+table. `GET /admin/swagger/*` is also behind this gate.
+
+If `admin_auth` is not configured, the admin API is unauthenticated and the
+gateway logs a startup warning — bind `control_plane_addr` to a trusted
+interface. See [`CONFIG.md`](../CONFIG.md#admin-authentication).
 
 Every write here goes through the live in-memory MCP Registry / Policy Engine first
 (so the effect is immediate on the data plane), then persists via the GORM-backed
