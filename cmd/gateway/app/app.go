@@ -110,6 +110,13 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 	controlplane.RegisterMCPRoutes(admin, adminSvc.MCP)
 	controlplane.RegisterAccessPolicyRoutes(admin, adminSvc.Access)
 	controlplane.RegisterFilterPolicyRoutes(admin, adminSvc.Filter)
+	if cfg.AdminMCPEnabled() {
+		controlplane.RegisterMCPControlServer(admin, adminSvc, cfg.AdminMCPPath())
+		slog.Info("MCP control server mounted on the control plane", "path", cfg.AdminMCPPath())
+		if !cfg.AdminAuthEnabled() {
+			slog.Warn("MCP control server is UNAUTHENTICATED — it inherits admin_auth, which is not configured")
+		}
+	}
 	controlplane.RegisterUIRoutes(controlPlane.Engine(), controlplane.WebUIAssets)
 
 	return &App{Gateway: gateway, ControlPlane: controlPlane}, nil
