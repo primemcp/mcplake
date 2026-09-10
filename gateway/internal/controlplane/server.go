@@ -29,6 +29,14 @@ type Config struct {
 	// ControlPlaneAddr is the listen address (host:port) for the admin API,
 	// e.g. ":8081". See config.ServerConfig.ControlPlaneAddr.
 	ControlPlaneAddr string
+
+	// AdminAuth, when non-nil, is installed as middleware on the /admin
+	// group ahead of every route except GET /admin/healthz — so the health
+	// check stays open while MCP/policy CRUD, the MCP control server, and
+	// the Swagger UI all require an admin JWT. Build it with AdminAuth().
+	// When nil the admin API is unauthenticated (see ADR-0010); the caller
+	// is responsible for logging that.
+	AdminAuth gin.HandlerFunc
 }
 
 // Server is the Gin-based control-plane admin API server: its own listener,
@@ -58,6 +66,9 @@ func NewServer(cfg Config) *Server {
 
 	admin := engine.Group("/admin")
 	admin.GET("/healthz", healthz)
+	if cfg.AdminAuth != nil {
+		admin.Use(cfg.AdminAuth)
+	}
 	admin.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	s := &Server{
