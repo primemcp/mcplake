@@ -25,11 +25,49 @@ function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 }
 
+function stubEndpointsFetch() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) => {
+      if (url === "/admin/mcps") return Promise.resolve(jsonResponse(ENDPOINTS));
+      if (url === "/admin/filter-policies") return Promise.resolve(jsonResponse([]));
+      throw new Error(`unexpected fetch: ${url}`);
+    }),
+  );
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 describe("InstancesScreen", () => {
+  it("selecting an endpoint restores it after a simulated reload, instead of always falling back to the first one", async () => {
+    const user = userEvent.setup();
+    stubEndpointsFetch();
+    const { unmount } = render(<InstancesScreen />);
+
+    await screen.findByRole("button", { name: /^mcp-a/ });
+    await user.click(screen.getByRole("button", { name: /^mcp-b/ }));
+    await waitFor(() => expect(screen.getByText("$.b_field")).toBeInTheDocument());
+
+    // A reload remounts the whole tree fresh -- simulate that rather than
+    // relying on any in-memory state surviving.
+    unmount();
+    render(<InstancesScreen />);
+
+    await waitFor(() => expect(screen.getByText("$.b_field")).toBeInTheDocument());
+    expect(screen.queryByText("$.a_field")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the first endpoint when the persisted selection no longer exists", async () => {
+    localStorage.setItem("mcplake:instances:selected", JSON.stringify("mcp-deleted"));
+    stubEndpointsFetch();
+    render(<InstancesScreen />);
+
+    await waitFor(() => expect(screen.getByText("$.a_field")).toBeInTheDocument());
+  });
+
   it("resets the response filter form's state when switching to a different endpoint", async () => {
     const user = userEvent.setup();
     const createdFilters: FilterPolicy[] = [];

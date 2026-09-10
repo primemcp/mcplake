@@ -8,6 +8,8 @@ import type { User } from "../../api/users";
 import { AccessTab } from "./AccessTab";
 import { TokenMatchTab } from "./TokenMatchTab";
 
+export type UserTab = "match" | "access";
+
 export type UserDetailProps = {
   /** null means a brand new, not-yet-saved user is being drafted. Pass a
    * `key` from the parent (the user's name, or a fixed sentinel while
@@ -28,6 +30,14 @@ export type UserDetailProps = {
   onDeleteFilter: (name: string) => Promise<void>;
   onSaved: (name: string) => void;
   onDeleted: () => void;
+  /** Seeds which tab opens first (default "match"). The parent uses this
+   * to restore the tab a reload would otherwise reset -- see onTabChange. */
+  initialTab?: UserTab;
+  /** Fired whenever the active tab changes, so the parent can persist it
+   * (localStorage) for the next page load. Reload itself always remounts
+   * this component fresh, so there's no internal state to restore from --
+   * only the parent survives a reload to seed `initialTab`. */
+  onTabChange?: (tab: UserTab) => void;
 };
 
 type Draft = { name: string; match: ClaimRule[]; grants: Grant[] };
@@ -90,13 +100,15 @@ export function UserDetail({
   onDeleteFilter,
   onSaved,
   onDeleted,
+  initialTab = "match",
+  onTabChange,
 }: UserDetailProps) {
   const isNew = user === null;
   const [initial, setInitial] = useState(() => draftOf(user));
   const [name, setName] = useState(initial.name);
   const [match, setMatch] = useState(initial.match);
   const [grants, setGrants] = useState(initial.grants);
-  const [tab, setTab] = useState("match");
+  const [tab, setTab] = useState<UserTab>(initialTab);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,7 +205,15 @@ export function UserDetail({
 
         <Card className="overflow-hidden shrink-0">
           <div className="p-[11px_16px] border-b border-border-soft flex flex-wrap items-center gap-[8px_12px]">
-            <Tabs tabs={tabs} activeId={tab} onChange={setTab} />
+            <Tabs
+              tabs={tabs}
+              activeId={tab}
+              onChange={(id) => {
+                const next = id as UserTab;
+                setTab(next);
+                onTabChange?.(next);
+              }}
+            />
             <div className="text-[11.5px] text-muted min-w-0">{tabHint}</div>
             <span className="flex-1" />
             {!isNew && (

@@ -4,10 +4,25 @@ import { ErrorNotice } from "../primitives/ErrorNotice";
 import { useEndpoints } from "../../api/endpoints";
 import { useAccessPolicies, useFilterPolicies } from "../../api/policies";
 import { composeUsers } from "../../api/users";
-import { UserDetail } from "./UserDetail";
+import { clearStorage, readStorage, writeStorage } from "../../lib/storage";
+import { UserDetail, type UserTab } from "./UserDetail";
 import { UserList } from "./UserList";
 
 type Selection = { kind: "user"; name: string } | { kind: "new" } | null;
+
+// Only a real, saved user's selection is worth restoring -- a "new user"
+// draft is unsaved by definition and was never meant to survive a reload
+// (UserDetail's own draft state doesn't persist either).
+const SELECTION_KEY = "mcplake:users:selection";
+type StoredSelection = { name: string; tab: UserTab };
+function isStoredSelection(v: unknown): v is StoredSelection {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as Record<string, unknown>).name === "string" &&
+    ((v as Record<string, unknown>).tab === "match" || (v as Record<string, unknown>).tab === "access")
+  );
+}
 
 export type UsersScreenProps = {
   /** Switches the app to the MCP connections screen -- the Access tab's
@@ -27,28 +42,47 @@ export function UsersScreen({ onGoInstances }: UsersScreenProps) {
   const { endpoints } = useEndpoints();
   const accessPolicies = useAccessPolicies();
   const filterPolicies = useFilterPolicies();
-  const [selection, setSelection] = useState<Selection>(null);
+  const [selection, setSelection] = useState<Selection>(() => {
+    const stored = readStorage(SELECTION_KEY, isStoredSelection);
+    return stored ? { kind: "user", name: stored.name } : null;
+  });
+  const [tab, setTab] = useState<UserTab>(() => readStorage(SELECTION_KEY, isStoredSelection)?.tab ?? "match");
 
   const users = useMemo(
     () => composeUsers(accessPolicies.accessPolicies, filterPolicies.filterPolicies),
     [accessPolicies.accessPolicies, filterPolicies.filterPolicies],
   );
 
-  // A selected user can vanish out from under the selection (deleted from
-  // another tab, or -- more commonly here -- this very screen's own
-  // delete flow already clears it, but a retry/refresh after an external
-  // change should too).
-  useEffect(() => {
-    if (selection?.kind === "user" && !users.some((u) => u.name === selection.name)) {
-      setSelection(null);
-    }
-  }, [users, selection]);
-
   const loading = accessPolicies.loading || filterPolicies.loading;
   const error = accessPolicies.error ?? filterPolicies.error;
   const retry = () => {
     accessPolicies.retry();
     filterPolicies.retry();
+  };
+
+  // A selected user can vanish out from under the selection (deleted from
+  // another tab, or -- more commonly here -- this very screen's own
+  // delete flow already clears it, but a retry/refresh after an external
+  // change should too). Gated on `loading` so a selection just restored
+  // from localStorage isn't discarded on the very first render, before
+  // `users` has actually loaded and could confirm it still exists.
+  useEffect(() => {
+    if (loading) return;
+    if (selection?.kind === "user" && !users.some((u) => u.name === selection.name)) {
+      setSelection(null);
+      clearStorage(SELECTION_KEY);
+    }
+  }, [users, selection, loading]);
+
+  const selectUser = (name: string) => {
+    setSelection({ kind: "user", name });
+    setTab("match");
+    writeStorage(SELECTION_KEY, { name, tab: "match" });
+  };
+
+  const changeTab = (next: UserTab) => {
+    setTab(next);
+    if (selection?.kind === "user") writeStorage(SELECTION_KEY, { name: selection.name, tab: next });
   };
 
   const selectedUser = selection?.kind === "user" ? (users.find((u) => u.name === selection.name) ?? null) : null;
@@ -72,7 +106,7 @@ export function UsersScreen({ onGoInstances }: UsersScreenProps) {
           error={error}
           onRetry={retry}
           selectedName={selection?.kind === "user" ? selection.name : null}
-          onSelect={(name) => setSelection({ kind: "user", name })}
+          onSelect={selectUser}
           onAddNew={() => setSelection({ kind: "new" })}
         />
 
@@ -90,7 +124,7 @@ export function UsersScreen({ onGoInstances }: UsersScreenProps) {
             <div className="p-5">
               <ErrorNotice onRetry={retry} />
             </div>
-          ) : selection ? (
+          ) : loading ? null : selection && (selection.kind === "new" || selectedUser) ? (
             <UserDetail
               // Remounts the whole draft on selection change -- same
               // reasoning as ResponseFilterGroup's key on the MCP
@@ -110,15 +144,23 @@ export function UsersScreen({ onGoInstances }: UsersScreenProps) {
               onCreateFilter={filterPolicies.create}
               onUpdateFilter={filterPolicies.update}
               onDeleteFilter={filterPolicies.remove}
-              onSaved={(name) => setSelection({ kind: "user", name })}
-              onDeleted={() => setSelection(null)}
+              initialTab={selection.kind === "user" ? tab : "match"}
+              onTabChange={changeTab}
+              onSaved={(name) => {
+                // Preserve whichever tab was active -- e.g. saving from
+                // the Access tab shouldn't bounce back to Token match.
+                setSelection({ kind: "user", name });
+                writeStorage(SELECTION_KEY, { name, tab });
+              }}
+              onDeleted={() => {
+                setSelection(null);
+                clearStorage(SELECTION_KEY);
+              }}
             />
           ) : (
-            !loading && (
-              <div className="flex items-center justify-center h-full p-6">
-                <EmptyState title="No user selected" subtitle="Pick one from the left, or add a new one." />
-              </div>
-            )
+            <div className="flex items-center justify-center h-full p-6">
+              <EmptyState title="No user selected" subtitle="Pick one from the left, or add a new one." />
+            </div>
           )}
         </div>
       </div>
