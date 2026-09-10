@@ -12,10 +12,44 @@ import (
 type Config struct {
 	Server         ServerConfig         `yaml:"server"`
 	OIDC           OIDCConfig           `yaml:"oidc"`
+	AdminAuth      AdminAuthConfig      `yaml:"admin_auth"`
 	Persistence    PersistenceConfig    `yaml:"persistence"`
 	MCPs           []MCPConfig          `yaml:"mcps"`
 	AccessPolicies []AccessPolicyConfig `yaml:"access_policies"`
 	FilterPolicies []FilterPolicyConfig `yaml:"filter_policies"`
+}
+
+// AdminAuthConfig configures authentication/authorization for the
+// control-plane admin API (`/admin/*`). See
+// docs/architecture/decisions/0010-control-plane-admin-authentication.md.
+//
+// A caller's JWT is verified with the same auth.Validator the data plane
+// uses (the oidc: section above); Match then decides whether the verified
+// claims belong to an admin.
+type AdminAuthConfig struct {
+	// Enabled is the operator on/off switch for admin auth. It is a pointer
+	// so an omitted key is distinguishable from an explicit `enabled: false`.
+	// When nil, admin auth is on iff Match has at least one rule; see
+	// AdminAuthConfig.active. An explicit `enabled: true` with an empty Match
+	// is a configuration error (it would make every authenticated caller an
+	// admin) and is rejected by Config.Validate.
+	Enabled *bool `yaml:"enabled"`
+	// Match is a list of {path, pattern} claim rules, ANDed together, using
+	// the same JSONPath+regexp syntax as access_policies (ADR-0002). A
+	// verified token is an admin only if every rule matches its claims.
+	Match []ClaimRuleConfig `yaml:"match"`
+}
+
+// active reports whether admin auth should be enforced: an explicit Enabled
+// wins; otherwise it is on exactly when at least one Match rule is
+// configured. An absent admin_auth section (nil Enabled, no rules) therefore
+// leaves the control plane open, matching the documented backward-compatible
+// default.
+func (a AdminAuthConfig) active() bool {
+	if a.Enabled != nil {
+		return *a.Enabled
+	}
+	return len(a.Match) > 0
 }
 
 // PersistenceConfig is the YAML shape of a persistence.Config. See
@@ -169,6 +203,13 @@ func (c *Config) Validate() error {
 	}
 	if c.OIDC.Audience == "" {
 		return fmt.Errorf("config: oidc.audience is required")
+	}
+
+	if c.AdminAuth.Enabled != nil && *c.AdminAuth.Enabled && len(c.AdminAuth.Match) == 0 {
+		return fmt.Errorf("config: admin_auth.match must contain at least one rule when admin_auth.enabled is true")
+	}
+	if err := validateClaimRules(c.AdminAuth.Match); err != nil {
+		return fmt.Errorf("config: admin_auth: %w", err)
 	}
 
 	for i, policy := range c.AccessPolicies {
