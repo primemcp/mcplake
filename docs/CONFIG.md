@@ -110,6 +110,30 @@ admin_auth:
 - A malformed `path`/`pattern` fails `Config.Validate()` at startup, like
   every other claim rule.
 
+### Admin MCP
+
+Enables the in-process **MCP control server** — every admin operation exposed as
+an MCP tool on the control-plane listener, for MCP-speaking clients. See
+[ADR-0011](architecture/decisions/0011-mcp-control-server.md) and
+[`docs/api/admin-mcp.md`](api/admin-mcp.md).
+
+```yaml
+admin_mcp:
+  enabled: true
+  # path: /admin/mcp
+```
+
+**Fields:**
+- `enabled` — off by default; an omitted `admin_mcp` section mounts nothing.
+- `path` — where the streamable-HTTP handler mounts. Default `/admin/mcp`. Must
+  start with `/admin/` so the `admin_auth` gate covers it;
+  `Config.Validate()` rejects anything else at startup.
+
+The MCP endpoint is under `/admin/`, so it is authenticated and claim-gated by
+`admin_auth` exactly like the REST admin API. With `admin_mcp.enabled: true` and
+no `admin_auth`, the control server is unauthenticated and the gateway logs a
+warning — bind `control_plane_addr` to a trusted interface.
+
 ### 3. Persistence
 
 Configures the control-plane's durable store for MCP registrations and

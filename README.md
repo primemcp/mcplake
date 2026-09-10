@@ -8,6 +8,8 @@ An open-source gateway for the Model Context Protocol (MCP) that enables secure,
 - **Claims-Based Routing** — Route requests to different MCP instances based on caller's JWT claims
 - **Field-Level Response Filtering** — Strip response fields based on claims, not just tool-level access control
 - **Schema Caching** — Efficient caching of tool and response schemas for minimal overhead
+- **Authenticated Admin API** — Control-plane `/admin/*` gated by a Bearer JWT plus config-file claim rules (`admin_auth`)
+- **MCP Control Server** — Optionally expose every admin operation as MCP tools, so an MCP client can operate the gateway (`admin_mcp`)
 - **Live Pipeline Visualization** — Visual, graph-based UI showing real-time request routing and filtering decisions
 - **Air-Gapped Ready** — Designed from the ground up for zero-egress environments
 

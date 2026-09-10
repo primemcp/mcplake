@@ -25,17 +25,38 @@ described in [`data.md`](data.md).
   a second HTTP surface with its own listener, separate from the data plane.
 - Owns CRUD for `MCPRegistration`, `AccessPolicy`, and `FilterPolicy`: `/admin/mcps`,
   `/admin/access-policies`, `/admin/filter-policies`.
+- The Gin handlers are thin adapters over `adminservice` — a transport-agnostic
+  application layer holding the write-through ordering, validation, and typed
+  errors ([ADR-0011](decisions/0011-mcp-control-server.md)).
 - Every write goes through the Persistence Layer and then triggers an in-memory
   cache refresh in the MCP Registry / Policy Engine, so the data plane observes
   changes without querying the database itself.
-- Intended consumers: human operators (via `curl`/scripts) and the Admin Web
-  UI's backend calls (below).
+- Authenticated when `admin_auth` is configured: a Gin middleware verifies a
+  Bearer JWT and claim-gates it, covering every `/admin/*` route except
+  `GET /admin/healthz` ([ADR-0010](decisions/0010-control-plane-admin-authentication.md)).
+- Intended consumers: human operators (via `curl`/scripts), the Admin Web UI's
+  backend calls (below), and — when `admin_mcp.enabled` — MCP clients via the
+  MCP Control Server (below).
 - Not on the tool-call hot path; ergonomics (request binding/validation, clear
   routing) are prioritized over raw throughput here, unlike the data plane.
 - Documented with `swag`-generated OpenAPI, served via `gin-swagger` at
   `/admin/swagger/index.html` on the same control-plane port, behind the same trust
   boundary as the rest of `/admin/*`
   ([ADR-0007](decisions/0007-swaggo-for-control-plane-api-docs.md)).
+
+## MCP Control Server (`gateway/internal/controlplane/adminmcp`)
+
+- An in-process MCP server that exposes every Control-Plane API operation as an
+  MCP tool (`list_mcps`, `register_mcp`, `set_mcp_enabled`, `unregister_mcp`, the
+  access/filter-policy CRUD, `gateway_health`), so an MCP client can administer a
+  running gateway ([ADR-0011](decisions/0011-mcp-control-server.md)).
+- Built on the `modelcontextprotocol/go-sdk` server API; a thin adapter over the
+  same `adminservice` layer the Gin handlers use, so the two surfaces cannot
+  drift. A service error becomes an MCP tool error, not a protocol error.
+- Mounted as a streamable-HTTP handler on the control-plane listener under
+  `/admin/` (default `/admin/mcp`), so it inherits the `admin_auth` gate. Off by
+  default; enabled with `admin_mcp.enabled`.
+- Full tool catalog and usage: [`api/admin-mcp.md`](../api/admin-mcp.md).
 
 ## Persistence Layer (`persistence`)
 
