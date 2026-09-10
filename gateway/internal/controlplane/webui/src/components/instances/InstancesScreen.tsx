@@ -12,7 +12,7 @@ const SELECTED_KEY = "mcplake:instances:selected";
 const isString = (v: unknown): v is string => typeof v === "string";
 
 export function InstancesScreen() {
-  const { endpoints, loading, error, retry, register, unregister } = useEndpoints();
+  const { endpoints, loading, error, retry, register, unregister, setEnabled } = useEndpoints();
   const filterPolicies = useFilterPolicies();
   const [selectedName, setSelectedName] = useState<string | null>(() => readStorage(SELECTED_KEY, isString));
 
@@ -81,6 +81,7 @@ export function InstancesScreen() {
                 onRemove={async (name) => {
                   await unregister(name);
                 }}
+                onSetEnabled={setEnabled}
               />
               <div className="px-5 pb-5 -mt-2">
                 <ResponseFilterGroup

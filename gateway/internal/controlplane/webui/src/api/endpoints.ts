@@ -6,10 +6,12 @@ import { useAsyncResource } from "./useAsyncResource";
 /**
  * The MCP connections screen's data: GET /admin/mcps is the only read this
  * needs (it already returns each endpoint's discovered tools/schemas — no
- * separate schema endpoint exists). register/unregister both refresh the
- * list afterward so the UI reflects the write without a manual reload.
- * There is no PATCH/PUT for MCPs — "editing" is register() again with the
- * same name (an upsert), matching POST /admin/mcps's real semantics.
+ * separate schema endpoint exists). register/unregister/setEnabled all
+ * refresh the list afterward so the UI reflects the write without a manual
+ * reload. There is no PUT for MCPs — "editing" is register() again with the
+ * same name (an upsert). Enable/disable is the one real PATCH
+ * (`PATCH /admin/mcps/:name`), a reversible soft-disable distinct from
+ * unregister (DELETE), which drops the registration and its schema cache.
  */
 export function useEndpoints() {
   const { data, loading, error, retry } = useAsyncResource(() => api.listMCPs(), []);
@@ -30,7 +32,15 @@ export function useEndpoints() {
     [retry],
   );
 
-  return { endpoints: data ?? [], loading, error, retry, register, unregister };
+  const setEnabled = useCallback(
+    async (name: string, enabled: boolean) => {
+      await api.setMCPEnabled(name, { enabled });
+      await retry();
+    },
+    [retry],
+  );
+
+  return { endpoints: data ?? [], loading, error, retry, register, unregister, setEnabled };
 }
 
 export function findEndpoint(

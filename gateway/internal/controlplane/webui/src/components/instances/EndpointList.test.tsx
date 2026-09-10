@@ -5,9 +5,9 @@ import type { MCPRegistration } from "../../api/types";
 import { EndpointList } from "./EndpointList";
 
 const ENDPOINTS: MCPRegistration[] = [
-  { name: "postgres-ro", transport: "stdio", connect: { command: "pg-ro" }, status: "active" },
-  { name: "postgres-rw", transport: "stdio", connect: { command: "pg-rw" }, status: "active" },
-  { name: "filesystem", transport: "stdio", connect: { command: "fs" }, status: "unreachable" },
+  { name: "postgres-ro", transport: "stdio", connect: { command: "pg-ro" }, status: "active", enabled: true },
+  { name: "postgres-rw", transport: "stdio", connect: { command: "pg-rw" }, status: "active", enabled: true },
+  { name: "filesystem", transport: "stdio", connect: { command: "fs" }, status: "unreachable", enabled: true },
 ];
 
 describe("EndpointList", () => {
@@ -79,5 +79,26 @@ describe("EndpointList", () => {
 
     expect(onCreate).toHaveBeenCalledWith("new-mcp", "mcp-server-new", []);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows a disabled endpoint's row as 'disabled', not its real connection status", () => {
+    const withDisabled: MCPRegistration[] = [
+      { ...ENDPOINTS[0], enabled: false },
+      ENDPOINTS[1],
+    ];
+    render(
+      <EndpointList
+        endpoints={withDisabled}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        selectedName={null}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("disabled")).toBeInTheDocument();
+    expect(screen.getByText("active")).toBeInTheDocument();
   });
 });
