@@ -16,6 +16,7 @@ import (
 	"github.com/atsokha/mcplake/config"
 	"github.com/atsokha/mcplake/internal"
 	"github.com/atsokha/mcplake/internal/controlplane"
+	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/atsokha/mcplake/persistence"
 	"github.com/atsokha/mcplake/router"
 )
@@ -104,10 +105,11 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 	controlPlane := controlplane.NewServer(controlPlaneCfg)
 	reloader := controlplane.NewPolicyReloader(accessRepo, filterRepo, policyStore)
+	adminSvc := adminservice.New(registry, mcpRepo, accessRepo, filterRepo, reloader)
 	admin := controlPlane.Admin()
-	controlplane.RegisterMCPRoutes(admin, registry, mcpRepo)
-	controlplane.RegisterAccessPolicyRoutes(admin, accessRepo, reloader)
-	controlplane.RegisterFilterPolicyRoutes(admin, filterRepo, reloader)
+	controlplane.RegisterMCPRoutes(admin, adminSvc.MCP)
+	controlplane.RegisterAccessPolicyRoutes(admin, adminSvc.Access)
+	controlplane.RegisterFilterPolicyRoutes(admin, adminSvc.Filter)
 	controlplane.RegisterUIRoutes(controlPlane.Engine(), controlplane.WebUIAssets)
 
 	return &App{Gateway: gateway, ControlPlane: controlPlane}, nil

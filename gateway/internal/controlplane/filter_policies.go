@@ -3,6 +3,7 @@ package controlplane
 import (
 	"net/http"
 
+	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/atsokha/mcplake/router"
 	"github.com/gin-gonic/gin"
 )
@@ -57,17 +58,16 @@ func (r filterPolicyRequest) toFilterPolicy(name string) router.FilterPolicy {
 }
 
 type filterPolicyHandlers struct {
-	repo     filterPolicyRepository
-	reloader *PolicyReloader
+	svc *adminservice.FilterPolicyService
 }
 
 // RegisterFilterPolicyRoutes registers POST/GET/PUT/DELETE
 // /admin/filter-policies[/:name] onto admin, mirroring
-// RegisterAccessPolicyRoutes' shape (#48). Every write persists via repo
-// and then calls reloader.Refresh so the change is immediately visible to
-// the data plane's PolicyStore.FieldsToRemove.
-func RegisterFilterPolicyRoutes(admin *gin.RouterGroup, repo filterPolicyRepository, reloader *PolicyReloader) {
-	h := &filterPolicyHandlers{repo: repo, reloader: reloader}
+// RegisterAccessPolicyRoutes' shape. Every write persists and then refreshes
+// the live PolicyStore so the change is immediately visible to the data
+// plane's FieldsToRemove.
+func RegisterFilterPolicyRoutes(admin *gin.RouterGroup, svc *adminservice.FilterPolicyService) {
+	h := &filterPolicyHandlers{svc: svc}
 	admin.POST("/filter-policies", h.create)
 	admin.GET("/filter-policies", h.list)
 	admin.GET("/filter-policies/:name", h.get)
@@ -119,17 +119,10 @@ func (h *filterPolicyHandlers) update(c *gin.Context) {
 }
 
 func (h *filterPolicyHandlers) upsertAndRespond(c *gin.Context, policy router.FilterPolicy, successStatus int) {
-	ctx := c.Request.Context()
-	if err := h.repo.Upsert(ctx, policy); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid_policy", Message: err.Error()})
+	if err := h.svc.Upsert(c.Request.Context(), policy); err != nil {
+		respondServiceError(c, err)
 		return
 	}
-
-	if err := h.reloader.Refresh(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
-		return
-	}
-
 	c.JSON(successStatus, filterPolicyDTOFrom(policy))
 }
 
@@ -139,9 +132,9 @@ func (h *filterPolicyHandlers) upsertAndRespond(c *gin.Context, policy router.Fi
 // @Success      200  {array}  filterPolicyDTO
 // @Router       /filter-policies [get]
 func (h *filterPolicyHandlers) list(c *gin.Context) {
-	policies, err := h.repo.List(c.Request.Context())
+	policies, err := h.svc.List(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	dtos := make([]filterPolicyDTO, 0, len(policies))
@@ -159,14 +152,9 @@ func (h *filterPolicyHandlers) list(c *gin.Context) {
 // @Failure      404   {object}  errorResponse
 // @Router       /filter-policies/{name} [get]
 func (h *filterPolicyHandlers) get(c *gin.Context) {
-	name := c.Param("name")
-	policy, ok, err := h.repo.Get(c.Request.Context(), name)
+	policy, err := h.svc.Get(c.Request.Context(), c.Param("name"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
-		return
-	}
-	if !ok {
-		c.JSON(http.StatusNotFound, errorResponse{Error: "not_found", Message: "filter policy not found"})
+		respondServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, filterPolicyDTOFrom(policy))
@@ -180,28 +168,9 @@ func (h *filterPolicyHandlers) get(c *gin.Context) {
 // @Failure      404  {object}  errorResponse
 // @Router       /filter-policies/{name} [delete]
 func (h *filterPolicyHandlers) delete(c *gin.Context) {
-	name := c.Param("name")
-	ctx := c.Request.Context()
-
-	_, ok, err := h.repo.Get(ctx, name)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
+	if err := h.svc.Delete(c.Request.Context(), c.Param("name")); err != nil {
+		respondServiceError(c, err)
 		return
 	}
-	if !ok {
-		c.JSON(http.StatusNotFound, errorResponse{Error: "not_found", Message: "filter policy not found"})
-		return
-	}
-
-	if err := h.repo.Delete(ctx, name); err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
-		return
-	}
-
-	if err := h.reloader.Refresh(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
-		return
-	}
-
 	c.Status(http.StatusNoContent)
 }

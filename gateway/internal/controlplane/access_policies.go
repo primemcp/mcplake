@@ -3,6 +3,7 @@ package controlplane
 import (
 	"net/http"
 
+	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/atsokha/mcplake/router"
 	"github.com/gin-gonic/gin"
 )
@@ -62,16 +63,16 @@ func (r accessPolicyRequest) toAccessPolicy(name string) router.AccessPolicy {
 }
 
 type accessPolicyHandlers struct {
-	repo     accessPolicyRepository
-	reloader *PolicyReloader
+	svc *adminservice.AccessPolicyService
 }
 
 // RegisterAccessPolicyRoutes registers POST/GET/PUT/DELETE
-// /admin/access-policies[/:name] onto admin. Every write persists via repo
-// and then calls reloader.Refresh so the change is immediately visible to
-// the data plane's PolicyStore.Authorize/FieldsToRemove.
-func RegisterAccessPolicyRoutes(admin *gin.RouterGroup, repo accessPolicyRepository, reloader *PolicyReloader) {
-	h := &accessPolicyHandlers{repo: repo, reloader: reloader}
+// /admin/access-policies[/:name] onto admin, backed by svc (the
+// transport-agnostic access-policy application layer). Every write persists
+// and then refreshes the live PolicyStore, so the change is immediately
+// visible to the data plane's Authorize/FieldsToRemove calls.
+func RegisterAccessPolicyRoutes(admin *gin.RouterGroup, svc *adminservice.AccessPolicyService) {
+	h := &accessPolicyHandlers{svc: svc}
 	admin.POST("/access-policies", h.create)
 	admin.GET("/access-policies", h.list)
 	admin.GET("/access-policies/:name", h.get)
@@ -123,17 +124,10 @@ func (h *accessPolicyHandlers) update(c *gin.Context) {
 }
 
 func (h *accessPolicyHandlers) upsertAndRespond(c *gin.Context, policy router.AccessPolicy, successStatus int) {
-	ctx := c.Request.Context()
-	if err := h.repo.Upsert(ctx, policy); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid_policy", Message: err.Error()})
+	if err := h.svc.Upsert(c.Request.Context(), policy); err != nil {
+		respondServiceError(c, err)
 		return
 	}
-
-	if err := h.reloader.Refresh(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
-		return
-	}
-
 	c.JSON(successStatus, accessPolicyDTOFrom(policy))
 }
 
@@ -143,9 +137,9 @@ func (h *accessPolicyHandlers) upsertAndRespond(c *gin.Context, policy router.Ac
 // @Success      200  {array}  accessPolicyDTO
 // @Router       /access-policies [get]
 func (h *accessPolicyHandlers) list(c *gin.Context) {
-	policies, err := h.repo.List(c.Request.Context())
+	policies, err := h.svc.List(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	dtos := make([]accessPolicyDTO, 0, len(policies))
@@ -163,14 +157,9 @@ func (h *accessPolicyHandlers) list(c *gin.Context) {
 // @Failure      404   {object}  errorResponse
 // @Router       /access-policies/{name} [get]
 func (h *accessPolicyHandlers) get(c *gin.Context) {
-	name := c.Param("name")
-	policy, ok, err := h.repo.Get(c.Request.Context(), name)
+	policy, err := h.svc.Get(c.Request.Context(), c.Param("name"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
-		return
-	}
-	if !ok {
-		c.JSON(http.StatusNotFound, errorResponse{Error: "not_found", Message: "access policy not found"})
+		respondServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, accessPolicyDTOFrom(policy))
@@ -184,28 +173,9 @@ func (h *accessPolicyHandlers) get(c *gin.Context) {
 // @Failure      404  {object}  errorResponse
 // @Router       /access-policies/{name} [delete]
 func (h *accessPolicyHandlers) delete(c *gin.Context) {
-	name := c.Param("name")
-	ctx := c.Request.Context()
-
-	_, ok, err := h.repo.Get(ctx, name)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
+	if err := h.svc.Delete(c.Request.Context(), c.Param("name")); err != nil {
+		respondServiceError(c, err)
 		return
 	}
-	if !ok {
-		c.JSON(http.StatusNotFound, errorResponse{Error: "not_found", Message: "access policy not found"})
-		return
-	}
-
-	if err := h.repo.Delete(ctx, name); err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
-		return
-	}
-
-	if err := h.reloader.Refresh(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "internal_error", Message: err.Error()})
-		return
-	}
-
 	c.Status(http.StatusNoContent)
 }

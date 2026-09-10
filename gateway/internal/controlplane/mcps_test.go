@@ -12,6 +12,7 @@ import (
 
 	"github.com/atsokha/mcplake/cache"
 	"github.com/atsokha/mcplake/internal/controlplane"
+	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -124,7 +125,7 @@ func newMCPTestRouter(registry *fakeMCPRegistry, repo *fakeMCPRepository) *gin.E
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	admin := engine.Group("/admin")
-	controlplane.RegisterMCPRoutes(admin, registry, repo)
+	controlplane.RegisterMCPRoutes(admin, adminservice.NewMCPService(registry, repo))
 	return engine
 }
 
@@ -260,9 +261,9 @@ func TestRegisterMCPRoutes_DeleteUnknownNameReturns404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
-// Compile-time check that *cache.Registry satisfies the mcpRegistry
-// interface RegisterMCPRoutes needs (the real implementation used in
-// production, per cmd/gateway's future wiring, ticket #51).
+// Compile-time check that *cache.Registry satisfies the registry behavior
+// adminservice.MCPService (behind RegisterMCPRoutes) needs — the real
+// implementation used in production wiring.
 var _ = func() {
 	var _ interface {
 		Register(ctx context.Context, reg cache.MCPRegistration) error

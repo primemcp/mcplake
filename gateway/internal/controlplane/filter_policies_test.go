@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/atsokha/mcplake/internal/controlplane"
+	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/atsokha/mcplake/router"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -79,7 +80,7 @@ func newFilterPolicyTestRouter(t *testing.T) (*gin.Engine, *fakeFilterPolicyRepo
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	admin := engine.Group("/admin")
-	controlplane.RegisterFilterPolicyRoutes(admin, filterRepo, reloader)
+	controlplane.RegisterFilterPolicyRoutes(admin, adminservice.NewFilterPolicyService(filterRepo, reloader))
 	return engine, filterRepo, store
 }
 
