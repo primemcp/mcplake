@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/atsokha/mcplake/auth"
@@ -88,9 +89,20 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 		Resolver:      registry,
 	})
 
-	controlPlane := controlplane.NewServer(controlplane.Config{
-		ControlPlaneAddr: cfg.Server.ControlPlaneAddr,
-	})
+	controlPlaneCfg := controlplane.Config{ControlPlaneAddr: cfg.Server.ControlPlaneAddr}
+	if cfg.AdminAuthEnabled() {
+		matcher, err := cfg.AdminAuthMatcher()
+		if err != nil {
+			return nil, fmt.Errorf("app: build admin auth matcher: %w", err)
+		}
+		controlPlaneCfg.AdminAuth = controlplane.AdminAuth(validator, matcher)
+		slog.Info("control-plane admin API authentication enabled",
+			"match_rules", len(cfg.AdminAuth.Match))
+	} else {
+		slog.Warn("control-plane admin API is UNAUTHENTICATED — set admin_auth.match in config, " +
+			"or bind server.control_plane_addr to a trusted interface only")
+	}
+	controlPlane := controlplane.NewServer(controlPlaneCfg)
 	reloader := controlplane.NewPolicyReloader(accessRepo, filterRepo, policyStore)
 	admin := controlPlane.Admin()
 	controlplane.RegisterMCPRoutes(admin, registry, mcpRepo)
