@@ -50,6 +50,10 @@ underneath them.
    distributed deployments — see [ADR-0006](decisions/0006-gorm-sqlite-postgres-persistence.md)).
    On registration, an MCP's tools and I/O schemas are fetched and cached
    (see [ADR-0003](decisions/0003-dynamic-mcp-registration-and-schema-discovery.md)).
+   The admin API is JWT-authenticated and claim-gated when `admin_auth` is
+   configured (see [ADR-0010](decisions/0010-control-plane-admin-authentication.md)),
+   and can additionally be exposed as MCP tools for MCP-speaking operators
+   (see [ADR-0011](decisions/0011-mcp-control-server.md)).
 3. A single policy pipeline that runs the same JWT-claim rule evaluation twice per
    request — once to authorize which MCPs/tools a caller may invoke, and once to decide
    which response fields must be dropped before the result reaches the caller
