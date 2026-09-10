@@ -14,10 +14,21 @@ type Config struct {
 	OIDC           OIDCConfig           `toml:"oidc"`
 	AdminAuth      AdminAuthConfig      `toml:"admin_auth"`
 	AdminMCP       AdminMCPConfig       `toml:"admin_mcp"`
+	MCP            MCPGlobalConfig      `toml:"mcp"`
 	Persistence    PersistenceConfig    `toml:"persistence"`
 	MCPs           []MCPConfig          `toml:"mcps"`
 	AccessPolicies []AccessPolicyConfig `toml:"access_policies"`
 	FilterPolicies []FilterPolicyConfig `toml:"filter_policies"`
+}
+
+// MCPGlobalConfig is the `[mcp]` table: settings that apply to every
+// registered MCP, distinct from the per-server `[[mcps]]` array.
+type MCPGlobalConfig struct {
+	// SchemaRefreshInterval, when > 0, re-runs tools/list on every active
+	// MCP's existing client on this interval and swaps in the fresh schema
+	// (no reconnect). Zero/absent disables periodic refresh — schemas are
+	// then fetched only at registration. See ADR-0013.
+	SchemaRefreshInterval Duration `toml:"schema_refresh_interval"`
 }
 
 // DefaultAdminMCPPath is where the MCP control server mounts when
@@ -214,6 +225,10 @@ func (c *Config) Validate() error {
 
 	if c.AdminMCP.Path != "" && !strings.HasPrefix(c.AdminMCP.Path, "/admin/") {
 		return fmt.Errorf("config: admin_mcp.path must be under /admin/ (got %q)", c.AdminMCP.Path)
+	}
+
+	if c.MCP.SchemaRefreshInterval.Duration < 0 {
+		return fmt.Errorf("config: mcp.schema_refresh_interval must not be negative (got %s)", c.MCP.SchemaRefreshInterval.Duration)
 	}
 
 	for i, policy := range c.AccessPolicies {
