@@ -21,7 +21,7 @@ func (noReloader) Refresh(context.Context) error { return nil }
 // fakes already defined across the controlplane handler tests.
 func mcpControlServices() *adminservice.Services {
 	return adminservice.New(
-		newFakeMCPRegistry(), newFakeMCPRepository(),
+		context.Background(), newFakeMCPRegistry(), newFakeMCPRepository(),
 		newFakeAccessPolicyRepo(), fakeFilterPolicyRepo{}, noReloader{},
 	)
 }

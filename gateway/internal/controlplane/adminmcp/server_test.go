@@ -156,7 +156,7 @@ func (noopReloader) Refresh(context.Context) error { return nil }
 // a connected client session.
 func connect(t *testing.T) *sdk.ClientSession {
 	t.Helper()
-	svc := adminservice.New(newFakeRegistry(), newFakeMCPRepo(), newFakeAccessRepo(), newFakeFilterRepo(), noopReloader{})
+	svc := adminservice.New(context.Background(), newFakeRegistry(), newFakeMCPRepo(), newFakeAccessRepo(), newFakeFilterRepo(), noopReloader{})
 	server := adminmcp.NewServer(svc)
 
 	serverT, clientT := sdk.NewInMemoryTransports()
