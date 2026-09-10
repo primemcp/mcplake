@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoad_ValidExampleConfig(t *testing.T) {
-	cfg, err := config.Load("../config.example.yaml")
+	cfg, err := config.Load("../config.example.toml")
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -52,13 +52,26 @@ func TestLoad_ValidExampleConfig(t *testing.T) {
 }
 
 func TestLoad_MissingFile(t *testing.T) {
-	_, err := config.Load(filepath.Join(t.TempDir(), "does-not-exist.yaml"))
+	_, err := config.Load(filepath.Join(t.TempDir(), "does-not-exist.toml"))
 	require.Error(t, err)
 }
 
-func TestLoad_MalformedYAML(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "bad.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("server: [this is not valid: yaml"), 0o600))
+func TestLoad_MalformedTOML(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad.toml")
+	require.NoError(t, os.WriteFile(path, []byte("data_plane_addr = \nthis is not valid toml ]["), 0o600))
+
+	_, err := config.Load(path)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse")
+}
+
+func TestLoad_RejectsYAMLInput(t *testing.T) {
+	// A leftover config.yaml pasted verbatim is not valid TOML and must be
+	// rejected outright, not silently half-parsed.
+	path := filepath.Join(t.TempDir(), "old.toml")
+	body := "server:\n  data_plane_addr: \":8080\"\n"
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
 	_, err := config.Load(path)
 
@@ -66,13 +79,14 @@ func TestLoad_MalformedYAML(t *testing.T) {
 }
 
 func TestLoad_FailsValidateForSemanticallyInvalidConfig(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "missing-issuer.yaml")
+	path := filepath.Join(t.TempDir(), "missing-issuer.toml")
 	body := `
-server:
-  data_plane_addr: ":8080"
-oidc:
-  jwks_url: "https://auth.example.com/.well-known/jwks.json"
-  audience: "mcp-gateway"
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "https://auth.example.com/.well-known/jwks.json"
+audience = "mcp-gateway"
 `
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
@@ -83,38 +97,59 @@ oidc:
 }
 
 func TestLoad_ParsesJWKSCacheTTL(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "with-ttl.yaml")
+	path := filepath.Join(t.TempDir(), "with-ttl.toml")
 	body := `
-server:
-  data_plane_addr: ":8080"
-oidc:
-  jwks_url: "https://auth.example.com/.well-known/jwks.json"
-  issuer: "https://auth.example.com"
-  audience: "mcp-gateway"
-  jwks_cache_ttl: "30m"
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "https://auth.example.com/.well-known/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
+jwks_cache_ttl = "30m"
 `
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
 	cfg, err := config.Load(path)
 
 	require.NoError(t, err)
-	assert.Equal(t, 30*time.Minute, cfg.OIDC.JWKSCacheTTL)
+	assert.Equal(t, 30*time.Minute, cfg.OIDC.JWKSCacheTTL.Duration)
 }
 
 func TestLoad_JWKSCacheTTLDefaultsToZeroWhenUnset(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "no-ttl.yaml")
+	path := filepath.Join(t.TempDir(), "no-ttl.toml")
 	body := `
-server:
-  data_plane_addr: ":8080"
-oidc:
-  jwks_url: "https://auth.example.com/.well-known/jwks.json"
-  issuer: "https://auth.example.com"
-  audience: "mcp-gateway"
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "https://auth.example.com/.well-known/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
 `
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
 	cfg, err := config.Load(path)
 
 	require.NoError(t, err)
-	assert.Zero(t, cfg.OIDC.JWKSCacheTTL)
+	assert.Zero(t, cfg.OIDC.JWKSCacheTTL.Duration)
+}
+
+func TestLoad_RejectsInvalidJWKSCacheTTL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad-ttl.toml")
+	body := `
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "https://auth.example.com/.well-known/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
+jwks_cache_ttl = "not-a-duration"
+`
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
+
+	_, err := config.Load(path)
+
+	require.Error(t, err)
 }

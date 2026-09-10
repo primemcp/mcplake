@@ -3,11 +3,11 @@ module github.com/atsokha/mcplake/config
 go 1.27.1
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/atsokha/mcplake/cache v0.0.0-00010101000000-000000000000
 	github.com/atsokha/mcplake/persistence v0.0.0-00010101000000-000000000000
 	github.com/atsokha/mcplake/router v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.12.1
-	go.yaml.in/yaml/v3 v3.0.5
 )
 
 require (
@@ -36,6 +36,7 @@ require (
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/theory/jsonpath v0.12.1 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect

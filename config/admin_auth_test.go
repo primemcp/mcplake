@@ -9,12 +9,13 @@ import (
 )
 
 const adminAuthBaseConfig = `
-server:
-  data_plane_addr: ":8080"
-oidc:
-  jwks_url: "https://auth.example.com/jwks.json"
-  issuer: "https://auth.example.com"
-  audience: "mcp-gateway"
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "https://auth.example.com/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
 `
 
 func TestLoad_AdminAuthAbsentLeavesControlPlaneOpen(t *testing.T) {
@@ -28,12 +29,12 @@ func TestLoad_AdminAuthAbsentLeavesControlPlaneOpen(t *testing.T) {
 
 func TestLoad_AdminAuthWithMatchRulesEnablesIt(t *testing.T) {
 	body := adminAuthBaseConfig + `
-admin_auth:
-  match:
-    - path: "$.role"
-      pattern: "^admin$"
-    - path: "$.iss"
-      pattern: "^https://auth\\.example\\.com$"
+[[admin_auth.match]]
+path = "$.role"
+pattern = "^admin$"
+[[admin_auth.match]]
+path = "$.iss"
+pattern = "^https://auth\\.example\\.com$"
 `
 	cfg, err := config.Load(writeConfig(t, body))
 	require.NoError(t, err)
@@ -55,11 +56,11 @@ admin_auth:
 
 func TestLoad_AdminAuthExplicitEnabledFalseStaysOpenEvenWithRules(t *testing.T) {
 	body := adminAuthBaseConfig + `
-admin_auth:
-  enabled: false
-  match:
-    - path: "$.role"
-      pattern: "^admin$"
+[admin_auth]
+enabled = false
+[[admin_auth.match]]
+path = "$.role"
+pattern = "^admin$"
 `
 	cfg, err := config.Load(writeConfig(t, body))
 	require.NoError(t, err)
@@ -69,8 +70,8 @@ admin_auth:
 
 func TestLoad_AdminAuthEnabledTrueWithoutRulesIsRejected(t *testing.T) {
 	body := adminAuthBaseConfig + `
-admin_auth:
-  enabled: true
+[admin_auth]
+enabled = true
 `
 	_, err := config.Load(writeConfig(t, body))
 
@@ -80,10 +81,9 @@ admin_auth:
 
 func TestLoad_AdminAuthRejectsMalformedMatchRule(t *testing.T) {
 	body := adminAuthBaseConfig + `
-admin_auth:
-  match:
-    - path: "$.role"
-      pattern: "(unclosed"
+[[admin_auth.match]]
+path = "$.role"
+pattern = "(unclosed"
 `
 	_, err := config.Load(writeConfig(t, body))
 

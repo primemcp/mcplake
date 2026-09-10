@@ -10,44 +10,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeConfig writes body to a temp file and returns its path.
+// writeConfig writes body to a temp .toml file and returns its path.
 func writeConfig(t *testing.T, body string) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "config.yaml")
+	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 	return path
 }
 
 const enabledBaseConfig = `
-server:
-  data_plane_addr: ":8080"
-oidc:
-  jwks_url: "https://auth.example.com/jwks.json"
-  issuer: "https://auth.example.com"
-  audience: "mcp-gateway"
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "https://auth.example.com/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
 `
 
 func TestLoad_EnabledDefaultsToTrueWhenKeyOmitted(t *testing.T) {
 	path := writeConfig(t, enabledBaseConfig+`
-mcps:
-  - name: postgres-ro
-    command: mcp-server-postgres
-access_policies:
-  - name: db-reader
-    match:
-      - path: "$.role"
-        pattern: "^db-reader$"
-    grants:
-      - mcp: postgres-ro
-        tools: ["*"]
-filter_policies:
-  - name: hide-pii
-    match:
-      - path: "$.role"
-        pattern: "^user$"
-    mcp: postgres-ro
-    tool: get_user
-    drop_fields: ["$.ssn"]
+[[mcps]]
+name = "postgres-ro"
+command = "mcp-server-postgres"
+
+[[access_policies]]
+name = "db-reader"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+[[access_policies.grants]]
+mcp = "postgres-ro"
+tools = ["*"]
+
+[[filter_policies]]
+name = "hide-pii"
+mcp = "postgres-ro"
+tool = "get_user"
+drop_fields = ["$.ssn"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^user$"
 `)
 
 	cfg, err := config.Load(path)
@@ -71,28 +74,30 @@ filter_policies:
 
 func TestLoad_ExplicitEnabledFalseDisablesEntry(t *testing.T) {
 	path := writeConfig(t, enabledBaseConfig+`
-mcps:
-  - name: postgres-ro
-    command: mcp-server-postgres
-    enabled: false
-access_policies:
-  - name: db-reader
-    enabled: false
-    match:
-      - path: "$.role"
-        pattern: "^db-reader$"
-    grants:
-      - mcp: postgres-ro
-        tools: ["*"]
-filter_policies:
-  - name: hide-pii
-    enabled: false
-    match:
-      - path: "$.role"
-        pattern: "^user$"
-    mcp: postgres-ro
-    tool: get_user
-    drop_fields: ["$.ssn"]
+[[mcps]]
+name = "postgres-ro"
+command = "mcp-server-postgres"
+enabled = false
+
+[[access_policies]]
+name = "db-reader"
+enabled = false
+[[access_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+[[access_policies.grants]]
+mcp = "postgres-ro"
+tools = ["*"]
+
+[[filter_policies]]
+name = "hide-pii"
+enabled = false
+mcp = "postgres-ro"
+tool = "get_user"
+drop_fields = ["$.ssn"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^user$"
 `)
 
 	cfg, err := config.Load(path)
@@ -112,10 +117,10 @@ filter_policies:
 
 func TestLoad_ExplicitEnabledTruePassesThrough(t *testing.T) {
 	path := writeConfig(t, enabledBaseConfig+`
-mcps:
-  - name: postgres-ro
-    command: mcp-server-postgres
-    enabled: true
+[[mcps]]
+name = "postgres-ro"
+command = "mcp-server-postgres"
+enabled = true
 `)
 
 	cfg, err := config.Load(path)

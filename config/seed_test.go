@@ -31,7 +31,7 @@ func newSeedRepos(t *testing.T) seedRepos {
 }
 
 func TestSeed_ExampleConfigProducesMatchingRows(t *testing.T) {
-	cfg, err := config.Load("../config.example.yaml")
+	cfg, err := config.Load("../config.example.toml")
 	require.NoError(t, err)
 	repos := newSeedRepos(t)
 	ctx := context.Background()
@@ -59,7 +59,7 @@ func TestSeed_ExampleConfigProducesMatchingRows(t *testing.T) {
 }
 
 func TestSeed_SeededMCPStartsInConnectingStatus(t *testing.T) {
-	cfg, err := config.Load("../config.example.yaml")
+	cfg, err := config.Load("../config.example.toml")
 	require.NoError(t, err)
 	repos := newSeedRepos(t)
 	ctx := context.Background()
@@ -72,7 +72,7 @@ func TestSeed_SeededMCPStartsInConnectingStatus(t *testing.T) {
 }
 
 func TestSeed_IsIdempotentNoDuplicateRows(t *testing.T) {
-	cfg, err := config.Load("../config.example.yaml")
+	cfg, err := config.Load("../config.example.toml")
 	require.NoError(t, err)
 	repos := newSeedRepos(t)
 	ctx := context.Background()
@@ -90,7 +90,7 @@ func TestSeed_IsIdempotentNoDuplicateRows(t *testing.T) {
 }
 
 func TestSeed_ReSeedReflectsChangedConfig(t *testing.T) {
-	cfg, err := config.Load("../config.example.yaml")
+	cfg, err := config.Load("../config.example.toml")
 	require.NoError(t, err)
 	repos := newSeedRepos(t)
 	ctx := context.Background()
