@@ -125,7 +125,7 @@ func newMCPTestRouter(registry *fakeMCPRegistry, repo *fakeMCPRepository) *gin.E
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	admin := engine.Group("/admin")
-	controlplane.RegisterMCPRoutes(admin, adminservice.NewMCPService(registry, repo))
+	controlplane.RegisterMCPRoutes(admin, adminservice.NewMCPService(context.Background(), registry, repo))
 	return engine
 }
 

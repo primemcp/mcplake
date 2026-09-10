@@ -17,14 +17,21 @@ const DefaultMCPTransport = "stdio"
 // registry first — so a data-plane caller sees the effect immediately — then
 // the durable repository.
 type MCPService struct {
+	// baseCtx outlives any single admin request: a stdio MCP's subprocess is
+	// spawned with exec.CommandContext, so binding registration to the
+	// request context would kill the MCP the instant the HTTP/MCP call that
+	// registered it returns. It is the same app-lifetime context used to
+	// register the config-seeded MCPs at startup.
+	baseCtx  context.Context
 	registry Registry
 	repo     MCPRepository
 }
 
 // NewMCPService returns an MCPService backed by registry (live) and repo
-// (durable).
-func NewMCPService(registry Registry, repo MCPRepository) *MCPService {
-	return &MCPService{registry: registry, repo: repo}
+// (durable). baseCtx must be the gateway's lifetime context, not a
+// request-scoped one — see MCPService.baseCtx.
+func NewMCPService(baseCtx context.Context, registry Registry, repo MCPRepository) *MCPService {
+	return &MCPService{baseCtx: baseCtx, registry: registry, repo: repo}
 }
 
 // List returns every currently registered MCP from the live registry (the
@@ -55,7 +62,9 @@ func (s *MCPService) Register(ctx context.Context, reg cache.MCPRegistration) (c
 		reg.Transport = DefaultMCPTransport
 	}
 
-	if err := s.registry.Register(ctx, reg); err != nil {
+	// Register with the app-lifetime context, not ctx: the discovered MCP's
+	// client (and, for stdio, its subprocess) must outlive this call.
+	if err := s.registry.Register(s.baseCtx, reg); err != nil {
 		return cache.MCPRegistration{}, fmt.Errorf("%w: %w", ErrRegistrationFailed, err)
 	}
 

@@ -86,8 +86,12 @@ type Services struct {
 }
 
 // New wires the services from the same Registry / repositories / reloader
-// the data plane reads, so an admin write is live immediately.
+// the data plane reads, so an admin write is live immediately. baseCtx is
+// the gateway's lifetime context: MCP registrations made through the admin
+// surfaces are bound to it, not to the request that triggered them (see
+// MCPService.baseCtx).
 func New(
+	baseCtx context.Context,
 	registry Registry,
 	mcpRepo MCPRepository,
 	accessRepo AccessPolicyRepository,
@@ -95,7 +99,7 @@ func New(
 	reloader Reloader,
 ) *Services {
 	return &Services{
-		MCP:    NewMCPService(registry, mcpRepo),
+		MCP:    NewMCPService(baseCtx, registry, mcpRepo),
 		Access: NewAccessPolicyService(accessRepo, reloader),
 		Filter: NewFilterPolicyService(filterRepo, reloader),
 	}

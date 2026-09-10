@@ -105,7 +105,7 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 	controlPlane := controlplane.NewServer(controlPlaneCfg)
 	reloader := controlplane.NewPolicyReloader(accessRepo, filterRepo, policyStore)
-	adminSvc := adminservice.New(registry, mcpRepo, accessRepo, filterRepo, reloader)
+	adminSvc := adminservice.New(ctx, registry, mcpRepo, accessRepo, filterRepo, reloader)
 	admin := controlPlane.Admin()
 	controlplane.RegisterMCPRoutes(admin, adminSvc.MCP)
 	controlplane.RegisterAccessPolicyRoutes(admin, adminSvc.Access)

@@ -146,7 +146,7 @@ func (f *fakeReloader) Refresh(context.Context) error {
 func TestMCPService_Register_PersistsRegistryResultAndDefaultsTransport(t *testing.T) {
 	reg := newFakeRegistry()
 	repo := newFakeMCPRepo()
-	svc := adminservice.NewMCPService(reg, repo)
+	svc := adminservice.NewMCPService(context.Background(), reg, repo)
 
 	got, err := svc.Register(context.Background(), cache.MCPRegistration{Name: "pg"})
 	require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestMCPService_Register_PersistsRegistryResultAndDefaultsTransport(t *testi
 }
 
 func TestMCPService_Register_EmptyNameIsInvalidRequest(t *testing.T) {
-	svc := adminservice.NewMCPService(newFakeRegistry(), newFakeMCPRepo())
+	svc := adminservice.NewMCPService(context.Background(), newFakeRegistry(), newFakeMCPRepo())
 
 	_, err := svc.Register(context.Background(), cache.MCPRegistration{})
 
@@ -169,7 +169,7 @@ func TestMCPService_Register_RegistryFailureIsRegistrationFailedAndPersistsNothi
 	reg := newFakeRegistry()
 	reg.registerErr = errors.New("connection refused")
 	repo := newFakeMCPRepo()
-	svc := adminservice.NewMCPService(reg, repo)
+	svc := adminservice.NewMCPService(context.Background(), reg, repo)
 
 	_, err := svc.Register(context.Background(), cache.MCPRegistration{Name: "pg"})
 
@@ -180,7 +180,7 @@ func TestMCPService_Register_RegistryFailureIsRegistrationFailedAndPersistsNothi
 func TestMCPService_Register_RepoFailureIsInternal(t *testing.T) {
 	repo := newFakeMCPRepo()
 	repo.upsertErr = errors.New("disk full")
-	svc := adminservice.NewMCPService(newFakeRegistry(), repo)
+	svc := adminservice.NewMCPService(context.Background(), newFakeRegistry(), repo)
 
 	_, err := svc.Register(context.Background(), cache.MCPRegistration{Name: "pg"})
 
@@ -191,7 +191,7 @@ func TestMCPService_Register_RepoFailureIsInternal(t *testing.T) {
 }
 
 func TestMCPService_SetEnabled_UnknownNameIsNotFound(t *testing.T) {
-	svc := adminservice.NewMCPService(newFakeRegistry(), newFakeMCPRepo())
+	svc := adminservice.NewMCPService(context.Background(), newFakeRegistry(), newFakeMCPRepo())
 
 	_, err := svc.SetEnabled(context.Background(), "nope", false)
 
@@ -201,7 +201,7 @@ func TestMCPService_SetEnabled_UnknownNameIsNotFound(t *testing.T) {
 func TestMCPService_SetEnabled_TogglesAndPersists(t *testing.T) {
 	reg := newFakeRegistry()
 	repo := newFakeMCPRepo()
-	svc := adminservice.NewMCPService(reg, repo)
+	svc := adminservice.NewMCPService(context.Background(), reg, repo)
 	_, err := svc.Register(context.Background(), cache.MCPRegistration{Name: "pg", Enabled: true})
 	require.NoError(t, err)
 
@@ -213,7 +213,7 @@ func TestMCPService_SetEnabled_TogglesAndPersists(t *testing.T) {
 }
 
 func TestMCPService_Unregister_UnknownNameIsNotFound(t *testing.T) {
-	svc := adminservice.NewMCPService(newFakeRegistry(), newFakeMCPRepo())
+	svc := adminservice.NewMCPService(context.Background(), newFakeRegistry(), newFakeMCPRepo())
 
 	err := svc.Unregister(context.Background(), "nope")
 
@@ -223,7 +223,7 @@ func TestMCPService_Unregister_UnknownNameIsNotFound(t *testing.T) {
 func TestMCPService_Unregister_RemovesFromRegistryAndRepo(t *testing.T) {
 	reg := newFakeRegistry()
 	repo := newFakeMCPRepo()
-	svc := adminservice.NewMCPService(reg, repo)
+	svc := adminservice.NewMCPService(context.Background(), reg, repo)
 	_, err := svc.Register(context.Background(), cache.MCPRegistration{Name: "pg"})
 	require.NoError(t, err)
 
