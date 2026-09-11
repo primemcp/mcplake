@@ -15,8 +15,28 @@ export function groupIdOf(filterName: string): string {
   return i === -1 ? filterName : filterName.slice(0, i);
 }
 
-export function memberName(groupId: string, tool: string): string {
-  return `${groupId}${GROUP_SEP}${tool}`;
+/**
+ * Strips a `<prefix>::` segment a caller already confirmed via
+ * `groupIdOf(name) === prefix` -- e.g. the Users & access screen strips a
+ * filter's `<user>::` segment before re-grouping the remainder by its own
+ * next segment, so one user can have several independently-named filters
+ * per endpoint (mirroring this same convention one level down). Returns
+ * `name` unchanged if it doesn't actually start with that prefix.
+ */
+export function stripGroupPrefix(name: string, prefix: string): string {
+  const full = prefix + GROUP_SEP;
+  return name.startsWith(full) ? name.slice(full.length) : name;
+}
+
+// A single qualifier ("::<tool>") is enough when the group is already
+// scoped to one mcp (the MCP-connections response-filter case below). The
+// Users & access screen reuses this same convention but needs a second
+// qualifier ("::<mcp>::<tool>") -- one user can be granted access across
+// several endpoints, so the tool name alone isn't enough to keep two
+// FilterPolicy records apart when two different mcps happen to expose a
+// tool with the same name.
+export function memberName(groupId: string, ...qualifiers: string[]): string {
+  return [groupId, ...qualifiers].join(GROUP_SEP);
 }
 
 export type FilterGroup = { id: string; members: FilterPolicy[] };

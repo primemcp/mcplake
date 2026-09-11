@@ -1,0 +1,32 @@
+import { groupIdOf } from "../lib/filterGroups";
+import type { AccessPolicy, ClaimRule, FilterPolicy, Grant } from "./types";
+
+/**
+ * The mockup's "user" has no backend counterpart — it's a client-side
+ * composition over a same-named `AccessPolicy` plus every `FilterPolicy`
+ * grouped under that name, reusing the exact `<group>::...` naming
+ * convention `lib/filterGroups.ts` already established for MCP
+ * connections' multi-tool response filters (see ADR-0008): real,
+ * independent `FilterPolicy` records whose name shares the user's name as
+ * a prefix.
+ *
+ * This is UI sugar, not a real backend entity — never mistake a `User`
+ * for something the admin API knows about. Listing users means listing
+ * `AccessPolicy` records and joining in whichever `FilterPolicy` records
+ * are grouped under each one's name.
+ */
+export type User = {
+  name: string;
+  match: ClaimRule[];
+  grants: Grant[];
+  filters: FilterPolicy[];
+};
+
+export function composeUsers(accessPolicies: AccessPolicy[], filterPolicies: FilterPolicy[]): User[] {
+  return accessPolicies.map((ap) => ({
+    name: ap.name,
+    match: ap.match,
+    grants: ap.grants,
+    filters: filterPolicies.filter((fp) => groupIdOf(fp.name) === ap.name),
+  }));
+}

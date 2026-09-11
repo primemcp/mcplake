@@ -9,8 +9,10 @@ export type ClaimRule = { path: string; pattern: string };
 
 export type Grant = { mcp: string; tools: string[] };
 
-export type AccessPolicy = { name: string; match: ClaimRule[]; grants: Grant[] };
-export type AccessPolicyRequest = { name: string; match: ClaimRule[]; grants: Grant[] };
+export type AccessPolicy = { name: string; match: ClaimRule[]; grants: Grant[]; enabled: boolean };
+// `enabled` is optional on write: the real API defaults a missing value to
+// true (see enabledOrTrue in the Go handler) -- omit it to just mean "on".
+export type AccessPolicyRequest = { name: string; match: ClaimRule[]; grants: Grant[]; enabled?: boolean };
 
 export type FilterPolicy = {
   name: string;
@@ -18,8 +20,9 @@ export type FilterPolicy = {
   mcp: string;
   tool: string;
   drop_fields: string[];
+  enabled: boolean;
 };
-export type FilterPolicyRequest = FilterPolicy;
+export type FilterPolicyRequest = Omit<FilterPolicy, "enabled"> & { enabled?: boolean };
 
 export type ConnectConfig = { command?: string; arguments?: string[]; url?: string };
 

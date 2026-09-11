@@ -3,23 +3,38 @@ import { EmptyState } from "../primitives/EmptyState";
 import { ErrorNotice } from "../primitives/ErrorNotice";
 import { useEndpoints, findEndpoint } from "../../api/endpoints";
 import { useFilterPolicies } from "../../api/policies";
+import { clearStorage, readStorage, writeStorage } from "../../lib/storage";
 import { EndpointDetail } from "./EndpointDetail";
 import { EndpointList } from "./EndpointList";
 import { ResponseFilterGroup } from "./ResponseFilterGroup";
 
+const SELECTED_KEY = "mcplake:instances:selected";
+const isString = (v: unknown): v is string => typeof v === "string";
+
 export function InstancesScreen() {
   const { endpoints, loading, error, retry, register, unregister } = useEndpoints();
   const filterPolicies = useFilterPolicies();
-  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [selectedName, setSelectedName] = useState<string | null>(() => readStorage(SELECTED_KEY, isString));
+
+  const selectEndpoint = (name: string | null) => {
+    setSelectedName(name);
+    if (name === null) clearStorage(SELECTED_KEY);
+    else writeStorage(SELECTED_KEY, name);
+  };
 
   // Keep the selection valid as the list changes (e.g. after a delete).
+  // Gated on `loading` so a selection just restored from localStorage
+  // isn't immediately treated as "not found" and discarded while
+  // `endpoints` is still an empty placeholder waiting on the first fetch.
   useEffect(() => {
+    if (loading) return;
     if (selectedName === null && endpoints.length > 0) {
-      setSelectedName(endpoints[0].name);
+      selectEndpoint(endpoints[0].name);
     } else if (selectedName !== null && !findEndpoint(endpoints, selectedName)) {
-      setSelectedName(endpoints[0]?.name ?? null);
+      selectEndpoint(endpoints[0]?.name ?? null);
     }
-  }, [endpoints, selectedName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoints, selectedName, loading]);
 
   const selected = selectedName ? findEndpoint(endpoints, selectedName) : undefined;
 
@@ -42,14 +57,14 @@ export function InstancesScreen() {
           error={error}
           onRetry={retry}
           selectedName={selectedName}
-          onSelect={setSelectedName}
+          onSelect={selectEndpoint}
           onCreate={async (name, command, args) => {
             await register({
               name,
               transport: "stdio",
               connect: { command, arguments: args.length > 0 ? args : undefined },
             });
-            setSelectedName(name);
+            selectEndpoint(name);
           }}
         />
 

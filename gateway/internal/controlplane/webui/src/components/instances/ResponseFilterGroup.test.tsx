@@ -31,9 +31,9 @@ const ENDPOINT: MCPRegistration = {
 };
 
 const FILTERS: FilterPolicy[] = [
-  { name: "hide-pii", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
+  { name: "hide-pii", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"], enabled: true },
   // A filter belonging to a different endpoint must not show up here.
-  { name: "other", match: [], mcp: "postgres-rw", tool: "get_user", drop_fields: ["$.x"] },
+  { name: "other", match: [], mcp: "postgres-rw", tool: "get_user", drop_fields: ["$.x"], enabled: true },
 ];
 
 function noopProps() {
@@ -147,8 +147,8 @@ describe("ResponseFilterGroup", () => {
 
   it("renders a multi-tool group as a single card in the list, not one per underlying record", () => {
     const grouped: FilterPolicy[] = [
-      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
-      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"] },
+      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"], enabled: true },
+      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"], enabled: true },
     ];
     render(
       <ResponseFilterGroup endpoint={ENDPOINT} filters={grouped} loading={false} error={null} {...noopProps()} />,
@@ -187,8 +187,8 @@ describe("ResponseFilterGroup", () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined);
     const onDelete = vi.fn().mockResolvedValue(undefined);
     const grouped: FilterPolicy[] = [
-      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
-      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"] },
+      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"], enabled: true },
+      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"], enabled: true },
     ];
     render(
       <ResponseFilterGroup
@@ -217,8 +217,8 @@ describe("ResponseFilterGroup", () => {
     const user = userEvent.setup();
     const onDelete = vi.fn().mockResolvedValue(undefined);
     const grouped: FilterPolicy[] = [
-      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
-      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"] },
+      { name: "hide-content::get_user", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"], enabled: true },
+      { name: "hide-content::list_users", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.count"], enabled: true },
     ];
     render(
       <ResponseFilterGroup
@@ -242,8 +242,8 @@ describe("ResponseFilterGroup", () => {
   it("the list search narrows filters by name, tool, or dropped field — separate from the per-form field picker search", async () => {
     const user = userEvent.setup();
     const twoFilters: FilterPolicy[] = [
-      { name: "hide-pii", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"] },
-      { name: "hide-email", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.email"] },
+      { name: "hide-pii", match: [], mcp: "postgres-ro", tool: "get_user", drop_fields: ["$.salary"], enabled: true },
+      { name: "hide-email", match: [], mcp: "postgres-ro", tool: "list_users", drop_fields: ["$.email"], enabled: true },
     ];
     render(
       <ResponseFilterGroup endpoint={ENDPOINT} filters={twoFilters} loading={false} error={null} {...noopProps()} />,
@@ -270,6 +270,7 @@ describe("ResponseFilterGroup", () => {
       mcp: "postgres-ro",
       tool: "get_user",
       drop_fields: ["$.salary"],
+      enabled: true,
     }));
     render(<ResponseFilterGroup endpoint={ENDPOINT} filters={many} loading={false} error={null} {...noopProps()} />);
 
