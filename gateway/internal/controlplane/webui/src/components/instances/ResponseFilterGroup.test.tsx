@@ -24,6 +24,7 @@ const ENDPOINT: MCPRegistration = {
   transport: "stdio",
   connect: { command: "pg-ro" },
   status: "active",
+  enabled: true,
   tools: {
     get_user: { name: "get_user", output_schema: GET_USER_SCHEMA },
     list_users: { name: "list_users", output_schema: LIST_USERS_SCHEMA },

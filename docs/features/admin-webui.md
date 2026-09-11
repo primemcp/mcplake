@@ -39,7 +39,20 @@ selected endpoint.
   upserts). Only `stdio` transport actually works against the real gateway
   today (`sse`/`http` are shown, explicitly disabled, not hidden — the
   backend doesn't implement them yet); the form collects a command +
-  arguments accordingly, not a URL.
+  arguments accordingly, not a URL. Every save carries the endpoint's
+  current `enabled` flag explicitly (never left to the request's
+  default-to-`true`) so editing command/args on a disabled endpoint
+  doesn't silently re-enable it.
+- **Enable/disable** is a real, reversible toggle on the detail panel
+  (`PATCH /admin/mcps/:name`) — a disabled endpoint stays registered
+  (connected, tools cached) but rejects every data-plane call with 403
+  `mcp_disabled` until re-enabled; no reconnect either way. Reflected
+  immediately in the endpoint list (a neutral gray dot, "disabled" instead
+  of the real connection status) and in the detail panel's status line.
+  **Delete endpoint** is the separate, unrecoverable action (drops the
+  registration, its schema cache, and every filter/grant on it) — it lives
+  inside the edit panel with a two-step "Delete endpoint" → "Confirm
+  delete" confirmation, not on the toggle.
 - **Response filters** are built from the endpoint's discovered tool schemas
   (`GET /admin/mcps` already returns each tool's `output_schema` — no
   separate schema-discovery call). The field picker merges every tool's

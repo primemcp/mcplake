@@ -6,6 +6,7 @@ import type {
   FilterPolicyRequest,
   MCPRegistration,
   RegisterMCPRequest,
+  SetMCPEnabledRequest,
 } from "./types";
 
 /**
@@ -51,6 +52,8 @@ export const api = {
   listMCPs: () => request<MCPRegistration[]>("/mcps"),
   registerMCP: (req: RegisterMCPRequest) =>
     request<MCPRegistration>("/mcps", { method: "POST", body: JSON.stringify(req) }),
+  setMCPEnabled: (name: string, req: SetMCPEnabledRequest) =>
+    request<MCPRegistration>(`/mcps/${encode(name)}`, { method: "PATCH", body: JSON.stringify(req) }),
   unregisterMCP: (name: string) => request<void>(`/mcps/${encode(name)}`, { method: "DELETE" }),
 
   listAccessPolicies: () => request<AccessPolicy[]>("/access-policies"),

@@ -10,6 +10,7 @@ const ENDPOINTS: MCPRegistration[] = [
     transport: "stdio",
     connect: { command: "a" },
     status: "active",
+    enabled: true,
     tools: { only_in_a: { name: "only_in_a", output_schema: { type: "object", properties: { a_field: { type: "string" } } } } },
   },
   {
@@ -17,6 +18,7 @@ const ENDPOINTS: MCPRegistration[] = [
     transport: "stdio",
     connect: { command: "b" },
     status: "active",
+    enabled: true,
     tools: { only_in_b: { name: "only_in_b", output_schema: { type: "object", properties: { b_field: { type: "string" } } } } },
   },
 ];
@@ -113,5 +115,34 @@ describe("InstancesScreen", () => {
 
     await waitFor(() => expect(createdFilters).toHaveLength(1));
     expect(createdFilters[0]).toMatchObject({ name: "hide-b::only_in_b", mcp: "mcp-b", tool: "only_in_b" });
+  });
+
+  it("toggling Enabled end to end calls the real PATCH and the list reflects it after refresh", async () => {
+    const user = userEvent.setup();
+    let mcpA = ENDPOINTS[0];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (url === "/admin/mcps" && (!init || init.method === undefined)) {
+          return Promise.resolve(jsonResponse([mcpA, ENDPOINTS[1]]));
+        }
+        if (url === "/admin/mcps/mcp-a" && init?.method === "PATCH") {
+          const body = JSON.parse(init.body as string) as { enabled: boolean };
+          mcpA = { ...mcpA, enabled: body.enabled };
+          return Promise.resolve(jsonResponse(mcpA));
+        }
+        if (url === "/admin/filter-policies") return Promise.resolve(jsonResponse([]));
+        throw new Error(`unexpected fetch: ${url} ${init?.method}`);
+      }),
+    );
+
+    render(<InstancesScreen />);
+
+    await user.click(await screen.findByRole("switch", { name: "Disable mcp-a" }));
+
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Enable mcp-a" })).toBeInTheDocument());
+    expect(
+      screen.getByText("Disabled — requests to this endpoint are rejected and grants are suspended"),
+    ).toBeInTheDocument();
   });
 });

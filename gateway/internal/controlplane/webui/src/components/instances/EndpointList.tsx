@@ -79,7 +79,9 @@ export function EndpointList({
                   }`}
                 >
                   <div className="flex items-center gap-[7px] min-w-0">
-                    <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${dotColor[status]}`} />
+                    <span
+                      className={`w-[7px] h-[7px] rounded-full shrink-0 ${e.enabled ? dotColor[status] : "bg-track-off"}`}
+                    />
                     <span
                       className={`text-[12.5px] font-semibold truncate ${selected ? "text-accent-hover" : "text-ink"}`}
                     >
@@ -91,7 +93,9 @@ export function EndpointList({
                   >
                     {e.connect.command || "—"}
                   </div>
-                  <div className={`text-[10.5px] font-medium ${statusTextColor[status]}`}>{e.status}</div>
+                  <div className={`text-[10.5px] font-medium ${e.enabled ? statusTextColor[status] : "text-danger"}`}>
+                    {e.enabled ? e.status : "disabled"}
+                  </div>
                   <div className={`text-[10.5px] ${selected ? "text-subtle" : "text-muted"}`}>
                     stdio · {toolCount} {toolCount === 1 ? "tool" : "tools"}
                   </div>

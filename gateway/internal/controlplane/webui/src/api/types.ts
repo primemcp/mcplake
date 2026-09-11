@@ -39,6 +39,7 @@ export type MCPRegistration = {
   transport: string;
   connect: ConnectConfig;
   status: string;
+  enabled: boolean;
   tools?: Record<string, ToolSchema>;
 };
 
@@ -46,4 +47,11 @@ export type RegisterMCPRequest = {
   name: string;
   transport?: string;
   connect: ConnectConfig;
+  // Optional; omitting it defaults to true server-side (enabledOrTrue). The
+  // "edit" flow (register() again with the same name) must pass the
+  // endpoint's current value explicitly -- otherwise saving an unrelated
+  // edit on a disabled endpoint would silently re-enable it.
+  enabled?: boolean;
 };
+
+export type SetMCPEnabledRequest = { enabled: boolean };

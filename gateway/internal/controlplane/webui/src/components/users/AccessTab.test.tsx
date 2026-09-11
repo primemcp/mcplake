@@ -9,6 +9,7 @@ const memory: MCPRegistration = {
   transport: "stdio",
   connect: { command: "memory" },
   status: "active",
+  enabled: true,
   tools: {
     add_observations: {
       name: "add_observations",
@@ -23,6 +24,7 @@ const analytics: MCPRegistration = {
   transport: "stdio",
   connect: { command: "analytics" },
   status: "active",
+  enabled: true,
   tools: { get_report: { name: "get_report", output_schema: { type: "object", properties: { total: { type: "number" } } } } },
 };
 
@@ -31,6 +33,7 @@ const notConnected: MCPRegistration = {
   transport: "stdio",
   connect: { command: "flaky" },
   status: "unreachable",
+  enabled: true,
   tools: { ping: { name: "ping", output_schema: { type: "object", properties: {} } } },
 };
 

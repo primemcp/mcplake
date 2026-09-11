@@ -10,19 +10,24 @@ export type EndpointDetailProps = {
   endpoint: MCPRegistration;
   onUpdate: (req: RegisterMCPRequest) => Promise<void>;
   onRemove: (name: string) => Promise<void>;
+  onSetEnabled: (name: string, enabled: boolean) => Promise<void>;
 };
 
 /**
- * There is no PUT/PATCH for MCPs in the real admin API (see #77's design
- * doc) — "edit" re-registers with the same name, which the backend treats
- * as an upsert.
+ * There is no PUT for MCPs in the real admin API (see #77's design doc) —
+ * "edit" re-registers with the same name, which the backend treats as an
+ * upsert. `enabled` is passed through explicitly on every save (not left
+ * to the request's default-to-true) so saving an unrelated command/args
+ * edit on a disabled endpoint doesn't silently re-enable it.
  *
- * The mockup's Enabled/Disabled toggle IS fully specified there (colors,
- * layout) and is reproduced here exactly -- but the real backend has no
- * soft-disable state (only registered/not, via DELETE /admin/mcps/:name),
- * so switching it to "Disabled" is, honestly, unregistering the endpoint
- * (confirmed first) rather than a reversible pause. There's no "Enabled"
- * direction to wire up after that, since the endpoint is simply gone.
+ * The Enabled/Disabled toggle now wires to the real
+ * `PATCH /admin/mcps/:name` (#153) -- a reversible soft-disable, distinct
+ * from "Delete endpoint" (DELETE, unrecoverable: drops the registration
+ * and its schema cache along with every filter/grant on it). Colors,
+ * layout and copy for both match the mockup exactly (DesignSync), which
+ * also moves delete out of the toggle and into the edit panel's own
+ * two-step confirm -- it was only ever bolted onto the toggle here because
+ * there was no real disable to wire it to yet.
  *
  * Transport is fixed to stdio when saving: cache.Registry.Register on the
  * real backend rejects anything else with "unsupported transport (only
@@ -33,13 +38,15 @@ export type EndpointDetailProps = {
  * still omitted; unlike transport, the DTO having a `url` slot doesn't
  * make showing it as a live option honest when nothing consumes it.
  */
-export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailProps) {
+export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: EndpointDetailProps) {
   const [editing, setEditing] = useState(false);
   const [command, setCommand] = useState(endpoint.connect.command ?? "");
   const [args, setArgs] = useState((endpoint.connect.arguments ?? []).join(" "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [togglingEnabled, setTogglingEnabled] = useState(false);
 
   const tools = Object.values(endpoint.tools ?? {});
 
@@ -54,12 +61,39 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
           command,
           arguments: args.trim() === "" ? undefined : args.trim().split(/\s+/),
         },
+        enabled: endpoint.enabled,
       });
       setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const toggleEnabled = async () => {
+    setTogglingEnabled(true);
+    setError(null);
+    try {
+      await onSetEnabled(endpoint.name, !endpoint.enabled);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update.");
+    } finally {
+      setTogglingEnabled(false);
+    }
+  };
+
+  const requestDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setRemoving(true);
+    try {
+      await onRemove(endpoint.name);
+    } finally {
+      setRemoving(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -79,30 +113,40 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setEditing((v) => !v)}
+              onClick={() => {
+                setEditing((v) => !v);
+                setConfirmDelete(false);
+              }}
               className="flex items-center gap-1.5 px-[11px] py-[6px] border border-border rounded-[9px] bg-surface cursor-pointer text-xs font-medium text-body hover:border-accent hover:text-accent"
             >
               {editing ? "Close" : "Edit endpoint"}
             </button>
             <button
               type="button"
-              disabled={removing}
-              onClick={async () => {
-                if (!window.confirm(`Remove ${endpoint.name}? There is no soft-disable — this unregisters it.`)) {
-                  return;
-                }
-                setRemoving(true);
-                await onRemove(endpoint.name);
-              }}
-              className="flex items-center gap-2 py-[5px] pl-2 pr-2.5 rounded-full border border-border cursor-pointer bg-success-soft"
+              role="switch"
+              aria-checked={endpoint.enabled}
+              aria-label={`${endpoint.enabled ? "Disable" : "Enable"} ${endpoint.name}`}
+              disabled={togglingEnabled}
+              onClick={toggleEnabled}
+              className={`flex items-center gap-2 py-[5px] pl-2 pr-2.5 rounded-full border border-border cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                endpoint.enabled ? "bg-success-soft" : "bg-danger-bg"
+              }`}
             >
-              <span className="flex w-[30px] h-[17px] rounded-full p-0.5 justify-end bg-success">
+              <span
+                className={`flex w-[30px] h-[17px] rounded-full p-0.5 ${
+                  endpoint.enabled ? "justify-end bg-success" : "justify-start bg-danger"
+                }`}
+              >
                 <span className="w-[13px] h-[13px] rounded-full bg-white" />
               </span>
-              <span className="text-[11.5px] font-semibold text-success">Enabled</span>
+              <span className={`text-[11.5px] font-semibold ${endpoint.enabled ? "text-success" : "text-danger"}`}>
+                {endpoint.enabled ? "Enabled" : "Disabled"}
+              </span>
             </button>
           </div>
         </div>
+
+        {error && <p className="text-[10.5px] text-danger px-4 pt-2.5">{error}</p>}
 
         {editing && (
           <div className="p-[14px_16px] border-b border-border-soft bg-form-soft flex flex-col gap-2">
@@ -114,20 +158,38 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove }: EndpointDetailP
               placeholder="arguments (space-separated)"
               mono
             />
-            {error && <p className="text-[10.5px] text-danger">{error}</p>}
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <Button onClick={save} disabled={saving}>
                 Save endpoint
               </Button>
-              <Button variant="secondary" onClick={() => setEditing(false)}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setEditing(false);
+                  setConfirmDelete(false);
+                }}
+              >
                 Cancel
               </Button>
+              <span className="flex-1" />
+              <Button variant="danger" onClick={requestDelete} disabled={removing}>
+                {confirmDelete ? "Confirm delete" : "Delete endpoint"}
+              </Button>
             </div>
+            {confirmDelete && (
+              <p className="text-[10.5px] text-muted">
+                Deleting removes this endpoint, its filters and every grant on it — for all users.
+              </p>
+            )}
           </div>
         )}
 
         <div className="p-[12px_16px] flex flex-wrap items-center gap-[8px_14px]">
-          <span className={`text-[11.5px] font-medium ${statusTextColor[status]}`}>{endpoint.status}</span>
+          <span className={`text-[11.5px] font-medium ${endpoint.enabled ? statusTextColor[status] : "text-danger"}`}>
+            {endpoint.enabled
+              ? endpoint.status
+              : "Disabled — requests to this endpoint are rejected and grants are suspended"}
+          </span>
           <span className="flex-1" />
           <span className="text-[11.5px] text-subtle">stdio</span>
           <span className="text-[11.5px] text-subtle">
