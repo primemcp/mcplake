@@ -73,10 +73,50 @@ selected endpoint.
 
 ### Users & access
 
-Not yet implemented — tracked as [#80](https://github.com/atsokha/mcplake/issues/80)
-(composing a "user" from an `AccessPolicy` + its same-named `FilterPolicy`
-records) and [#81](https://github.com/atsokha/mcplake/issues/81) (a
-client-side request-path simulation tab).
+User list (left column) + a detail panel with three tabs for the selected
+user. A "user" here is UI composition, not a backend entity: it is an
+`AccessPolicy` plus every `FilterPolicy` whose name is grouped under that
+policy's name (`<user>::<label>::<tool>`, the same `::` convention as
+[ADR-0008](../architecture/decisions/0008-frontend-only-multi-tool-filter-grouping.md)).
+Listing users means `GET /admin/access-policies` joined with
+`GET /admin/filter-policies` by name; deleting one deletes all of those
+records.
+
+- **Token match** edits the shared claim conditions (`ClaimRule[]`: JSONPath
+  + regex, AND-ed). Saving writes them to the `AccessPolicy` and re-PUTs every
+  filter of that user whose match has drifted, so the records never
+  disagree. At least one condition is required: a matcher with zero rules
+  matches *every* token (see `router/claimrule.go`).
+- **Access** picks the endpoints (and optionally a tool subset) the user is
+  granted, and the response filters attached to each grant. Grants save with
+  the panel's Save button; filters save immediately as independent records.
+- **Request path** simulates what the gateway does with one request from
+  this user. The operator pastes/edits a decoded JWT payload and picks the
+  target endpoint + tool; the tab walks the same stages, in the same order
+  and with the same status codes, as the real data plane
+  (`gateway/internal/toolcall.go`): payload not a JSON object → 401; no
+  enabled `AccessPolicy` that both matches the claims and grants the call →
+  403 `forbidden`; endpoint disabled → 403 `mcp_disabled` (only reported
+  after authorization, like the gateway); endpoint not active / tool
+  unknown → 404; otherwise 200 plus the union of `drop_fields` from every
+  enabled `FilterPolicy` targeting that endpoint + tool whose match holds.
+  Every policy's and filter's own decision is shown ("matches · no grant on
+  this call", "disabled · skipped", …), and rejections get a red badge and a
+  pulsing alert on the node that rejected.
+
+  It is a **simulation against the policies as currently saved** — computed
+  entirely in the browser (`lib/jsonpath.ts`, `lib/claimMatch.ts`,
+  `lib/requestPath.ts`), never sent to the gateway, and labeled as such in the
+  UI. It is not a live request trace or an audit log, and the tab warns when
+  the panel holds unsaved Token match / Access edits it can't see.
+
+  Limitations: JWT signature, expiry and issuer are the real Auth
+  Validator's job and are not checked. The JSONPath reimplementation covers
+  names, wildcards, indexes, slices, unions and descendant segments; a rule
+  using a filter selector (`[?...]`) is reported as "can't be evaluated"
+  rather than guessed at. Regexps are JavaScript `RegExp` rather than Go's
+  RE2 — identical for the anchors/classes/groups/alternation policies
+  normally use, different only for RE2-specific syntax.
 
 ## Data model notes specific to the UI
 

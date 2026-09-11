@@ -103,7 +103,10 @@ function plural(n: number, one: string, many = `${one}s`): string {
  * Reject treatment per the design brief: a 401 lights Auth Validator, a
  * 403/404/500 lights Access Check (or the endpoint row, for endpoint-
  * stage rejections) in the danger palette with the alert pulse, and the
- * request badge goes red -- meant to be unmissable, not decorative.
+ * request badge goes red -- meant to be unmissable, not decorative. To
+ * the same end, editing any input snaps the detail panel back to the
+ * request-level trace, so a new outcome is never hidden behind a node
+ * that was selected under the previous one.
  */
 export function RequestPathTab({
   user,
@@ -525,7 +528,10 @@ export function RequestPathTab({
           <textarea
             aria-label="Decoded JWT payload"
             value={payload}
-            onChange={(e) => setPayload(e.target.value)}
+            onChange={(e) => {
+              setPayload(e.target.value);
+              setSel("request");
+            }}
             spellCheck={false}
             className="h-[170px] p-[11px] border border-border rounded-[9px] bg-well font-mono text-[11.5px] leading-[1.6] text-ink resize-none outline-none focus:border-accent"
           />
@@ -552,6 +558,7 @@ export function RequestPathTab({
                 const ep = endpoints.find((x) => x.name === e.target.value);
                 const tools = Object.keys(ep?.tools ?? {});
                 setTarget({ mcp: e.target.value, tool: tools[0] ?? "" });
+                setSel("request");
               }}
               className="px-2.5 py-2 border border-border rounded-lg bg-surface text-[12.5px] text-ink font-mono outline-none focus:border-accent"
             >
@@ -568,7 +575,10 @@ export function RequestPathTab({
             <select
               aria-label="Tool"
               value={target.tool}
-              onChange={(e) => setTarget({ mcp: target.mcp, tool: e.target.value })}
+              onChange={(e) => {
+                setTarget({ mcp: target.mcp, tool: e.target.value });
+                setSel("request");
+              }}
               className="px-2.5 py-2 border border-border rounded-lg bg-surface text-[12.5px] text-ink font-mono outline-none focus:border-accent"
             >
               {targetTools.length === 0 && <option value="">(no tools discovered)</option>}

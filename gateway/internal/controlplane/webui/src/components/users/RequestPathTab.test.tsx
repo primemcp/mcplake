@@ -183,4 +183,17 @@ describe("RequestPathTab", () => {
     expect(screen.getByText("No MCP endpoints")).toBeInTheDocument();
     expect(screen.queryByLabelText("Endpoint")).not.toBeInTheDocument();
   });
+  it("editing an input snaps the detail panel back to the request trace, so a new outcome is never hidden behind a stale node selection", async () => {
+    const user = userEvent.setup();
+    render(<RequestPathTab {...baseProps()} />);
+
+    await user.click(screen.getByRole("button", { name: "Response Filter" }));
+    expect(within(screen.getByTestId("path-detail")).getByText("Response Filter")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Tool"), "delete_entities");
+
+    const detail = within(screen.getByTestId("path-detail"));
+    expect(detail.getByText("Denied request")).toBeInTheDocument();
+    expect(detail.getByTestId("path-badge")).toHaveTextContent("403");
+  });
 });
