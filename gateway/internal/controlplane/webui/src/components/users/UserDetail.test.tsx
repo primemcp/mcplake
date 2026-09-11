@@ -10,6 +10,7 @@ const memory: MCPRegistration = {
   transport: "stdio",
   connect: { command: "memory" },
   status: "active",
+  enabled: true,
   tools: {
     add_observations: {
       name: "add_observations",
