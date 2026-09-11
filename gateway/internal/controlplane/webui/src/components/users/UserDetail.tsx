@@ -3,12 +3,21 @@ import { Button } from "../primitives/Button";
 import { Card } from "../primitives/Card";
 import { Input } from "../primitives/Input";
 import { Tabs } from "../primitives/Tabs";
-import type { AccessPolicyRequest, ClaimRule, FilterPolicy, FilterPolicyRequest, Grant, MCPRegistration } from "../../api/types";
+import type {
+  AccessPolicy,
+  AccessPolicyRequest,
+  ClaimRule,
+  FilterPolicy,
+  FilterPolicyRequest,
+  Grant,
+  MCPRegistration,
+} from "../../api/types";
 import type { User } from "../../api/users";
 import { AccessTab } from "./AccessTab";
+import { RequestPathTab } from "./RequestPathTab";
 import { TokenMatchTab } from "./TokenMatchTab";
 
-export type UserTab = "match" | "access";
+export type UserTab = "match" | "access" | "path";
 
 export type UserDetailProps = {
   /** null means a brand new, not-yet-saved user is being drafted. Pass a
@@ -21,6 +30,10 @@ export type UserDetailProps = {
   /** Every real FilterPolicy in the system, not just this user's -- the
    * Access tab groups these under `<user>::...` (see AccessTab/ADR-0010). */
   allFilters: FilterPolicy[];
+  /** Every AccessPolicy in the system -- the Request path tab simulates
+   * Engine.Authorize, which is a union over all of them, not just this
+   * user's (see RequestPathTab). */
+  allAccessPolicies: AccessPolicy[];
   onGoInstances: () => void;
   onCreateAccessPolicy: (req: AccessPolicyRequest) => Promise<void>;
   onUpdateAccessPolicy: (name: string, req: AccessPolicyRequest) => Promise<void>;
@@ -80,8 +93,10 @@ function draftOf(user: User | null): Draft {
  * The plain tab hint text is static in the mockup (doesn't depend on that
  * preview), so both tabs' hints are reproduced verbatim.
  *
- * Request path is issue #81's own tab, not built here -- #80's own scope
- * says so explicitly ("this task covers the first two [tabs]"). The
+ * Request path (#81) is the third tab, shown only for a saved user: it
+ * simulates against persisted policy (see RequestPathTab), so a brand
+ * new draft has nothing for it to run against yet. It reads this panel's
+ * `dirty` flag to warn when Token match / Access edits aren't saved. The
  * mockup's actual "new user" flow is a compact 3-field inline form in the
  * left list (name, claim path, regex) rather than a full draft through
  * this panel -- reusing this panel's tabs for `isNew` instead is a
@@ -91,6 +106,7 @@ export function UserDetail({
   user,
   endpoints,
   allFilters,
+  allAccessPolicies,
   onGoInstances,
   onCreateAccessPolicy,
   onUpdateAccessPolicy,
@@ -127,11 +143,18 @@ export function UserDetail({
   const tabs = [
     { id: "match", label: "Token match" },
     { id: "access", label: `Access ${grants.length}` },
+    ...(isNew ? [] : [{ id: "path", label: "Request path" }]),
   ];
   const tabHint =
     tab === "access"
       ? "one grant per endpoint · a filter belongs to exactly one endpoint"
-      : "JSONPath + regex · all conditions must pass (AND)";
+      : tab === "path"
+        ? "what the gateway does with one request from this user"
+        : "JSONPath + regex · all conditions must pass (AND)";
+  const changeTab = (next: UserTab) => {
+    setTab(next);
+    onTabChange?.(next);
+  };
 
   const discard = () => {
     setName(initial.name);
@@ -191,6 +214,9 @@ export function UserDetail({
   // page itself scrolling. Token match stays a normal, page-scrolling
   // panel since it never needs its own internal scroll region.
   const isAccessTab = tab === "access";
+  // A persisted "path" tab can only have come from a saved user, but the
+  // parent seeds "match" for a new draft anyway -- this is belt and braces.
+  const isPathTab = tab === "path" && user !== null;
 
   return (
     <div className="flex flex-col h-full">
@@ -208,11 +234,7 @@ export function UserDetail({
             <Tabs
               tabs={tabs}
               activeId={tab}
-              onChange={(id) => {
-                const next = id as UserTab;
-                setTab(next);
-                onTabChange?.(next);
-              }}
+              onChange={(id) => changeTab(id as UserTab)}
             />
             <div className="text-[11.5px] text-muted min-w-0">{tabHint}</div>
             <span className="flex-1" />
@@ -222,10 +244,21 @@ export function UserDetail({
               </Button>
             )}
           </div>
-          {!isAccessTab && (
+          {!isAccessTab && !isPathTab && (
             <div className="p-4">
               <TokenMatchTab match={match} onChange={setMatch} />
             </div>
+          )}
+          {isPathTab && (
+            <RequestPathTab
+              user={user}
+              endpoints={endpoints}
+              allAccessPolicies={allAccessPolicies}
+              allFilters={allFilters}
+              draftDirty={dirty}
+              onGoAccess={() => changeTab("access")}
+              onGoInstances={onGoInstances}
+            />
           )}
         </Card>
 

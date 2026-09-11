@@ -1,4 +1,4 @@
-import type { AccessPolicy, FilterPolicy, Grant, MCPRegistration } from "../api/types";
+import type { AccessPolicy, ClaimRule, FilterPolicy, Grant, MCPRegistration } from "../api/types";
 import { evaluateMatcher, type MatcherEvaluation } from "./claimMatch";
 
 /**
@@ -189,4 +189,43 @@ export function simulate(input: SimulationInput): Simulation {
   const droppedFields = [...new Set(filters.filter((f) => f.applied).flatMap((f) => f.drop_fields))];
 
   return { claims, outcome: { kind: "ok", status: 200 }, policies, authorized, filters, droppedFields };
+}
+
+/**
+ * A starting payload for the Request path tab's editor: a generic claim
+ * set plus, for every rule simple enough to invert (a `$.name` or
+ * `$["name"]` path, optionally `[*]`, and a pattern that is a literal
+ * with or without `^…$` anchors), a claim that satisfies it -- so a
+ * typical user's tab opens on the granted path instead of a 403 the
+ * operator then has to edit their way out of. Rules that are real
+ * regexps or deeper paths are skipped, not guessed at.
+ */
+export function suggestPayload(rules: ClaimRule[]): string {
+  const claims: Record<string, unknown> = {
+    sub: "svc-analytics",
+    iss: "https://idp.internal",
+    email: "analytics@acme.io",
+    exp: 1788392000,
+  };
+  for (const rule of rules) {
+    const key = simpleKey(rule.path);
+    const literal = literalOf(rule.pattern);
+    if (key === null || literal === null) continue;
+    claims[key.name] = key.list ? [literal] : literal;
+  }
+  return JSON.stringify(claims, null, 2);
+}
+
+function simpleKey(path: string): { name: string; list: boolean } | null {
+  const dotted = /^\$\.([A-Za-z0-9_\-\u0080-\uFFFF]+)(\[\*\])?$/.exec(path);
+  if (dotted) return { name: dotted[1], list: dotted[2] !== undefined };
+  const bracketed = /^\$\[(?:"([^"\\]+)"|'([^'\\]+)')\](\[\*\])?$/.exec(path);
+  if (bracketed) return { name: bracketed[1] ?? bracketed[2], list: bracketed[3] !== undefined };
+  return null;
+}
+
+function literalOf(pattern: string): string | null {
+  const inner = pattern.replace(/^\^/, "").replace(/\$$/, "");
+  if (inner === "" || /[.*+?()[\]{}|\\^$]/.test(inner)) return null;
+  return inner;
 }

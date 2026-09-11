@@ -67,3 +67,30 @@ body {
   height: 100vh;
   min-height: 760px;
 }
+
+/* Request path tab (Users & access): the mockup's own three animations,
+   verbatim -- traffic flowing along a live edge, and the soft/alert
+   pulses on the node currently deciding the request. */
+@keyframes dashflow {
+  to {
+    stroke-dashoffset: -32px;
+  }
+}
+@keyframes softpulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 75, 216, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(47, 75, 216, 0);
+  }
+}
+@keyframes rejectpulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.24);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(179, 38, 30, 0);
+  }
+}

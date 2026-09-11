@@ -23,6 +23,7 @@ function baseProps() {
   return {
     endpoints: [memory],
     allFilters: [],
+    allAccessPolicies: [],
     onGoInstances: vi.fn(),
     onCreateAccessPolicy: vi.fn().mockResolvedValue(undefined),
     onUpdateAccessPolicy: vi.fn().mockResolvedValue(undefined),
@@ -271,5 +272,58 @@ describe("UserDetail", () => {
   it("does not show a Delete button when creating a new user", () => {
     render(<UserDetail user={null} {...baseProps()} />);
     expect(screen.queryByRole("button", { name: "Delete user" })).not.toBeInTheDocument();
+  });
+  it("an existing user gets a Request path tab that simulates a call against the saved policies and reports the tab change", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    const onTabChange = vi.fn();
+    const existing: User = {
+      name: "analyst-team",
+      match: [{ path: "$.role", pattern: "^analyst$" }],
+      grants: [{ mcp: "demo-memory", tools: ["*"] }],
+      filters: [],
+    };
+    render(
+      <UserDetail
+        user={existing}
+        {...props}
+        allAccessPolicies={[{ name: existing.name, match: existing.match, grants: existing.grants, enabled: true }]}
+        onTabChange={onTabChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Request path" }));
+
+    expect(onTabChange).toHaveBeenCalledWith("path");
+    expect(screen.getByLabelText("Decoded JWT payload")).toBeInTheDocument();
+    expect(screen.getByTestId("path-badge")).toHaveTextContent("200");
+  });
+
+  it("the Request path tab's 'edit access' link switches to the Access tab", async () => {
+    const user = userEvent.setup();
+    const existing: User = {
+      name: "analyst-team",
+      match: [{ path: "$.role", pattern: "^analyst$" }],
+      grants: [{ mcp: "demo-memory", tools: ["*"] }],
+      filters: [],
+    };
+    render(
+      <UserDetail
+        user={existing}
+        {...baseProps()}
+        allAccessPolicies={[{ name: existing.name, match: existing.match, grants: existing.grants, enabled: true }]}
+        initialTab="path"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Access Check" }));
+    await user.click(screen.getByRole("button", { name: /Edit access for analyst-team/ }));
+
+    expect(screen.getByRole("tab", { name: "Access 1" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("a brand new, unsaved user has nothing saved to simulate, so there is no Request path tab yet", () => {
+    render(<UserDetail user={null} {...baseProps()} />);
+    expect(screen.queryByRole("tab", { name: "Request path" })).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AccessPolicy, FilterPolicy, MCPRegistration } from "../api/types";
-import { simulate, type SimulationInput } from "./requestPath";
+import { evaluateMatcher } from "./claimMatch";
+import { simulate, suggestPayload, type SimulationInput } from "./requestPath";
 
 const memory: MCPRegistration = {
   name: "demo-memory",
@@ -231,5 +232,37 @@ describe("simulate", () => {
 
     expect(got.outcome.kind).toBe("policy_error");
     expect(got.authorized).toBe(true);
+  });
+});
+
+describe("suggestPayload", () => {
+  it("inverts simple literal rules into a payload that satisfies them, on top of a generic base", () => {
+    const rules = [
+      { path: "$.role", pattern: "^analyst$" },
+      { path: "$.groups[*]", pattern: "^data$" },
+      { path: '$["https://example.com/org"]', pattern: "acme" },
+    ];
+    const text = suggestPayload(rules);
+    const parsed = JSON.parse(text);
+
+    expect(parsed).toMatchObject({ role: "analyst", groups: ["data"], "https://example.com/org": "acme" });
+    expect(typeof parsed.sub).toBe("string");
+    expect(evaluateMatcher(parsed, rules).matched).toBe(true);
+  });
+
+  it("leaves out rules it can't invert (real regexps, nested paths) rather than guessing", () => {
+    const parsed = JSON.parse(
+      suggestPayload([
+        { path: "$.role", pattern: "^db-.*$" },
+        { path: "$.org.tier", pattern: "^gold$" },
+      ]),
+    );
+
+    expect(parsed).not.toHaveProperty("role");
+    expect(parsed).not.toHaveProperty("org");
+  });
+
+  it("is pretty-printed JSON, ready to edit", () => {
+    expect(suggestPayload([])).toContain("\n  ");
   });
 });
