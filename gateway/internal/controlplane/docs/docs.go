@@ -182,6 +182,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/config": {
+            "get": {
+                "description": "How the embedded admin web UI should authenticate: whether admin auth is enforced and, if so, the OIDC Authorization Code + PKCE coordinates to use. Unauthenticated — a browser with no token yet has to be able to read it (ADR-0014). Discloses only the public half of a PKCE client (client_id, provider endpoints, scopes); there is no client secret.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Admin UI login configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controlplane.AuthInfo"
+                        }
+                    }
+                }
+            }
+        },
         "/filter-policies": {
             "get": {
                 "produces": [
@@ -518,6 +538,38 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controlplane.AuthInfo": {
+            "type": "object",
+            "properties": {
+                "auth_required": {
+                    "description": "AuthRequired mirrors whether the admin-auth gate is installed. When\nfalse the UI skips the login flow entirely and behaves as it did\nbefore ADR-0010.",
+                    "type": "boolean"
+                },
+                "authorization_endpoint": {
+                    "description": "AuthorizationEndpoint is where the UI redirects the browser.",
+                    "type": "string"
+                },
+                "client_id": {
+                    "description": "ClientID is the public client registered for the UI.",
+                    "type": "string"
+                },
+                "issuer": {
+                    "description": "Issuer is oidc.issuer, shown to the operator so they can see which\nprovider they are about to be sent to.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "Scopes is what to request. Empty when login isn't configured.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "token_endpoint": {
+                    "description": "TokenEndpoint is where the UI exchanges the code for a token.",
+                    "type": "string"
+                }
+            }
+        },
         "controlplane.accessPolicyDTO": {
             "type": "object",
             "properties": {

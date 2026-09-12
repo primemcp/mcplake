@@ -108,12 +108,50 @@ pattern = "^https://auth\\.example\\.com$"
 **Consequences:**
 - `GET /admin/swagger/*` (the interactive API explorer) is behind this gate
   once admin auth is on.
-- The embedded admin web UI calls `/admin/*` without a token today; enabling
-  admin auth will make those calls fail until the UI is taught to attach one
-  (tracked in the Admin UI epic, #76). Until then, run with `admin_auth`
-  unset (or `enabled = false`) behind network isolation.
+- The embedded admin web UI signs operators in through the OIDC provider and
+  attaches the resulting token — configure `[admin_auth.login]` below, or the
+  UI will have no way to obtain one.
 - A malformed `path`/`pattern` fails `Config.Validate()` at startup, like
   every other claim rule.
+
+#### Admin UI sign-in
+
+How the embedded [admin web UI](features/admin-webui.md) obtains an admin
+token: an OIDC **Authorization Code + PKCE** flow, run in the browser against
+the same provider `[oidc]` already verifies tokens from. See
+[ADR-0014](architecture/decisions/0014-admin-ui-oidc-pkce-login.md).
+
+```toml
+[admin_auth.login]
+client_id = "mcplake-admin-ui"
+authorization_endpoint = "https://auth.example.com/authorize"
+token_endpoint = "https://auth.example.com/oauth/token"
+# scopes = ["openid", "profile", "email"]   # optional; this is the default
+```
+
+**Fields:**
+- `client_id` — a **public** client registered at your provider for this UI
+  (no client secret: the UI's bundle is readable by anyone who loads the
+  page, which is the case PKCE exists for). Its allowed redirect URIs must
+  include the control-plane URL operators browse to, with a trailing slash —
+  e.g. `https://gateway.internal:8081/`.
+- `authorization_endpoint` / `token_endpoint` — absolute `http(s)` URLs,
+  taken from your provider's own discovery document. They are configured
+  explicitly rather than discovered, for the same reason `oidc.jwks_url` is:
+  the gateway makes no outbound calls of its own at startup.
+- `scopes` — optional; defaults to `["openid", "profile", "email"]`. The
+  token the provider issues must satisfy `oidc.audience`, which for many
+  providers is a matter of scope or a provider-side audience mapping.
+
+**Behaviour:**
+- Omit the whole section and the UI reports that sign-in isn't configured;
+  the gateway logs a `WARN` at startup saying the same. A **partially**
+  filled section is a startup error, not a silent "off".
+- With admin auth off (no `admin_auth.match`), this section is ignored and
+  the UI shows no sign-in at all.
+- The UI serves `GET /admin/auth/config` — unauthenticated — to discover
+  these values; see [api/admin.md](api/admin.md#get-adminauthconfig). It
+  exposes only the public half of a PKCE client.
 
 ### Admin MCP
 

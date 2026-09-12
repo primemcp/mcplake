@@ -100,8 +100,13 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 			return nil, fmt.Errorf("app: build admin auth matcher: %w", err)
 		}
 		controlPlaneCfg.AdminAuth = controlplane.AdminAuth(validator, matcher)
+		controlPlaneCfg.AuthInfo = adminAuthInfo(cfg)
 		slog.Info("control-plane admin API authentication enabled",
 			"match_rules", len(cfg.AdminAuth.Match))
+		if !controlPlaneCfg.AuthInfo.LoginConfigured() {
+			slog.Warn("admin web UI has no login flow — admin auth is on but [admin_auth.login] is unset, " +
+				"so the UI cannot obtain a token and every call from it will fail with 401 (see ADR-0014)")
+		}
 	} else {
 		slog.Warn("control-plane admin API is UNAUTHENTICATED — set admin_auth.match in config, " +
 			"or bind server.control_plane_addr to a trusted interface only")
@@ -195,4 +200,21 @@ func (a *App) shutdown(dataPlaneErr, controlPlaneErr, refresherErr <-chan error)
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
+}
+
+// adminAuthInfo builds what GET /admin/auth/config reports, from the same
+// config the gate itself is built from. Only reached when admin auth is
+// enabled; with it off the zero AuthInfo ("auth_required": false) is what
+// the UI should see. See ADR-0014.
+func adminAuthInfo(cfg *config.Config) controlplane.AuthInfo {
+	info := controlplane.AuthInfo{AuthRequired: true, Issuer: cfg.OIDC.Issuer}
+	login, ok := cfg.AdminLogin()
+	if !ok {
+		return info
+	}
+	info.ClientID = login.ClientID
+	info.AuthorizationEndpoint = login.AuthorizationEndpoint
+	info.TokenEndpoint = login.TokenEndpoint
+	info.Scopes = login.ScopesOrDefault()
+	return info
 }

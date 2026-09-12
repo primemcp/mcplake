@@ -1,5 +1,33 @@
 basePath: /admin
 definitions:
+  controlplane.AuthInfo:
+    properties:
+      auth_required:
+        description: |-
+          AuthRequired mirrors whether the admin-auth gate is installed. When
+          false the UI skips the login flow entirely and behaves as it did
+          before ADR-0010.
+        type: boolean
+      authorization_endpoint:
+        description: AuthorizationEndpoint is where the UI redirects the browser.
+        type: string
+      client_id:
+        description: ClientID is the public client registered for the UI.
+        type: string
+      issuer:
+        description: |-
+          Issuer is oidc.issuer, shown to the operator so they can see which
+          provider they are about to be sent to.
+        type: string
+      scopes:
+        description: Scopes is what to request. Empty when login isn't configured.
+        items:
+          type: string
+        type: array
+      token_endpoint:
+        description: TokenEndpoint is where the UI exchanges the code for a token.
+        type: string
+    type: object
   controlplane.accessPolicyDTO:
     properties:
       enabled:
@@ -275,6 +303,23 @@ paths:
       summary: Replace an access policy
       tags:
       - access-policies
+  /auth/config:
+    get:
+      description: 'How the embedded admin web UI should authenticate: whether admin
+        auth is enforced and, if so, the OIDC Authorization Code + PKCE coordinates
+        to use. Unauthenticated — a browser with no token yet has to be able to read
+        it (ADR-0014). Discloses only the public half of a PKCE client (client_id,
+        provider endpoints, scopes); there is no client secret.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controlplane.AuthInfo'
+      summary: Admin UI login configuration
+      tags:
+      - auth
   /filter-policies:
     get:
       produces:
