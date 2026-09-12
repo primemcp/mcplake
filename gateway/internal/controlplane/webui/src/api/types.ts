@@ -55,3 +55,27 @@ export type RegisterMCPRequest = {
 };
 
 export type SetMCPEnabledRequest = { enabled: boolean };
+
+/**
+ * `GET /admin/auth/config` -- the one admin route that answers without a
+ * token, so a browser that has none yet can learn whether and how to log
+ * in (ADR-0014). Mirrors controlplane.AuthInfo: the login fields are
+ * absent (not empty) when admin auth is on but no login flow is
+ * configured, which the UI must be able to tell apart.
+ */
+export type AuthConfig = {
+  auth_required: boolean;
+  issuer?: string;
+  client_id?: string;
+  authorization_endpoint?: string;
+  token_endpoint?: string;
+  scopes?: string[];
+};
+
+/** An AuthConfig narrowed to the case where a login is actually possible. */
+export type LoginConfig = {
+  client_id: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  scopes: string[];
+};

@@ -1,3 +1,4 @@
+import { SignedInAs } from "../auth/SignedInAs";
 import type { Screen } from "../state/useNav";
 
 export type SidebarProps = {
@@ -74,6 +75,10 @@ export function Sidebar({
       </div>
 
       <div className="flex-1" />
+      {/* Renders nothing when admin auth is off (see SignedInAs). */}
+      <div className="mb-1.5">
+        <SignedInAs />
+      </div>
       <div className="px-2.5 py-2.5 rounded-[10px] bg-bg flex flex-col gap-1">
         <div className="flex items-center gap-1.5 text-xs font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-success" />

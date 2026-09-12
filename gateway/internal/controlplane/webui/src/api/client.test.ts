@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError } from "./client";
+import { api, ApiError, configureAuth } from "./client";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -88,5 +88,68 @@ describe("network failure", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
 
     await expect(api.listMCPs()).rejects.toThrow("Failed to fetch");
+  });
+});
+
+describe("authenticated requests", () => {
+  afterEach(() => {
+    configureAuth(null);
+  });
+
+  it("attaches the bearer token the auth layer provides", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+    configureAuth({ getToken: () => Promise.resolve("tok-123"), onAuthFailure: vi.fn() });
+
+    await api.listMCPs();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/admin/mcps",
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer tok-123" }) }),
+    );
+  });
+
+  // With the gate off there is no token and no header -- the admin API
+  // must keep working exactly as it did before ADR-0010.
+  it("sends no Authorization header when there is no token", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+    configureAuth({ getToken: () => Promise.resolve(null), onAuthFailure: vi.fn() });
+
+    await api.listMCPs();
+
+    expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty("Authorization");
+  });
+
+  it.each([401, 403])("reports a %d to the auth layer, and still throws so the caller sees it", async (status) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ error: "nope", message: "nope" }, status)));
+    const onAuthFailure = vi.fn();
+    configureAuth({ getToken: () => Promise.resolve("tok"), onAuthFailure });
+
+    await expect(api.listMCPs()).rejects.toBeInstanceOf(ApiError);
+
+    expect(onAuthFailure).toHaveBeenCalledWith(status);
+  });
+
+  it("leaves other failures alone", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ error: "boom", message: "boom" }, 500)));
+    const onAuthFailure = vi.fn();
+    configureAuth({ getToken: () => Promise.resolve("tok"), onAuthFailure });
+
+    await expect(api.listMCPs()).rejects.toBeInstanceOf(ApiError);
+
+    expect(onAuthFailure).not.toHaveBeenCalled();
+  });
+});
+
+describe("api.authConfig", () => {
+  it("reads the unauthenticated bootstrap endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ auth_required: false }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const config = await api.authConfig();
+
+    expect(config).toEqual({ auth_required: false });
+    expect(fetchMock.mock.calls[0][0]).toBe("/admin/auth/config");
   });
 });

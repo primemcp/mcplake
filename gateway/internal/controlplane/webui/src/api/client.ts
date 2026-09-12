@@ -1,5 +1,6 @@
 import type {
   AccessPolicy,
+  AuthConfig,
   AccessPolicyRequest,
   ErrorResponse,
   FilterPolicy,
@@ -27,11 +28,44 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * How this module reaches the auth layer without importing React state.
+ * `AuthProvider` installs these on mount; with admin auth off (or before
+ * the provider mounts) they are absent and requests go out unauthenticated,
+ * exactly as they did before ADR-0014.
+ */
+export type AuthHooks = {
+  /** Resolves the token to send, refreshing it first if it has expired. */
+  getToken: () => Promise<string | null>;
+  /**
+   * Called for 401 and 403 so the auth layer can move the whole app to the
+   * right screen. The two mean different things and must not be collapsed:
+   * 401 is "sign in again", 403 is "signed in, but not an admin" (see
+   * ADR-0014). The request still rejects with ApiError afterwards.
+   */
+  onAuthFailure: (status: number) => void;
+};
+
+let authHooks: AuthHooks | null = null;
+
+export function configureAuth(hooks: AuthHooks | null): void {
+  authHooks = hooks;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = authHooks ? await authHooks.getToken() : null;
   const res = await fetch(`/admin${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token === null ? {} : { Authorization: `Bearer ${token}` }),
+      ...init?.headers,
+    },
   });
+
+  if (res.status === 401 || res.status === 403) {
+    authHooks?.onAuthFailure(res.status);
+  }
 
   if (res.status === 204) {
     return undefined as T;
@@ -49,6 +83,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const encode = (segment: string) => encodeURIComponent(segment);
 
 export const api = {
+  /**
+   * The one admin route that answers without a token (ADR-0014): the UI
+   * calls it before it has any credentials, to find out whether it needs
+   * them and where to get them.
+   */
+  authConfig: () => request<AuthConfig>("/auth/config"),
+
   listMCPs: () => request<MCPRegistration[]>("/mcps"),
   registerMCP: (req: RegisterMCPRequest) =>
     request<MCPRegistration>("/mcps", { method: "POST", body: JSON.stringify(req) }),

@@ -1,11 +1,17 @@
 import { useEndpoints } from "./api/endpoints";
+import { AuthProvider } from "./auth/AuthProvider";
 import { InstancesScreen } from "./components/instances/InstancesScreen";
 import { UsersScreen } from "./components/users/UsersScreen";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AppShell } from "./layout/AppShell";
 import { useNav } from "./state/useNav";
 
-export function App() {
+/**
+ * Everything that talks to the admin API. It lives under AuthProvider on
+ * purpose: the hooks below fetch on mount, so they must not render until
+ * the app is actually allowed to call `/admin/*` (see AuthProvider).
+ */
+function AdminApp() {
   const { screen, goInstances, goUsers } = useNav();
   const { endpoints } = useEndpoints();
 
@@ -14,17 +20,25 @@ export function App() {
   const cachedCount = endpoints.filter((e) => Object.keys(e.tools ?? {}).length > 0).length;
 
   return (
+    <AppShell
+      screen={screen}
+      onGoInstances={goInstances}
+      onGoUsers={goUsers}
+      cachedCount={cachedCount}
+      connectedCount={connectedCount}
+      totalCount={totalCount}
+    >
+      {screen === "instances" ? <InstancesScreen /> : <UsersScreen onGoInstances={goInstances} />}
+    </AppShell>
+  );
+}
+
+export function App() {
+  return (
     <ErrorBoundary>
-      <AppShell
-        screen={screen}
-        onGoInstances={goInstances}
-        onGoUsers={goUsers}
-        cachedCount={cachedCount}
-        connectedCount={connectedCount}
-        totalCount={totalCount}
-      >
-        {screen === "instances" ? <InstancesScreen /> : <UsersScreen onGoInstances={goInstances} />}
-      </AppShell>
+      <AuthProvider>
+        <AdminApp />
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
