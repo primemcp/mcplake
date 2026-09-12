@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -80,6 +81,57 @@ type AdminAuthConfig struct {
 	// the same JSONPath+regexp syntax as access_policies (ADR-0002). A
 	// verified token is an admin only if every rule matches its claims.
 	Match []ClaimRuleConfig `toml:"match"`
+	// Login describes how the embedded admin web UI obtains a token from
+	// the OIDC provider. Optional: an absent table just means the UI has
+	// no login flow configured (it then says so rather than offering a
+	// broken button). See ADR-0014.
+	Login AdminLoginConfig `toml:"login"`
+}
+
+// DefaultAdminLoginScopes is requested when admin_auth.login.scopes is
+// omitted: `openid` is required for an OIDC authorization request at all,
+// and profile/email are what the UI shows as the signed-in identity.
+var DefaultAdminLoginScopes = []string{"openid", "profile", "email"}
+
+// AdminLoginConfig is the `[admin_auth.login]` table: the OIDC coordinates
+// the admin web UI needs to run an Authorization Code + PKCE flow against
+// the same provider `[oidc]` already verifies tokens from. See ADR-0014.
+//
+// There is deliberately no client secret: the UI is a public client whose
+// bundle is readable by anyone who loads the page, which is exactly the
+// case PKCE exists for. Endpoints are explicit rather than discovered from
+// the issuer, mirroring OIDCConfig.JWKSURL and keeping startup free of any
+// outbound request (the project targets zero-egress deployments).
+type AdminLoginConfig struct {
+	// ClientID is the public client registered at the provider for this
+	// UI. Its allowed redirect URIs must include the control-plane URL
+	// operators browse to.
+	ClientID string `toml:"client_id"`
+	// AuthorizationEndpoint is where the browser is redirected to sign in.
+	AuthorizationEndpoint string `toml:"authorization_endpoint"`
+	// TokenEndpoint is where the UI exchanges the authorization code for a
+	// token, using its PKCE code_verifier.
+	TokenEndpoint string `toml:"token_endpoint"`
+	// Scopes requested in the authorization request. Empty means
+	// DefaultAdminLoginScopes. The resulting token must satisfy
+	// oidc.audience, which for many providers is a matter of scope or a
+	// provider-side audience mapping.
+	Scopes []string `toml:"scopes"`
+}
+
+// ScopesOrDefault resolves Scopes to what should actually be requested.
+func (l AdminLoginConfig) ScopesOrDefault() []string {
+	if len(l.Scopes) == 0 {
+		return DefaultAdminLoginScopes
+	}
+	return l.Scopes
+}
+
+// configured reports whether the table carries a usable login flow. A
+// partially filled table is rejected by Config.Validate, so by the time
+// anything calls this it is either complete or empty.
+func (l AdminLoginConfig) configured() bool {
+	return l.ClientID != "" && l.AuthorizationEndpoint != "" && l.TokenEndpoint != ""
 }
 
 // active reports whether admin auth should be enforced: an explicit Enabled
@@ -222,6 +274,9 @@ func (c *Config) Validate() error {
 	if err := validateClaimRules(c.AdminAuth.Match); err != nil {
 		return fmt.Errorf("config: admin_auth: %w", err)
 	}
+	if err := validateAdminLogin(c.AdminAuth.Login); err != nil {
+		return err
+	}
 
 	if c.AdminMCP.Path != "" && !strings.HasPrefix(c.AdminMCP.Path, "/admin/") {
 		return fmt.Errorf("config: admin_mcp.path must be under /admin/ (got %q)", c.AdminMCP.Path)
@@ -260,6 +315,60 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+// validateAdminLogin checks the [admin_auth.login] table is either wholly
+// absent or complete and usable. A half-filled table is a mistake, not an
+// "off" signal: the UI would build an authorization request with an empty
+// client_id or redirect to an empty URL. The endpoints are validated as
+// absolute http(s) URLs here, at startup, rather than failing in the
+// operator's browser at their first login. See ADR-0014.
+func validateAdminLogin(l AdminLoginConfig) error {
+	set := map[string]string{
+		"client_id":              l.ClientID,
+		"authorization_endpoint": l.AuthorizationEndpoint,
+		"token_endpoint":         l.TokenEndpoint,
+	}
+	filled := 0
+	for _, v := range set {
+		if v != "" {
+			filled++
+		}
+	}
+	if filled == 0 && len(l.Scopes) == 0 {
+		return nil
+	}
+	for _, key := range []string{"client_id", "authorization_endpoint", "token_endpoint"} {
+		if set[key] == "" {
+			return fmt.Errorf("config: admin_auth.login: %s is required", key)
+		}
+	}
+	for _, ep := range []struct{ key, value string }{
+		{"authorization_endpoint", l.AuthorizationEndpoint},
+		{"token_endpoint", l.TokenEndpoint},
+	} {
+		if err := validateAbsoluteHTTPURL(ep.value); err != nil {
+			return fmt.Errorf("config: admin_auth.login.%s: %w", ep.key, err)
+		}
+	}
+	return nil
+}
+
+// validateAbsoluteHTTPURL accepts only an absolute http/https URL with a
+// host — what a browser can actually be redirected to, and what fetch can
+// post to cross-origin.
+func validateAbsoluteHTTPURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("parse %q: %w", raw, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("must be an absolute http(s) URL (got %q)", raw)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("must include a host (got %q)", raw)
+	}
 	return nil
 }
 

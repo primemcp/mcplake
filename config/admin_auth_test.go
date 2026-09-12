@@ -132,3 +132,132 @@ func TestConfig_Validate_AdminAuthEnabledPointerVariants(t *testing.T) {
 		})
 	}
 }
+
+// --- admin_auth.login: how the admin web UI obtains a token (ADR-0014) ---
+
+func TestLoad_AdminLoginAbsentIsNotConfigured(t *testing.T) {
+	cfg, err := config.Load(writeConfig(t, adminAuthBaseConfig))
+	require.NoError(t, err)
+
+	login, ok := cfg.AdminLogin()
+
+	assert.False(t, ok)
+	assert.Zero(t, login)
+}
+
+func TestLoad_AdminLoginComplete(t *testing.T) {
+	body := adminAuthBaseConfig + `
+[[admin_auth.match]]
+path = "$.role"
+pattern = "^admin$"
+
+[admin_auth.login]
+client_id = "mcplake-admin-ui"
+authorization_endpoint = "https://auth.example.com/authorize"
+token_endpoint = "https://auth.example.com/oauth/token"
+scopes = ["openid", "email"]
+`
+	cfg, err := config.Load(writeConfig(t, body))
+	require.NoError(t, err)
+
+	login, ok := cfg.AdminLogin()
+
+	require.True(t, ok)
+	assert.Equal(t, "mcplake-admin-ui", login.ClientID)
+	assert.Equal(t, "https://auth.example.com/authorize", login.AuthorizationEndpoint)
+	assert.Equal(t, "https://auth.example.com/oauth/token", login.TokenEndpoint)
+	assert.Equal(t, []string{"openid", "email"}, login.ScopesOrDefault())
+}
+
+func TestLoad_AdminLoginOmittedScopesDefaultToOpenIDProfileEmail(t *testing.T) {
+	body := adminAuthBaseConfig + `
+[admin_auth.login]
+client_id = "mcplake-admin-ui"
+authorization_endpoint = "https://auth.example.com/authorize"
+token_endpoint = "https://auth.example.com/oauth/token"
+`
+	cfg, err := config.Load(writeConfig(t, body))
+	require.NoError(t, err)
+
+	login, ok := cfg.AdminLogin()
+
+	require.True(t, ok)
+	assert.Equal(t, []string{"openid", "profile", "email"}, login.ScopesOrDefault())
+}
+
+// A half-filled table is a configuration mistake, not a "login is off"
+// signal: the UI would redirect to an empty endpoint or with no client_id.
+func TestLoad_AdminLoginPartiallyFilledIsRejected(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		missing string
+	}{
+		{
+			name: "no client_id",
+			body: `
+[admin_auth.login]
+authorization_endpoint = "https://auth.example.com/authorize"
+token_endpoint = "https://auth.example.com/oauth/token"
+`,
+			missing: "client_id",
+		},
+		{
+			name: "no authorization_endpoint",
+			body: `
+[admin_auth.login]
+client_id = "mcplake-admin-ui"
+token_endpoint = "https://auth.example.com/oauth/token"
+`,
+			missing: "authorization_endpoint",
+		},
+		{
+			name: "no token_endpoint",
+			body: `
+[admin_auth.login]
+client_id = "mcplake-admin-ui"
+authorization_endpoint = "https://auth.example.com/authorize"
+`,
+			missing: "token_endpoint",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := config.Load(writeConfig(t, adminAuthBaseConfig+tt.body))
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "admin_auth.login")
+			assert.Contains(t, err.Error(), tt.missing)
+		})
+	}
+}
+
+// The endpoints end up in a browser redirect, so a relative or malformed
+// URL has to fail at startup rather than at the operator's first login.
+func TestLoad_AdminLoginRejectsNonAbsoluteHTTPEndpoints(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+	}{
+		{name: "relative path", endpoint: "/authorize"},
+		{name: "scheme only", endpoint: "https://"},
+		{name: "not http(s)", endpoint: "ftp://auth.example.com/authorize"},
+		{name: "not a url at all", endpoint: "://nope"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := adminAuthBaseConfig + `
+[admin_auth.login]
+client_id = "mcplake-admin-ui"
+authorization_endpoint = "` + tt.endpoint + `"
+token_endpoint = "https://auth.example.com/oauth/token"
+`
+			_, err := config.Load(writeConfig(t, body))
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "admin_auth.login.authorization_endpoint")
+		})
+	}
+}

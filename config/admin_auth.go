@@ -16,3 +16,13 @@ func (c *Config) AdminAuthEnabled() bool {
 func (c *Config) AdminAuthMatcher() (router.ClaimMatcher, error) {
 	return claimMatcherFrom(c.AdminAuth.Match)
 }
+
+// AdminLogin returns the admin web UI's login coordinates and whether they
+// are configured at all. Config.Validate guarantees a returned config is
+// complete, so callers only have to handle the two states. See ADR-0014.
+func (c *Config) AdminLogin() (AdminLoginConfig, bool) {
+	if !c.AdminAuth.Login.configured() {
+		return AdminLoginConfig{}, false
+	}
+	return c.AdminAuth.Login, true
+}

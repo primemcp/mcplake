@@ -37,6 +37,12 @@ type Config struct {
 	// When nil the admin API is unauthenticated (see ADR-0010); the caller
 	// is responsible for logging that.
 	AdminAuth gin.HandlerFunc
+
+	// AuthInfo is served at GET /admin/auth/config, unauthenticated, so the
+	// embedded web UI can discover whether and how to log in. See ADR-0014
+	// and AuthInfo's own doc comment for why leaving it open is safe. The
+	// zero value reports "no auth required", matching a nil AdminAuth.
+	AuthInfo AuthInfo
 }
 
 // Server is the Gin-based control-plane admin API server: its own listener,
@@ -65,7 +71,11 @@ func NewServer(cfg Config) *Server {
 	engine.Use(gin.Recovery())
 
 	admin := engine.Group("/admin")
+	// Registered ahead of cfg.AdminAuth, so both stay reachable without a
+	// token: healthz for liveness probes, auth/config so a browser that has
+	// no token yet can find out how to get one (ADR-0014).
 	admin.GET("/healthz", healthz)
+	admin.GET("/auth/config", authConfig(cfg.AuthInfo))
 	if cfg.AdminAuth != nil {
 		admin.Use(cfg.AdminAuth)
 	}
