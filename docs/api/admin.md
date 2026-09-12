@@ -24,8 +24,13 @@ rules.
 | 403    | `forbidden`             | Token valid but its claims don't satisfy `admin_auth.match`.|
 
 These four responses are possible on **every** route documented below (again,
-except `GET /admin/healthz`) and are not repeated in each endpoint's own status
-table. `GET /admin/swagger/*` is also behind this gate.
+except `GET /admin/healthz` and `GET /admin/auth/config`) and are not repeated
+in each endpoint's own status table. `GET /admin/swagger/*` is also behind this
+gate.
+
+The embedded web UI obtains its own token through an OIDC Authorization Code +
+PKCE flow; see [`CONFIG.md`](../CONFIG.md#admin-ui-sign-in) and
+[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.md).
 
 If `admin_auth` is not configured, the admin API is unauthenticated and the
 gateway logs a startup warning — bind `control_plane_addr` to a trusted
@@ -41,6 +46,41 @@ Every error body has the shape `{"error": "<code>", "message": "<human-readable>
 
 Returns `200 OK` with body `ok` once the control-plane server has bound its
 listener. No authentication required.
+
+## `GET /admin/auth/config`
+
+How a client should authenticate. **No authentication required** — a browser
+that has no token yet has to be able to read it, which is the whole point;
+gating it would be circular. It is one of exactly two open routes (the other
+is `healthz`). See
+[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.md).
+
+With `admin_auth` configured and `[admin_auth.login]` set:
+
+```json
+{
+  "auth_required": true,
+  "issuer": "https://auth.example.com",
+  "client_id": "mcplake-admin-ui",
+  "authorization_endpoint": "https://auth.example.com/authorize",
+  "token_endpoint": "https://auth.example.com/oauth/token",
+  "scopes": ["openid", "profile", "email"]
+}
+```
+
+With admin auth off: `{"auth_required": false}`. With admin auth on but no
+`[admin_auth.login]`: `{"auth_required": true, "issuer": "…"}` and no login
+fields — a client must be able to tell "sign in like this" from "sign-in
+isn't configured here".
+
+Everything this endpoint returns is the **public** half of a PKCE client: the
+`client_id` and the provider's endpoints travel in the authorization request
+itself, visible to anyone who watches the redirect, and a public client has
+no secret. It exposes no JWKS material, no policy content, and nothing about
+the gateway's own state.
+
+The embedded web UI calls this on load; a scripted client doesn't need it
+(mint a token at your provider and send it as a bearer).
 
 ## Interactive API Reference
 

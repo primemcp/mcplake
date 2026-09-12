@@ -108,7 +108,40 @@ issues, both now covered by regression tests:
   would silently misparse, saving a filter against a tool that doesn't
   exist — fixed by JSON-encoding the pair instead of delimiter-joining it.
 
-The admin API itself has no authentication (see
-[api/admin.md](../api/admin.md)) — this UI inherits that trust boundary
-unchanged. Bind the control-plane listener to a trusted network/interface
-only; the webui does not add or need its own auth layer.
+### Signing in
+
+When the gateway enforces admin auth (`admin_auth.match` — see
+[ADR-0010](../architecture/decisions/0010-control-plane-admin-authentication.md)),
+the UI obtains its own token through an OIDC **Authorization Code + PKCE**
+flow run in the browser, against the same provider `[oidc]` already verifies
+tokens from. Configure it with
+[`[admin_auth.login]`](../CONFIG.md#admin-ui-sign-in);
+[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.md) records
+why this shape.
+
+- On load the UI reads `GET /admin/auth/config` (the one open admin route
+  besides `healthz`) to learn whether a sign-in is needed and where to go. No
+  admin screen renders — and so no admin request fires — until that is
+  settled.
+- **Sign in** redirects to the provider with an S256 `code_challenge`; the
+  `code_verifier` stays in this tab. On return the `state` is checked against
+  the one this tab stored (a callback carrying anyone else's code is refused),
+  the code is exchanged for a token, and `?code=…&state=…` is scrubbed from
+  the address bar so a reload can't replay it.
+- The token lives in `sessionStorage`: it survives a reload, is not shared
+  with other tabs, and is gone when the tab closes. It never goes into
+  `localStorage`, which is where the UI keeps only cosmetic state (selected
+  screen/endpoint/user).
+- An expired token is renewed silently when the provider issued a
+  `refresh_token`, once even if several screens ask at the same moment.
+  Otherwise the operator returns to the sign-in screen.
+- **401 and 403 are different screens.** A 401 means sign in again. A 403
+  means the token is valid but its claims don't satisfy `admin_auth.match`, so
+  the UI says exactly that, names the signed-in subject, and offers only sign
+  out — re-authenticating as the same person would loop forever.
+- With admin auth **off**, none of this appears: no sign-in screen, no
+  `Authorization` header, no identity in the sidebar.
+- Not covered: signature/`exp`/`iss` checks (the gateway does those), and
+  signing out of the provider itself — sign-out is local to this UI.
+
+Bind the control-plane listener to a trusted network/interface regardless.
