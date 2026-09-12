@@ -20,7 +20,7 @@ function isStoredSelection(v: unknown): v is StoredSelection {
     typeof v === "object" &&
     v !== null &&
     typeof (v as Record<string, unknown>).name === "string" &&
-    ((v as Record<string, unknown>).tab === "match" || (v as Record<string, unknown>).tab === "access")
+    ["match", "access", "path"].includes((v as Record<string, unknown>).tab as string)
   );
 }
 
@@ -137,6 +137,7 @@ export function UsersScreen({ onGoInstances }: UsersScreenProps) {
               user={selection.kind === "user" ? selectedUser : null}
               endpoints={endpoints}
               allFilters={filterPolicies.filterPolicies}
+              allAccessPolicies={accessPolicies.accessPolicies}
               onGoInstances={onGoInstances}
               onCreateAccessPolicy={accessPolicies.create}
               onUpdateAccessPolicy={accessPolicies.update}

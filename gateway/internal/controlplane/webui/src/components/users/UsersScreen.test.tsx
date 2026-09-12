@@ -101,4 +101,11 @@ describe("UsersScreen", () => {
     });
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete user" })).toBeInTheDocument());
   });
+  it("restores a persisted Request path tab selection after a reload", async () => {
+    localStorage.setItem("mcplake:users:selection", JSON.stringify({ name: "analyst-team", tab: "path" }));
+    stubFetch([]);
+    render(<UsersScreen onGoInstances={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Request path" })).toHaveAttribute("aria-selected", "true"));
+  });
 });
