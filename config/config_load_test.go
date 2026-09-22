@@ -17,7 +17,9 @@ func TestLoad_ValidExampleConfig(t *testing.T) {
 	require.NotNil(t, cfg)
 
 	assert.Equal(t, ":8080", cfg.Server.DataPlaneAddr)
-	assert.Equal(t, ":8081", cfg.Server.ControlPlaneAddr)
+	// 127.0.0.1, not ":8081" -- #160/PR167 defaulted the example to
+	// loopback, since registering an MCP starts a process on this host.
+	assert.Equal(t, "127.0.0.1:8081", cfg.Server.ControlPlaneAddr)
 
 	assert.Equal(t, "https://auth.example.com/.well-known/jwks.json", cfg.OIDC.JWKSURL)
 	assert.Equal(t, "https://auth.example.com", cfg.OIDC.Issuer)
