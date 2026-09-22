@@ -174,9 +174,14 @@ why this shape.
   settled.
 - **Sign in** redirects to the provider with an S256 `code_challenge`; the
   `code_verifier` stays in this tab. On return the `state` is checked against
-  the one this tab stored (a callback carrying anyone else's code is refused),
-  the code is exchanged for a token, and `?code=…&state=…` is scrubbed from
-  the address bar so a reload can't replay it.
+  the one this tab stored, and `?code=…&state=…` is scrubbed from the address
+  bar so a reload can't replay it. The check gates **both** outcomes — a
+  success and a provider error — so a link someone sends the operator can
+  neither hand the UI an authorization code nor render the sender's own text
+  inside the gateway's sign-in card. An unverifiable callback also leaves a
+  real sign-in that is in flight in the same tab untouched. Once verified, a
+  provider error shows the provider's own words, which is what tells an
+  operator whether to fix a client registration or simply retry.
 - The token lives in `sessionStorage`: it survives a reload, is not shared
   with other tabs, and is gone when the tab closes. It never goes into
   `localStorage`, which is where the UI keeps only cosmetic state (selected
