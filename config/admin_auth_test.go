@@ -287,7 +287,11 @@ audience = "mcp-gateway"
 // Loopback is exempt: the demo stack, the test fixtures and any local
 // development provider serve plaintext over an interface no attacker is on.
 func TestLoad_AllowsPlaintextJWKSURLOnLoopback(t *testing.T) {
-	for _, host := range []string{"127.0.0.1:9999", "localhost:9999", "[::1]:9999"} {
+	// "LOCALHOST" is checked deliberately: hostnames are case-insensitive
+	// (RFC 4343) and url.URL.Hostname performs no normalization, so a
+	// copy-pasted or Windows-style uppercase entry must resolve to
+	// loopback exactly like "localhost" does, not be rejected as remote.
+	for _, host := range []string{"127.0.0.1:9999", "localhost:9999", "[::1]:9999", "LOCALHOST:9999"} {
 		t.Run(host, func(t *testing.T) {
 			body := `
 [server]

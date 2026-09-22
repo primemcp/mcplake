@@ -393,8 +393,14 @@ func validateSecureHTTPURL(raw string) error {
 // isLoopbackHost reports whether host names the local machine. url.URL's
 // Hostname strips the port and the brackets around an IPv6 literal, so
 // "[::1]:9999" arrives here as "::1".
+//
+// The "localhost" comparison is case-insensitive: hostnames are
+// case-insensitive per RFC 4343 and url.URL.Hostname performs no
+// normalization, so a literal "LOCALHOST" (a plausible copy-paste or
+// Windows-style entry) resolves to the loopback interface exactly like
+// "localhost" does and must not be rejected as if it were a remote host.
 func isLoopbackHost(host string) bool {
-	if host == "localhost" {
+	if strings.EqualFold(host, "localhost") {
 		return true
 	}
 	if ip := net.ParseIP(host); ip != nil {
