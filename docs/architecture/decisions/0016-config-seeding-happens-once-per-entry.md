@@ -47,10 +47,19 @@ Requirements for the fix:
 
 A `seed_markers` table records `(kind, name)` for every entry that has been
 seeded — `kind` being one of `mcp`, `access_policy`, `filter_policy`. `Seed`
-loads the whole set in one query and, for each entry in the config file:
+loads the whole set in one query, backfills a marker for any row that
+already exists in the store but has none — a store from before this table
+existed — and then, for each entry in the config file:
 
 - if a marker exists, skip it and log at `DEBUG` that the stored record wins;
 - otherwise write the entry and then record the marker.
+
+The backfill step is what makes adopting this fix itself safe: without it,
+the very first boot after upgrading would have zero markers and would
+overwrite every existing row from config exactly once — reverting a
+disable an operator made specifically to prepare for the upgrade. It only
+covers rows that still exist, so it cannot recover a policy that was
+deleted before the marker table existed; see Consequences.
 
 The marker is written *after* the entry, so a crash in between costs one
 harmless re-seed of that entry rather than a lost entry or a failed startup.
@@ -163,10 +172,16 @@ add-an-entry workflow (C).
   logs each skipped entry at `DEBUG`, and `CONFIG.md` says so.
 - One more table and one more repository. `AutoMigrate` creates it; no manual
   migration step.
-- An existing deployment upgrading to this version has no markers, so its first
-  boot after the upgrade seeds every config entry once more — one last
-  re-application of the config file. Operators with runtime changes that
-  disagree with their config file should re-apply them after that boot.
+- An existing deployment upgrading to this version has no markers yet, so
+  `Seed` backfills one for every row that already exists before seeding
+  anything (see `backfillSeedMarkers`) — a name whose row is still there
+  (an MCP the operator disabled, a `drop_fields` list they tightened) is
+  preserved exactly as it stood, not reverted. The one case backfill
+  cannot cover is a policy the operator deleted *before* upgrading: with
+  no row and no marker, it is indistinguishable from a brand-new config
+  entry and is seeded fresh once, on that first post-upgrade boot only.
+  Operators who deleted something through the admin API before upgrading
+  should re-delete it (or confirm it stayed gone) after that one boot.
 
 ### Risks
 
@@ -191,7 +206,11 @@ add-an-entry workflow (C).
   the key, and a marker outliving the row it describes.
 - `config`: a re-seed does not re-apply a changed entry; an entry added later is
   still seeded; a runtime disable, a runtime delete and a tightened
-  `drop_fields` all survive a re-seed.
+  `drop_fields` all survive a re-seed; a store with pre-existing, marker-less
+  rows (the exact upgrade scenario) backfills correctly — a disabled MCP
+  stays disabled across the upgrade boot, and a policy deleted before
+  upgrading is seeded fresh exactly once, then stays gone on every boot
+  after that.
 - `cmd/gateway/app`: the whole gateway started twice against one store — disable
   an MCP and delete a policy through the admin API, restart, and both stay
   revoked; a config entry added between the two boots is applied.
