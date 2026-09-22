@@ -71,6 +71,12 @@ func NewServer(cfg Config) *Server {
 	engine.Use(gin.Recovery())
 
 	admin := engine.Group("/admin")
+	// Ahead of everything, including admin auth: a body-carrying request
+	// that does not declare JSON is refused before any handler or
+	// authenticator sees it. This is what stops a cross-origin
+	// "simple request" from reaching a write handler -- see
+	// requireJSONContentType.
+	admin.Use(requireJSONContentType())
 	// Registered ahead of cfg.AdminAuth, so both stay reachable without a
 	// token: healthz for liveness probes, auth/config so a browser that has
 	// no token yet can find out how to get one (ADR-0014).

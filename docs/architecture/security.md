@@ -13,10 +13,58 @@ The gateway exposes two independent HTTP listeners
 | Surface       | Listener                    | Callers                     | Trust boundary |
 |---------------|-----------------------------|-----------------------------|----------------|
 | Data plane    | `server.data_plane_addr`    | AI agents                   | Untrusted — every request is authenticated and authorized. |
-| Control plane | `server.control_plane_addr` | Operators, the admin web UI, MCP admin clients | Semi-trusted — authenticated + claim-gated when `admin_auth` is set; **must** still be network-isolated. |
+| Control plane | `server.control_plane_addr` | Operators, the admin web UI, MCP admin clients | **Host-level** — see below. Authenticated + claim-gated when `admin_auth` is set; **must** still be network-isolated. |
 
 Downstream MCP servers are treated as trusted infrastructure the operator
 configured; the gateway is the client to them, not a server.
+
+### Control-plane access is host code execution
+
+Registering an MCP supplies the command and argv the gateway then runs
+(`mcp.NewClient` → `exec.CommandContext`), so anyone who can call
+`POST /admin/mcps` — or the equivalent `register_mcp` tool on `/admin/mcp` —
+can execute an arbitrary program as the gateway process. That is the
+feature, not a defect: launching stdio MCP servers is what the gateway does
+([ADR-0003](decisions/0003-dynamic-mcp-registration-and-schema-discovery.md)).
+Two consequences worth stating plainly:
+
+- The subprocess starts *before* the gateway has verified that it speaks MCP,
+  so a failed registration (`502 registration_failed`) means the program has
+  already run. It is also bound to the gateway's lifetime, not the request's.
+- `admin_auth` is a single "is an admin" gate with no per-operation RBAC, so
+  there is no lower-trust admin tier. An operator trusted only to toggle
+  `enabled` has the same host-level reach as any other.
+
+Treat control-plane credentials as host credentials.
+
+### The browser is inside the network perimeter
+
+"Bind `control_plane_addr` to a trusted interface" is necessary but not
+sufficient: a page an operator merely visits runs inside that perimeter and
+can issue requests to `localhost`. Cross-origin requests escape preflight
+only as *simple requests* — GET/HEAD/POST with `text/plain`,
+`application/x-www-form-urlencoded` or `multipart/form-data` — and Gin's
+`ShouldBindJSON` parses a body as JSON whatever its declared type, so such a
+request would otherwise reach a write handler.
+
+The control plane therefore refuses any `POST`/`PUT`/`PATCH` that does not
+declare `Content-Type: application/json`, answering `415
+unsupported_media_type` before authentication runs. That closes both halves
+of the attack:
+
+- A simple-request content type reaches the listener without a preflight and
+  is refused on its media type, so no handler runs.
+- `application/json` is not a simple content type, so the browser must
+  preflight first — and the control plane answers no CORS headers at all, so
+  the browser never sends the request.
+
+`DELETE` and `GET` are exempt: they carry no body here, and a cross-origin
+`DELETE` already requires a preflight of its own.
+
+This is a structural defence, not a token: there is no CSRF token to manage
+because the admin API is bearer-only and holds no ambient credentials — the
+web UI sends `Authorization` from `sessionStorage`, never a cookie
+([ADR-0014](decisions/0014-admin-ui-oidc-pkce-login.md)).
 
 ## Data-plane authentication & authorization
 
@@ -64,10 +112,14 @@ Per request to `/admin/*` except `GET /admin/healthz`
 
 If `admin_auth` is absent or `enabled = false`, the control plane is
 **unauthenticated** and the gateway logs a prominent startup `WARN`. This
-preserves existing deployments and the current web UI (which does not yet send a
-token — [#76](https://github.com/atsokha/mcplake/issues/76)). Operators opt in
-by adding `admin_auth.match`. Until then, network isolation of
-`control_plane_addr` is the only control — as it was before ADR-0010.
+preserves existing deployments. Operators opt in by adding `admin_auth.match`;
+the web UI signs in through the OIDC provider and attaches a token
+([ADR-0014](decisions/0014-admin-ui-oidc-pkce-login.md)), so enabling the gate
+no longer breaks it.
+
+Until then, network isolation of `control_plane_addr` is the only *authentication*
+control — and, per "The browser is inside the network perimeter" above, it is
+not by itself enough. `config.example.toml` binds loopback for this reason.
 
 ## Known gaps (tracked, not defects)
 
@@ -81,6 +133,9 @@ by adding `admin_auth.match`. Until then, network isolation of
   `config.ServerConfig`; run behind a TLS-terminating proxy.
 - The control plane's "open + warn" default is not fail-closed; a future major
   version may flip it.
+- MCP subprocesses inherit the gateway's environment, so a registered MCP can
+  read the persistence DSN and any other secret in it
+  ([#166](https://github.com/atsokha/mcplake/issues/166)).
 
 ## References
 

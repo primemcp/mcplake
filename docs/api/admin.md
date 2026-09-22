@@ -18,12 +18,13 @@ rules.
 
 | Status | `error` code            | When                                                        |
 |--------|-------------------------|-------------------------------------------------------------|
+| 415    | `unsupported_media_type` | A `POST`/`PUT`/`PATCH` whose `Content-Type` is not `application/json`. Checked before authentication — see [security.md](../architecture/security.md#the-browser-is-inside-the-network-perimeter). |
 | 401    | `missing_authorization` | No `Authorization` header.                                  |
 | 401    | `invalid_authorization` | Header present but not a non-empty `Bearer` token.          |
 | 401    | `unauthorized`          | Token fails signature / `exp` / `iss` / `aud` validation.   |
 | 403    | `forbidden`             | Token valid but its claims don't satisfy `admin_auth.match`.|
 
-These four responses are possible on **every** route documented below (again,
+These responses are possible on **every** route documented below (again,
 except `GET /admin/healthz` and `GET /admin/auth/config`) and are not repeated
 in each endpoint's own status table. `GET /admin/swagger/*` is also behind this
 gate.

@@ -1,8 +1,11 @@
 # MCP Gateway Configuration Example (TOML — see ADR-0012)
 
 [server]
-data_plane_addr = ":8080"     # fasthttp tool-call proxy (ADR-0001)
-control_plane_addr = ":8081"  # Gin admin API (ADR-0005)
+data_plane_addr = ":8080"            # fasthttp tool-call proxy (ADR-0001)
+# The admin API can register an MCP, which means starting a process on this
+# host -- so it defaults to loopback here. Widen it only once admin_auth is
+# configured, and even then prefer a trusted interface over ":8081".
+control_plane_addr = "127.0.0.1:8081"  # Gin admin API (ADR-0005)
 
 [oidc]
 jwks_url = "https://auth.example.com/.well-known/jwks.json"
