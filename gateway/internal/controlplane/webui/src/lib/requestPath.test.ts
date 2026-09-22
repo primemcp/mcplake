@@ -266,3 +266,63 @@ describe("suggestPayload", () => {
     expect(suggestPayload([])).toContain("\n  ");
   });
 });
+
+// A rule the *simulator* cannot evaluate is not a gateway failure: the
+// backend's JSONPath implementation is complete (RFC 9535, filter selectors
+// included), and a rule that does not compile cannot be persisted at all.
+// Reporting a 500 here told the operator the gateway would reject a request
+// it actually serves.
+describe("rules the simulator cannot evaluate", () => {
+  const unsupported = { path: "$.resource_access[?(@.roles)]", pattern: "gateway-admin" };
+
+  it("does not turn an unsupported rule into a gateway error", () => {
+    const got = simulate(input({ accessPolicies: [{ ...analyst, match: [unsupported] }] }));
+
+    expect(got.outcome.kind).not.toBe("policy_error");
+    expect(got.incomplete).toEqual(["analyst-team"]);
+  });
+
+  it("keeps evaluating the other policies instead of masking them", () => {
+    const got = simulate(
+      input({
+        accessPolicies: [
+          { ...analyst, name: "keycloak-roles", match: [unsupported] },
+          analyst,
+        ],
+      }),
+    );
+
+    // The second policy really does grant this call, and the gateway would
+    // answer 200 -- the simulator must say so rather than report an error
+    // for the first policy it could not read.
+    expect(got.authorized).toBe(true);
+    expect(got.outcome).toEqual({ kind: "ok", status: 200 });
+    expect(got.incomplete).toEqual(["keycloak-roles"]);
+  });
+
+  it("reports an unsupported filter rule without dropping the whole simulation", () => {
+    const got = simulate(
+      input({
+        filterPolicies: [
+          filter({ name: "unreadable", match: [unsupported], drop_fields: ["$.a"] }),
+          filter({ name: "readable", drop_fields: ["$.b"] }),
+        ],
+      }),
+    );
+
+    expect(got.outcome).toEqual({ kind: "ok", status: 200 });
+    expect(got.droppedFields).toEqual(["$.b"]);
+    expect(got.incomplete).toEqual(["unreadable"]);
+  });
+
+  it("still fails the request for a genuinely malformed rule, which is a real 500", () => {
+    const got = simulate(input({ accessPolicies: [{ ...analyst, match: [{ path: "$.role", pattern: "(unclosed" }] }] }));
+
+    expect(got.outcome.kind).toBe("policy_error");
+    expect(got.incomplete).toEqual([]);
+  });
+
+  it("reports nothing incomplete when every rule is evaluable", () => {
+    expect(simulate(input()).incomplete).toEqual([]);
+  });
+});

@@ -6,6 +6,10 @@
     "module": "esnext",
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
+    // Lets a test import the shared claim-stringification fixture at the
+    // repository root directly, instead of reading it with node APIs --
+    // which would mean exposing node globals to browser code.
+    "resolveJsonModule": true,
     "skipLibCheck": true,
 
     /* Bundler mode */

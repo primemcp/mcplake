@@ -113,10 +113,19 @@ records.
   Limitations: JWT signature, expiry and issuer are the real Auth
   Validator's job and are not checked. The JSONPath reimplementation covers
   names, wildcards, indexes, slices, unions and descendant segments; a rule
-  using a filter selector (`[?...]`) is reported as "can't be evaluated"
-  rather than guessed at. Regexps are JavaScript `RegExp` rather than Go's
+  using a filter selector (`[?...]`) is valid on the gateway but outside
+  this subset, so the tab names it in a "could not be simulated" caveat,
+  keeps evaluating every other policy, and does **not** claim the gateway
+  would reject the request. Regexps are JavaScript `RegExp` rather than Go's
   RE2 — identical for the anchors/classes/groups/alternation policies
   normally use, different only for RE2-specific syntax.
+
+  Claim values are stringified exactly as the gateway does, including Go's
+  `%g` switch to scientific notation at 1e6 (`1000042` → `1.000042e+06`).
+  `testdata/claim_stringify_cases.json` is the shared fixture both this
+  implementation and `router`'s Go one are tested against, so the two cannot
+  drift apart unnoticed — they had, and the tab was reporting redactions the
+  gateway never performed.
 
 ## Data model notes specific to the UI
 

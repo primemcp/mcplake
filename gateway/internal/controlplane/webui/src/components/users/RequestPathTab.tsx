@@ -414,7 +414,7 @@ export function RequestPathTab({
           badgeTone: "danger",
           note:
             outcome.kind === "policy_error"
-              ? `A saved rule can't be evaluated: ${outcome.reason}. The gateway fails the request rather than guess.`
+              ? `A saved rule is malformed: ${outcome.reason}. The gateway fails the request rather than guess.`
               : "The token is valid, but no enabled policy both matches these claims and grants this endpoint + tool. There is no fallback rule — access is explicit.",
           sections: [
             { label: "Decision", rows: [R("endpoint asked", target.mcp, "danger", true), R("tool", target.tool, "danger", true), R("grant", "none", "danger", true), R("status", outcome.kind === "policy_error" ? "500" : "403", "danger", true)] },
@@ -456,7 +456,7 @@ export function RequestPathTab({
         badge: filterError ? "Error (500)" : appliedFilters.length ? `${plural(appliedFilters.length, "filter")} ran` : "Full response",
         badgeTone: filterError ? "danger" : appliedFilters.length ? "warn" : "muted",
         note: filterError
-          ? `A saved filter rule can't be evaluated: ${outcome.kind === "policy_error" ? outcome.reason : ""}.`
+          ? `A saved filter rule is malformed: ${outcome.kind === "policy_error" ? outcome.reason : ""}.`
           : `Every enabled filter targeting ${target.mcp} / ${target.tool} whose conditions match these claims runs; their dropped fields are unioned.`,
         sections: [
           { label: "Filters on this call", rows: filterRows },
@@ -754,6 +754,21 @@ export function RequestPathTab({
             {d.badge}
           </span>
         </div>
+
+        {/* Some rule used a JSONPath construct this preview does not
+            implement. The gateway does, so the outcome above is computed
+            from everything else and may not be the real one -- saying so is
+            the only honest option. */}
+        {sim.incomplete.length > 0 && (
+          <div
+            data-testid="path-incomplete"
+            className="px-3 py-2.5 rounded-lg bg-warn-soft text-[11px] text-warn leading-[1.5]"
+          >
+            {plural(sim.incomplete.length, "rule set")} could not be simulated ({sim.incomplete.join(", ")}) — they use
+            JSONPath this preview doesn't implement. The gateway evaluates them normally, so the result above may
+            differ.
+          </div>
+        )}
         <div className="text-[12.5px] text-subtle leading-[1.5] -mt-1.5">{d.note}</div>
 
         {d.sections.map((s) => (

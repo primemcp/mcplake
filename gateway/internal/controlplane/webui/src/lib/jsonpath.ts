@@ -20,9 +20,16 @@
  */
 
 export class JSONPathError extends Error {
-  constructor(message: string) {
+  /** True when the path is valid RFC 9535 that this subset simply does not
+   * implement (filter selectors), as opposed to malformed. The gateway
+   * evaluates the former normally, so the UI must not present it as a
+   * gateway failure -- see requestPath.ts. */
+  readonly unsupported: boolean;
+
+  constructor(message: string, unsupported = false) {
     super(message);
     this.name = "JSONPathError";
+    this.unsupported = unsupported;
   }
 }
 
@@ -63,6 +70,10 @@ class Parser {
 
   #fail(what: string): never {
     throw new JSONPathError(`${what} at position ${this.#pos} in ${JSON.stringify(this.#src)}`);
+  }
+
+  #unsupported(what: string): never {
+    throw new JSONPathError(`${what} in ${JSON.stringify(this.#src)}`, true);
   }
 
   #skipSpace() {
@@ -125,7 +136,7 @@ class Parser {
       return { kind: "wildcard" };
     }
     if (c === "'" || c === '"') return { kind: "name", name: this.#quoted(c) };
-    if (c === "?") this.#fail("filter selectors are not supported by the simulator");
+    if (c === "?") this.#unsupported("filter selectors are not supported by this simulator");
     if (c === "" || c === "]") this.#fail("empty selector");
     return this.#indexOrSlice();
   }
