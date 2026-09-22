@@ -179,3 +179,102 @@ func TestStripToolResult_RejectsAMalformedPathAndAMalformedResponse(t *testing.T
 		require.Error(t, err)
 	})
 }
+
+// An embedded resource (`type:"resource"`) can carry the same record as a
+// serialized JSON string in `resource.text`, exactly like a top-level text
+// block does -- the MCP spec gives a tool two independent places to put
+// human-readable text alongside structuredContent, not one. Filtering only
+// structuredContent + content[].text and treating "resource" as opaque
+// (the way non-text content like images is) leaves this copy leaking.
+func TestStripToolResult_StripsTextInsideAnEmbeddedResource(t *testing.T) {
+	resource := map[string]any{
+		"uri":      "file:///user.json",
+		"mimeType": "application/json",
+		"text":     `{"id":1,"hashed_password":"xyz"}`,
+	}
+	in, err := json.Marshal(map[string]any{
+		"content": []any{map[string]any{"type": "resource", "resource": resource}},
+	})
+	require.NoError(t, err)
+
+	out, removed, err := filter.StripToolResult(in, []string{"$.hashed_password"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, removed)
+	assert.NotContains(t, string(out), "xyz")
+
+	// The resource's text is itself a JSON-encoded string, so the
+	// untouched field appears backslash-escaped in the raw envelope
+	// bytes; decode it properly rather than substring-matching that.
+	var env struct {
+		Content []struct {
+			Resource struct {
+				URI  string `json:"uri"`
+				Text string `json:"text"`
+			} `json:"resource"`
+		} `json:"content"`
+	}
+	require.NoError(t, json.Unmarshal(out, &env))
+	require.Len(t, env.Content, 1)
+	var resourceRecord map[string]any
+	require.NoError(t, json.Unmarshal([]byte(env.Content[0].Resource.Text), &resourceRecord))
+	assert.Equal(t, float64(1), resourceRecord["id"], "the untargeted field survives")
+	assert.NotContains(t, resourceRecord, "hashed_password")
+	assert.Equal(t, "file:///user.json", env.Content[0].Resource.URI, "the resource's own metadata is untouched")
+}
+
+// resource.blob is binary (base64), never JSON -- it must neither be
+// filtered nor treated as an enforcement failure just because a filter
+// happens to apply to this call.
+func TestStripToolResult_EmbeddedResourceBlobIsLeftAlone(t *testing.T) {
+	in := json.RawMessage(`{"content":[{"type":"resource","resource":{"uri":"file:///img.png","mimeType":"image/png","blob":"aGVsbG8="}}]}`)
+
+	out, removed, err := filter.StripToolResult(in, []string{"$.secret"})
+
+	require.NoError(t, err)
+	assert.Zero(t, removed)
+	assert.Contains(t, string(out), "aGVsbG8=")
+}
+
+// A resource whose text is genuinely free-form (not JSON) fails closed
+// exactly like a top-level text block does, once a filter applies.
+func TestStripToolResult_EmbeddedResourceFreeFormTextFailsClosed(t *testing.T) {
+	in := json.RawMessage(`{"content":[{"type":"resource","resource":{"uri":"file:///notes.txt","mimeType":"text/plain","text":"the ssn is 123-45-6789"}}]}`)
+
+	_, _, err := filter.StripToolResult(in, []string{"$.ssn"})
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, filter.ErrUnenforceable)
+}
+
+// Precision: a downstream MCP can legitimately return a 64-bit id or a
+// nanosecond timestamp. A decode/encode round trip through float64 would
+// silently corrupt it the moment ANY filter touches that response, even a
+// filter targeting an unrelated field.
+func TestStripToolResult_PreservesLargeIntegerPrecision(t *testing.T) {
+	big := "9007199254740993" // 2^53 + 1 -- not exactly representable as float64
+	in := envelope(t, `{"id":`+big+`,"hashed_password":"xyz"}`)
+
+	out, removed, err := filter.StripToolResult(in, []string{"$.hashed_password"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, removed)
+	assert.Contains(t, string(out), big, "the untouched id must survive byte-for-byte")
+	assert.NotContains(t, string(out), "9007199254740992", "must not have been rounded to the nearest float64")
+}
+
+// An untouched string containing HTML-significant characters must survive
+// a filtered response byte-for-byte. Go's json.Marshal escapes <, >, & by
+// default; re-encoding after a filter is applied must not silently rewrite
+// bytes nobody asked to change.
+func TestStripToolResult_DoesNotHTMLEscapeUntouchedStrings(t *testing.T) {
+	in := envelope(t, `{"hashed_password":"xyz","note":"a & b <script>"}`)
+
+	out, removed, err := filter.StripToolResult(in, []string{"$.hashed_password"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, removed)
+	assert.Contains(t, string(out), "a & b <script>", "the literal characters must survive, not \\u0026/\\u003c")
+	assert.NotContains(t, string(out), `\u0026`)
+	assert.NotContains(t, string(out), `\u003c`)
+}

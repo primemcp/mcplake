@@ -4,6 +4,7 @@
 package filter
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -32,13 +33,23 @@ func Strip(response json.RawMessage, fields []string) (json.RawMessage, error) {
 // count is what lets StripToolResult tell "this filter removed nothing"
 // from "this filter removed something", so a policy whose paths no longer
 // match the tool's shape can be surfaced instead of failing silently.
+//
+// Decoding preserves every number's exact source digits (json.Number)
+// rather than collapsing it through float64: a downstream MCP legitimately
+// returns 64-bit ids, nanosecond timestamps and monetary integers, and a
+// float64 round-trip silently corrupts any of those once they cross 2^53 —
+// on a response that may not even contain the field being filtered.
+// Marshaling turns escapeHTML off for the same reason: an untouched string
+// containing "&"/"<"/">" (a URL query, a code sample) must come back
+// byte-for-byte, not rewritten to & etc., just because some unrelated
+// field elsewhere in the same document was filtered.
 func stripDocument(response json.RawMessage, fields []string) (json.RawMessage, int, error) {
 	if len(fields) == 0 {
 		return response, 0, nil
 	}
 
-	var doc any
-	if err := json.Unmarshal(response, &doc); err != nil {
+	doc, err := decodePreservingNumbers(response)
+	if err != nil {
 		return nil, 0, fmt.Errorf("filter: unmarshal response: %w", err)
 	}
 
@@ -55,11 +66,42 @@ func stripDocument(response json.RawMessage, fields []string) (json.RawMessage, 
 		}
 	}
 
-	out, err := json.Marshal(doc)
+	out, err := marshalWithoutHTMLEscaping(doc)
 	if err != nil {
 		return nil, 0, fmt.Errorf("filter: marshal filtered response: %w", err)
 	}
 	return out, removed, nil
+}
+
+// decodePreservingNumbers unmarshals into `any` the way json.Unmarshal
+// would, except every JSON number decodes as json.Number (its exact source
+// text) instead of float64. jsonpath's traversal only cares about map keys
+// and array indices, never about a leaf's concrete scalar type, so this is
+// a drop-in replacement for the document walked by SelectLocated/deleteField.
+func decodePreservingNumbers(raw json.RawMessage) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var doc any
+	if err := dec.Decode(&doc); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// marshalWithoutHTMLEscaping is json.Marshal with HTML escaping disabled —
+// see stripDocument's doc comment for why an untouched string must survive
+// this round trip unchanged. json.Encoder.Encode appends a trailing
+// newline that json.Marshal does not; it is trimmed here so every caller
+// keeps getting exactly what json.Marshal would have returned, minus the
+// escaping.
+func marshalWithoutHTMLEscaping(v any) (json.RawMessage, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
 // deleteField removes the value at path from doc by walking to its parent
