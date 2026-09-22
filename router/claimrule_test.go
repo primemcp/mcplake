@@ -129,3 +129,39 @@ func TestClaimMatcher_Matches(t *testing.T) {
 		})
 	}
 }
+
+// An empty pattern compiles as a regexp and then matches every value, so a
+// rule carrying one is "this claim exists" at best and "always true" at
+// worst -- while reading, in a config file or an admin API response, like a
+// real constraint. Config.Validate already refuses the analogous
+// admin_auth.match with *no* rules for exactly this reason; rejecting the
+// degenerate single rule closes the same hole one level down, at the only
+// place every write path goes through.
+func TestNewClaimRule_RejectsEmptyPattern(t *testing.T) {
+	_, err := router.NewClaimRule("$.role", "")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pattern")
+}
+
+func TestNewClaimRule_RejectsEmptyPath(t *testing.T) {
+	_, err := router.NewClaimRule("", "^admin$")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path")
+}
+
+// "the claim must be present, whatever its value" stays expressible -- it
+// just has to be spelled out rather than implied by an empty string.
+func TestNewClaimRule_MatchAnyValueIsStillExpressible(t *testing.T) {
+	rule, err := router.NewClaimRule("$.role", ".+")
+	require.NoError(t, err)
+
+	present, err := rule.Matches(json.RawMessage(`{"role":"anything"}`))
+	require.NoError(t, err)
+	assert.True(t, present)
+
+	absent, err := rule.Matches(json.RawMessage(`{"other":"x"}`))
+	require.NoError(t, err)
+	assert.False(t, absent)
+}

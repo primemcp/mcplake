@@ -31,10 +31,27 @@ func marshalClaimMatcher(m router.ClaimMatcher) ([]byte, error) {
 	return data, nil
 }
 
+// legacyPresentPattern is substituted for a stored rule's empty Pattern on
+// load (never on write — see validateClaimMatcher). Before router.NewClaimRule
+// rejected an empty pattern, `regexp.Compile("")` matched every value, so
+// such a rule meant "this claim is present, whatever its value" — exactly
+// what ".+" against the stringified claim means too. A row shaped like that
+// can already exist: the HTTP admin API always required a non-empty pattern,
+// but the MCP-control-server tool surface did not gain the same requirement
+// until this validation did, so an operator could have created one through
+// it before upgrading.
+const legacyPresentPattern = ".+"
+
 // unmarshalClaimMatcher decodes data (as produced by marshalClaimMatcher)
-// and recompiles each rule via router.NewClaimRule. A malformed JSONPath or
-// regexp is reported here rather than being silently stored as an unusable
-// matcher.
+// and recompiles each rule via router.NewClaimRule. A malformed JSONPath is
+// still reported here rather than being silently stored as an unusable
+// matcher — but an empty Pattern is treated as legacyPresentPattern instead
+// of failing, so a row written before router.NewClaimRule started rejecting
+// one doesn't take the whole List() down on the first upgrade boot (see
+// ADR-0016's sibling fix for the equivalent seed-on-restart hazard). New
+// writes still go through validateClaimMatcher, which rejects an empty
+// pattern outright — this substitution only ever applies to what is already
+// on disk.
 func unmarshalClaimMatcher(data []byte) (router.ClaimMatcher, error) {
 	if len(data) == 0 {
 		return router.ClaimMatcher{}, nil
@@ -47,7 +64,11 @@ func unmarshalClaimMatcher(data []byte) (router.ClaimMatcher, error) {
 
 	rules := make([]router.ClaimRule, len(raw))
 	for i, r := range raw {
-		rule, err := router.NewClaimRule(r.Path, r.Pattern)
+		pattern := r.Pattern
+		if pattern == "" {
+			pattern = legacyPresentPattern
+		}
+		rule, err := router.NewClaimRule(r.Path, pattern)
 		if err != nil {
 			return router.ClaimMatcher{}, fmt.Errorf("persistence: compile match[%d]: %w", i, err)
 		}

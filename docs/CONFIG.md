@@ -19,9 +19,16 @@ separate.
 [server]
 data_plane_addr = ":8080"              # fasthttp tool-call proxy (ADR-0001)
 control_plane_addr = "127.0.0.1:8081"  # Gin admin API (ADR-0005)
-# tls.cert_file = "/path/to/cert.pem"
-# tls.key_file  = "/path/to/key.pem"
 ```
+
+> **The gateway terminates no TLS.** Both listeners serve plaintext HTTP;
+> `config.ServerConfig` carries a `// TODO` where TLS options would go, and
+> there is no `[server.tls]` section to enable. Earlier revisions of this
+> document showed commented-out `tls.cert_file` / `tls.key_file` keys, which
+> the loader silently ignored — uncommenting them changed nothing while
+> looking like it had. Run behind a TLS-terminating proxy until TLS is
+> implemented; the gap is tracked in
+> [security.md](architecture/security.md#known-gaps-tracked-not-defects).
 
 **Fields:**
 - `data_plane_addr` — listen address for the tool-call endpoint used by agents
@@ -48,7 +55,11 @@ audience = "mcp-gateway"
 ```
 
 **Fields:**
-- `jwks_url` — the OIDC provider's JWKS endpoint (required). The gateway
+- `jwks_url` — the OIDC provider's JWKS endpoint (required). Must be
+  `https`, unless its host is loopback (`127.0.0.1`, `::1`, `localhost`) —
+  this is the root of trust for every token the gateway accepts, and over
+  plaintext anyone on the path can substitute a signing key and mint a token
+  that satisfies both the data plane and `admin_auth.match`. The gateway
   currently requires this exact URL; it does not yet perform OIDC discovery
   from a provider/issuer URL (`/.well-known/openid-configuration`) — that's
   tracked as future work, not implemented in `auth.Validator` yet.
@@ -99,7 +110,10 @@ pattern = "^https://auth\\.example\\.com$"
 - `match` — a list of `{path, pattern}` rules (each `[[admin_auth.match]]`
   block is one rule), ANDed. Pin a claim that only admin tokens carry (a role,
   a group, a dedicated `aud`); an over-broad rule makes every authenticated
-  user an admin. Anchor every pattern with `^…$`.
+  user an admin. Anchor every pattern with `^…$`. Both keys are required and
+  must be non-empty: an empty `pattern` compiles and then matches every
+  value, so it would read like a constraint while constraining nothing.
+  Spell "the claim must be present, whatever its value" as `pattern = ".+"`.
 - `enabled` — optional on/off switch.
   - **Omitted:** admin auth is **on** iff `match` has at least one rule. So a
     config with no `admin_auth` section at all leaves `/admin/*` **open**, and
@@ -140,8 +154,10 @@ token_endpoint = "https://auth.example.com/oauth/token"
   page, which is the case PKCE exists for). Its allowed redirect URIs must
   include the control-plane URL operators browse to, with a trailing slash —
   e.g. `https://gateway.internal:8081/`.
-- `authorization_endpoint` / `token_endpoint` — absolute `http(s)` URLs,
-  taken from your provider's own discovery document. They are configured
+- `authorization_endpoint` / `token_endpoint` — absolute `https` URLs (or
+  `http` on loopback), taken from your provider's own discovery document.
+  The token endpoint receives the PKCE `code` and `code_verifier` from the
+  operator's browser, so plaintext exposes the exchange. They are configured
   explicitly rather than discovered, for the same reason `oidc.jwks_url` is:
   the gateway makes no outbound calls of its own at startup.
 - `scopes` — optional; defaults to `["openid", "profile", "email"]`. The
