@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -261,6 +262,9 @@ func (c *Config) Validate() error {
 	if c.OIDC.JWKSURL == "" {
 		return fmt.Errorf("config: oidc.jwks_url is required")
 	}
+	if err := validateSecureHTTPURL(c.OIDC.JWKSURL); err != nil {
+		return fmt.Errorf("config: oidc.jwks_url: %w", err)
+	}
 	if c.OIDC.Issuer == "" {
 		return fmt.Errorf("config: oidc.issuer is required")
 	}
@@ -348,17 +352,28 @@ func validateAdminLogin(l AdminLoginConfig) error {
 		{"authorization_endpoint", l.AuthorizationEndpoint},
 		{"token_endpoint", l.TokenEndpoint},
 	} {
-		if err := validateAbsoluteHTTPURL(ep.value); err != nil {
+		if err := validateSecureHTTPURL(ep.value); err != nil {
 			return fmt.Errorf("config: admin_auth.login.%s: %w", ep.key, err)
 		}
 	}
 	return nil
 }
 
-// validateAbsoluteHTTPURL accepts only an absolute http/https URL with a
-// host — what a browser can actually be redirected to, and what fetch can
-// post to cross-origin.
-func validateAbsoluteHTTPURL(raw string) error {
+// validateSecureHTTPURL accepts an absolute https URL, or an absolute http
+// URL whose host is loopback.
+//
+// The URLs this guards carry security-critical material: the JWKS is the
+// root of trust for every token the gateway accepts, and the OIDC token
+// endpoint receives the PKCE code and code_verifier from the operator's
+// browser. Over plaintext, anyone on the path can substitute a signing key
+// or read the exchange. The gateway itself terminates no TLS (see
+// ServerConfig), so this is a guardrail against operator error, not a
+// claim that the deployment is encrypted end to end.
+//
+// Loopback keeps plaintext because the demo stack, the httptest fixtures
+// and local development providers all serve over an interface no attacker
+// sits on, and forcing certificates there would buy nothing.
+func validateSecureHTTPURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return fmt.Errorf("parse %q: %w", raw, err)
@@ -369,7 +384,23 @@ func validateAbsoluteHTTPURL(raw string) error {
 	if u.Host == "" {
 		return fmt.Errorf("must include a host (got %q)", raw)
 	}
+	if u.Scheme == "http" && !isLoopbackHost(u.Hostname()) {
+		return fmt.Errorf("must use https (got %q); plaintext http is accepted only for a loopback host", raw)
+	}
 	return nil
+}
+
+// isLoopbackHost reports whether host names the local machine. url.URL's
+// Hostname strips the port and the brackets around an IPv6 literal, so
+// "[::1]:9999" arrives here as "::1".
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // enabledOrDefault resolves a config `enabled` pointer to a concrete bool:

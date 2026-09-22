@@ -130,7 +130,14 @@ not by itself enough. `config.example.toml` binds loopback for this reason.
 - No rate limiting or request-size limits on either surface
   ([data-plane API](../api/data-plane.md#current-limitations-tracked-not-bugs)).
 - TLS termination for both listeners is still a `// TODO` in
-  `config.ServerConfig`; run behind a TLS-terminating proxy.
+  `config.ServerConfig`; run behind a TLS-terminating proxy. `CONFIG.md`
+  used to show commented-out `tls.cert_file` / `tls.key_file` keys that the
+  loader ignored, so an operator could believe they had enabled TLS when
+  they had not; those are gone. The URLs the gateway and the admin UI fetch
+  — `oidc.jwks_url` and the `admin_auth.login` endpoints — must now be
+  `https` unless their host is loopback, so the JWKS (the root of trust for
+  every token) and the PKCE exchange are at least not configured onto
+  plaintext by accident.
 - The control plane's "open + warn" default is not fail-closed; a future major
   version may flip it.
 - MCP subprocesses inherit the gateway's environment, so a registered MCP can

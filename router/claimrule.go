@@ -25,7 +25,21 @@ type ClaimRule struct {
 // NewClaimRule compiles path and pattern once, so Matches never pays
 // parse/compile cost per call. A malformed path or pattern is rejected here,
 // at construction time, not discovered later during request evaluation.
+//
+// An empty pattern is rejected along with a malformed one. `regexp.Compile("")`
+// succeeds and then matches every value, so such a rule reads like a
+// constraint in a config file or an admin API response while constraining
+// nothing -- and matching is unanchored, so it cannot even be salvaged by
+// reading it as "the claim exists". Spell that intent as `.+`. This is the
+// one place every write path (config, admin API, MCP control server,
+// persistence) constructs a rule, so rejecting it here closes all of them.
 func NewClaimRule(path, pattern string) (ClaimRule, error) {
+	if path == "" {
+		return ClaimRule{}, fmt.Errorf("router: claim rule path is required")
+	}
+	if pattern == "" {
+		return ClaimRule{}, fmt.Errorf("router: claim rule pattern is required (use %q to mean \"the claim is present\")", ".+")
+	}
 	compiledPath, err := jsonpath.Parse(path)
 	if err != nil {
 		return ClaimRule{}, fmt.Errorf("router: parse JSONPath %q: %w", path, err)

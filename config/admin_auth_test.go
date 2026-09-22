@@ -261,3 +261,105 @@ token_endpoint = "https://auth.example.com/oauth/token"
 		})
 	}
 }
+
+// --- transport security for the URLs the gateway and the browser fetch ---
+
+// The JWKS is the root of trust for every token the gateway accepts. Over
+// plaintext, anyone on the path can serve their own key and mint a token
+// that satisfies both the data plane and admin_auth.match.
+func TestLoad_RejectsPlaintextJWKSURLForANonLoopbackHost(t *testing.T) {
+	body := `
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "http://auth.example.com/.well-known/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
+`
+	_, err := config.Load(writeConfig(t, body))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "oidc.jwks_url")
+	assert.Contains(t, err.Error(), "https")
+}
+
+// Loopback is exempt: the demo stack, the test fixtures and any local
+// development provider serve plaintext over an interface no attacker is on.
+func TestLoad_AllowsPlaintextJWKSURLOnLoopback(t *testing.T) {
+	for _, host := range []string{"127.0.0.1:9999", "localhost:9999", "[::1]:9999"} {
+		t.Run(host, func(t *testing.T) {
+			body := `
+[server]
+data_plane_addr = ":8080"
+
+[oidc]
+jwks_url = "http://` + host + `/jwks.json"
+issuer = "local-demo"
+audience = "mcp-gateway"
+`
+			_, err := config.Load(writeConfig(t, body))
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+// The token endpoint carries the PKCE code and code_verifier from the
+// operator's browser; over plaintext both are readable on the wire.
+func TestLoad_RejectsPlaintextLoginEndpointsForANonLoopbackHost(t *testing.T) {
+	for _, key := range []string{"authorization_endpoint", "token_endpoint"} {
+		t.Run(key, func(t *testing.T) {
+			endpoints := map[string]string{
+				"authorization_endpoint": "https://auth.example.com/authorize",
+				"token_endpoint":         "https://auth.example.com/oauth/token",
+			}
+			endpoints[key] = "http://auth.example.com/plaintext"
+			body := adminAuthBaseConfig + `
+[admin_auth.login]
+client_id = "mcplake-admin-ui"
+authorization_endpoint = "` + endpoints["authorization_endpoint"] + `"
+token_endpoint = "` + endpoints["token_endpoint"] + `"
+`
+			_, err := config.Load(writeConfig(t, body))
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "admin_auth.login."+key)
+			assert.Contains(t, err.Error(), "https")
+		})
+	}
+}
+
+// --- degenerate claim rules ---
+
+// An empty pattern matches everything, so a config that carries one reports
+// itself as secure while constraining nothing. router.NewClaimRule rejects
+// it; this pins that config surfaces the failure rather than swallowing it.
+func TestLoad_RejectsAnEmptyPatternInAdminAuthMatch(t *testing.T) {
+	body := adminAuthBaseConfig + `
+[[admin_auth.match]]
+path = "$.role"
+`
+	_, err := config.Load(writeConfig(t, body))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "admin_auth")
+	assert.Contains(t, err.Error(), "pattern")
+}
+
+func TestLoad_RejectsAnEmptyPatternInAnAccessPolicy(t *testing.T) {
+	body := adminAuthBaseConfig + `
+[[access_policies]]
+name = "everyone"
+[[access_policies.match]]
+path = "$.role"
+[[access_policies.grants]]
+mcp = "postgres-ro"
+tools = ["*"]
+`
+	_, err := config.Load(writeConfig(t, body))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "access_policies[0]")
+	assert.Contains(t, err.Error(), "pattern")
+}
