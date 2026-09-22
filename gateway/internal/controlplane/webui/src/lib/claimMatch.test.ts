@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import fixture from "../../../../../../testdata/claim_stringify_cases.json";
 import { evaluateMatcher, evaluateRule, stringifyClaim } from "./claimMatch";
 
 // Verbatim from router/claimrule_test.go's sampleClaims, so every case
@@ -118,15 +119,66 @@ describe("evaluateMatcher", () => {
   });
 });
 
+// The shared fixture router/stringify_parity_test.go also reads. One table
+// for two implementations, so they cannot drift apart again: before #162
+// this side rendered 1000042 as "1000042" while the gateway rendered
+// "1.000042e+06", and a filter policy anchored on the former reported a
+// redaction the gateway never performed.
+type StringifyCase = { name: string; value: unknown; want: string };
+// The fixture lives at the repository root so both language toolchains can
+// reach it; router/stringify_parity_test.go reads the same file.
+const stringifyCases: StringifyCase[] = fixture.cases;
+
 describe("stringifyClaim", () => {
-  it.each<[unknown, string]>([
-    ["text", "text"],
-    [null, ""],
-    [42, "42"],
-    [1.5, "1.5"],
-    [true, "true"],
-    [false, "false"],
-  ])("renders %j as %j, matching Go's stringify for JSON scalars", (value, want) => {
-    expect(stringifyClaim(value)).toBe(want);
+  it("has the shared fixture loaded", () => {
+    expect(stringifyCases.length).toBeGreaterThan(10);
+  });
+
+  it.each(stringifyCases.map((c) => [c.name, c.value, c.want] as const))(
+    "%s: renders %j as %j, byte-identically to Go's stringify",
+    (_name, value, want) => {
+      expect(stringifyClaim(value)).toBe(want);
+    },
+  );
+
+  // A rule anchored on the gateway's rendering must match here too --
+  // stringifyClaim is only interesting insofar as evaluateRule agrees.
+  it.each(stringifyCases.map((c) => [c.name, c.value, c.want] as const))(
+    "%s: a rule anchored on the gateway's rendering matches",
+    (_name, value, want) => {
+      const pattern = `^${want.replace(/[.+*?()[\]{}^$|\\]/g, "\\$&")}$`;
+
+      expect(evaluateRule({ claim: value }, { path: "$.claim", pattern }).matched).toBe(true);
+    },
+  );
+
+  it("renders a JSON object as JSON rather than as Go's map syntax (a documented, harmless difference)", () => {
+    expect(stringifyClaim({ a: 1 })).toBe('{"a":1}');
+  });
+});
+
+// A matcher can mix a rule this simulator cannot evaluate with a rule
+// that is genuinely broken. The surfaced error must name the real
+// problem, not the merely-unsupported rule -- otherwise an operator
+// debugging a reported failure chases the wrong pattern.
+describe("evaluateMatcher: error attribution when failures are mixed", () => {
+  const unsupported = { path: "$.resource_access[?(@.roles)]", pattern: "x" };
+  const malformed = { path: "$.role", pattern: "(unclosed" };
+
+  it("prefers the genuinely malformed rule's message over the unsupported one's", () => {
+    const got = evaluateMatcher({ role: "admin" }, [unsupported, malformed]);
+
+    expect(got.error).toMatch(/unclosed|invalid path|pattern/i);
+    expect(got.error).not.toMatch(/cannot be simulated/i);
+    // Still correctly NOT flagged as merely "unsupported" -- a real
+    // failure must never be hidden behind that softer classification.
+    expect(got.unsupported).toBe(false);
+  });
+
+  it("does the same regardless of which rule comes first", () => {
+    const got = evaluateMatcher({ role: "admin" }, [malformed, unsupported]);
+
+    expect(got.error).not.toMatch(/cannot be simulated/i);
+    expect(got.unsupported).toBe(false);
   });
 });

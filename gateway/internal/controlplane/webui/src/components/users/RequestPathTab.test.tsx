@@ -197,3 +197,48 @@ describe("RequestPathTab", () => {
     expect(detail.getByTestId("path-badge")).toHaveTextContent("403");
   });
 });
+
+describe("RequestPathTab: rules the simulator cannot evaluate", () => {
+  const unsupported = { path: "$.resource_access[?(@.roles)]", pattern: "gateway-admin" };
+
+  it("says so plainly instead of claiming the gateway would fail the request", async () => {
+    const props = baseProps();
+    render(
+      <RequestPathTab
+        {...props}
+        allAccessPolicies={[
+          { name: "keycloak-roles", match: [unsupported], grants: [], enabled: true },
+          analystPolicy,
+        ]}
+      />,
+    );
+
+    const caveat = await screen.findByTestId("path-incomplete");
+    expect(caveat).toHaveTextContent(/could not be simulated/i);
+    expect(caveat).toHaveTextContent("keycloak-roles");
+    expect(screen.queryByText(/fails the request rather than guess/)).not.toBeInTheDocument();
+  });
+
+  // The whole point of the fix: one unreadable policy must not hide the
+  // real outcome that the other policies produce.
+  it("still reports the outcome the evaluable policies produce", () => {
+    const props = baseProps();
+    render(
+      <RequestPathTab
+        {...props}
+        allAccessPolicies={[
+          { name: "keycloak-roles", match: [unsupported], grants: [], enabled: true },
+          analystPolicy,
+        ]}
+      />,
+    );
+
+    expect(within(screen.getByTestId("path-detail")).getByTestId("path-badge")).toHaveTextContent("200");
+  });
+
+  it("shows no caveat when every rule is evaluable", () => {
+    render(<RequestPathTab {...baseProps()} />);
+
+    expect(screen.queryByTestId("path-incomplete")).not.toBeInTheDocument();
+  });
+});

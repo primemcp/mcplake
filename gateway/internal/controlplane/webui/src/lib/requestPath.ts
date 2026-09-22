@@ -80,6 +80,13 @@ export type Simulation = {
    * first appearance (Engine.FieldsToRemove). Empty unless the request
    * reached the response filter. */
   droppedFields: string[];
+  /** Names of policies and filters this simulator could not evaluate --
+   * a rule using a JSONPath construct outside the subset lib/jsonpath.ts
+   * implements. The gateway evaluates them normally (its implementation is
+   * complete, and a rule that does not compile cannot be saved), so these
+   * are *gaps in the preview*, not gateway failures. The outcome above is
+   * computed from the rest and may therefore differ from the real one. */
+  incomplete: string[];
 };
 
 function grantCovers(grant: Grant, mcp: string, tool: string): boolean {
@@ -98,6 +105,14 @@ function parseClaims(payload: string): Record<string, unknown> | string {
     return "a JWT payload must be a JSON object";
   }
   return parsed as Record<string, unknown>;
+}
+
+/** Names of the entries whose rules this simulator could not evaluate. */
+function incompleteNames(
+  policies: { name: string; match: { unsupported?: boolean } | null }[],
+  filters: { name: string; match: { unsupported?: boolean } | null }[],
+): string[] {
+  return [...policies, ...filters].filter((e) => e.match?.unsupported === true).map((e) => e.name);
 }
 
 export function simulate(input: SimulationInput): Simulation {
@@ -124,6 +139,7 @@ export function simulate(input: SimulationInput): Simulation {
       authorized: false,
       filters: unevaluatedFilters(),
       droppedFields: [],
+      incomplete: [],
     };
   }
   const claims = parsed;
@@ -135,7 +151,7 @@ export function simulate(input: SimulationInput): Simulation {
     const match = evaluateMatcher(claims, p.match);
     return { name: p.name, enabled: true, match, covers, grants: match.matched && covers };
   });
-  const policyError = policies.find((p) => p.match?.error !== undefined);
+  const policyError = policies.find((p) => p.match?.error !== undefined && p.match.unsupported !== true);
   if (policyError) {
     return {
       claims,
@@ -144,6 +160,7 @@ export function simulate(input: SimulationInput): Simulation {
       authorized: false,
       filters: unevaluatedFilters(),
       droppedFields: [],
+      incomplete: incompleteNames(policies, []),
     };
   }
   const authorized = policies.some((p) => p.grants);
@@ -154,6 +171,7 @@ export function simulate(input: SimulationInput): Simulation {
     authorized,
     filters: unevaluatedFilters(),
     droppedFields: [],
+    incomplete: incompleteNames(policies, []),
   });
   if (!authorized) return rejected({ kind: "forbidden", status: 403, code: "forbidden" });
 
@@ -175,7 +193,7 @@ export function simulate(input: SimulationInput): Simulation {
     const match = evaluateMatcher(claims, f.match);
     return { name: f.name, enabled: true, match, applied: match.matched, drop_fields: f.drop_fields };
   });
-  const filterError = filters.find((f) => f.match?.error !== undefined);
+  const filterError = filters.find((f) => f.match?.error !== undefined && f.match.unsupported !== true);
   if (filterError) {
     return {
       claims,
@@ -184,11 +202,20 @@ export function simulate(input: SimulationInput): Simulation {
       authorized,
       filters,
       droppedFields: [],
+      incomplete: incompleteNames(policies, filters),
     };
   }
   const droppedFields = [...new Set(filters.filter((f) => f.applied).flatMap((f) => f.drop_fields))];
 
-  return { claims, outcome: { kind: "ok", status: 200 }, policies, authorized, filters, droppedFields };
+  return {
+    claims,
+    outcome: { kind: "ok", status: 200 },
+    policies,
+    authorized,
+    filters,
+    droppedFields,
+    incomplete: incompleteNames(policies, filters),
+  };
 }
 
 /**
