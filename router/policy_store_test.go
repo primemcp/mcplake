@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/atsokha/mcplake/router"
 	"github.com/stretchr/testify/assert"
@@ -110,6 +111,13 @@ func TestPolicyStore_ConcurrentAuthorizeDuringReload(t *testing.T) {
 			Grants:  []router.Grant{{MCP: "postgres-ro", Tools: []string{"*"}}},
 		}}, nil)
 	}
+
+	// Wait for the readers to actually get scheduled before stopping them.
+	// Without this the 200 reloads above can finish and close(stop) before
+	// any reader goroutine runs, leaving reads at 0 and failing the
+	// assertion for a scheduling reason that has nothing to do with the
+	// concurrent-reload behaviour under test.
+	require.Eventually(t, func() bool { return reads.Load() > 0 }, 5*time.Second, time.Millisecond)
 
 	close(stop)
 	wg.Wait()
