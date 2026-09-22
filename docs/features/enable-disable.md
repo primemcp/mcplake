@@ -40,7 +40,9 @@ enabled = false
 ```
 
 **Admin API** ([admin.md](../api/admin.md)) — the database is the source of
-truth once the gateway is running:
+truth once the gateway is running, and stays so across restarts: config is
+seeded once per entry and never re-applied over a runtime change
+([ADR-0016](../architecture/decisions/0016-config-seeding-happens-once-per-entry.md)):
 
 - Policies: `enabled` is a field on `POST` / `PUT /admin/access-policies` and
   `/admin/filter-policies`, and is echoed in every response. `PUT` is a full
