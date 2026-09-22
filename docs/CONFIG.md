@@ -17,8 +17,8 @@ separate.
 
 ```toml
 [server]
-data_plane_addr = ":8080"     # fasthttp tool-call proxy (ADR-0001)
-control_plane_addr = ":8081"  # Gin admin API (ADR-0005)
+data_plane_addr = ":8080"              # fasthttp tool-call proxy (ADR-0001)
+control_plane_addr = "127.0.0.1:8081"  # Gin admin API (ADR-0005)
 # tls.cert_file = "/path/to/cert.pem"
 # tls.key_file  = "/path/to/key.pem"
 ```
@@ -29,6 +29,11 @@ control_plane_addr = ":8081"  # Gin admin API (ADR-0005)
 - `control_plane_addr` — listen address for the admin API used to manage MCP
   registrations and policies (`/admin/*`). Bind this to a trusted network/interface
   only — see [ADR-0005](architecture/decisions/0005-use-gin-for-control-plane-api.md).
+  Registering an MCP starts a process on the gateway host, so control-plane
+  access is host-level access; the example binds loopback for that reason.
+  Note that binding to a trusted network does **not** protect against a
+  browser on a trusted host: see
+  [security.md](architecture/security.md#the-browser-is-inside-the-network-perimeter).
 
 ### 2. OIDC Configuration
 

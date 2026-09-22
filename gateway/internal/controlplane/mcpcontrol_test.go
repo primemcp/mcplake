@@ -49,7 +49,11 @@ func TestRegisterMCPControlServer_IsGuardedByAdminAuth(t *testing.T) {
 	})
 	controlplane.RegisterMCPControlServer(s.Admin(), mcpControlServices(), "/admin/mcp")
 
+	// A real MCP client always declares a JSON body; without it the
+	// content-type guard would reject the request before admin auth ever
+	// runs, which is deliberate but not what this test is about.
 	req := httptest.NewRequest(http.MethodPost, "/admin/mcp", strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	s.Engine().ServeHTTP(rec, req)
 
