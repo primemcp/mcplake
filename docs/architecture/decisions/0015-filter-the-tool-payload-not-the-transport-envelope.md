@@ -58,9 +58,12 @@ replaces `filter.Strip` in the data-plane pipeline:
 1. Decode the envelope, preserving every key it does not understand (`isError`,
    `_meta`, anything a future protocol revision adds).
 2. If `structuredContent` is present, strip it as a document in its own right.
-3. For each `content` block of type `text`, decode the text; if it is a JSON
-   document, strip it and re-encode. Non-text blocks (image, audio, embedded
-   resource) carry no JSON fields and pass through.
+3. For each `content` block, dispatch on its `type`: a `text` block's own
+   text is decoded, stripped and re-encoded; a `resource` block's
+   `resource.text` gets the identical treatment (`resource.blob`, its
+   binary form, is left alone — nothing to filter there). Anything else
+   (image, audio, a resource *link*, which carries a URI rather than
+   inline content) has no JSON fields and passes through.
 4. Return the re-marshaled envelope and the number of locations actually
    removed.
 
@@ -128,6 +131,16 @@ Disadvantages:
 - An image or audio block has no JSON fields to leak, so refusing the call
   protects nothing and breaks legitimate multimodal tools.
 
+This alternative is about the genuinely opaque block types. An embedded
+resource (`type: "resource"`) is not one of them and must not be lumped in
+with image/audio by analogy: `resource.text` has the identical shape as a
+top-level text block — a string that is commonly JSON — and is filtered the
+same way (`resource.blob`, the binary form, has no JSON to leak and is left
+alone, same reasoning as image/audio). An earlier draft of this decision
+missed that distinction and treated every non-`"text"` block as opaque,
+which silently left `resource.text` unfiltered; a follow-up review caught
+it before merge.
+
 ## Decision Criteria
 
 1. Does the documented configuration actually redact? (A, no.)
@@ -194,8 +207,11 @@ can act on than a silent leak they cannot see.
 ## Validation
 
 - `filter`: `StripToolResult` unit tests covering both copies, structured-only
-  and text-only results, non-text content, unknown envelope keys preserved, the
-  unmatched-path no-op, and `ErrUnenforceable` on free-form text.
+  and text-only results, an embedded resource's text (and its untouched binary
+  blob), non-text content, unknown envelope keys preserved, large integers and
+  HTML-significant characters surviving byte-for-byte, the unmatched-path
+  no-op, and `ErrUnenforceable` on free-form text (including inside a
+  resource).
 - `gateway/internal`: pipeline tests asserting the filtered field is absent from
   the **whole** response body, that an unenforceable filter yields
   `502 filter_unenforceable` without echoing the payload, and that free-form
