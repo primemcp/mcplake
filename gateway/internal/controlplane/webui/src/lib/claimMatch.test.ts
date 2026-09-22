@@ -156,3 +156,29 @@ describe("stringifyClaim", () => {
     expect(stringifyClaim({ a: 1 })).toBe('{"a":1}');
   });
 });
+
+// A matcher can mix a rule this simulator cannot evaluate with a rule
+// that is genuinely broken. The surfaced error must name the real
+// problem, not the merely-unsupported rule -- otherwise an operator
+// debugging a reported failure chases the wrong pattern.
+describe("evaluateMatcher: error attribution when failures are mixed", () => {
+  const unsupported = { path: "$.resource_access[?(@.roles)]", pattern: "x" };
+  const malformed = { path: "$.role", pattern: "(unclosed" };
+
+  it("prefers the genuinely malformed rule's message over the unsupported one's", () => {
+    const got = evaluateMatcher({ role: "admin" }, [unsupported, malformed]);
+
+    expect(got.error).toMatch(/unclosed|invalid path|pattern/i);
+    expect(got.error).not.toMatch(/cannot be simulated/i);
+    // Still correctly NOT flagged as merely "unsupported" -- a real
+    // failure must never be hidden behind that softer classification.
+    expect(got.unsupported).toBe(false);
+  });
+
+  it("does the same regardless of which rule comes first", () => {
+    const got = evaluateMatcher({ role: "admin" }, [malformed, unsupported]);
+
+    expect(got.error).not.toMatch(/cannot be simulated/i);
+    expect(got.unsupported).toBe(false);
+  });
+});

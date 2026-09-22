@@ -134,7 +134,11 @@ export function evaluateRule(claims: unknown, rule: ClaimRule): RuleEvaluation {
 export function evaluateMatcher(claims: unknown, rules: ClaimRule[]): MatcherEvaluation {
   const evaluated = rules.map((rule) => evaluateRule(claims, rule));
   const failed = evaluated.filter((r) => r.error !== undefined);
-  const error = failed[0]?.error;
+  // When a matcher mixes an unsupported rule with a genuinely malformed
+  // one, the malformed rule is the real problem -- surface that message,
+  // not the unsupported rule's, so an operator debugging a reported
+  // failure chases the actual broken pattern instead of a red herring.
+  const error = (failed.find((r) => !r.unsupported) ?? failed[0])?.error;
   return {
     matched: error === undefined && evaluated.every((r) => r.matched),
     rules: evaluated,
