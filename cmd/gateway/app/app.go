@@ -51,11 +51,12 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("app: open persistence: %w", err)
 	}
 
+	seedMarkerRepo := persistence.NewSeedMarkerRepo(db)
 	mcpRepo := persistence.NewMCPRegistrationRepo(db)
 	accessRepo := persistence.NewAccessPolicyRepo(db)
 	filterRepo := persistence.NewFilterPolicyRepo(db)
 
-	if err := cfg.Seed(ctx, mcpRepo, accessRepo, filterRepo); err != nil {
+	if err := cfg.Seed(ctx, seedMarkerRepo, mcpRepo, accessRepo, filterRepo); err != nil {
 		return nil, fmt.Errorf("app: seed persistence: %w", err)
 	}
 

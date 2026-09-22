@@ -45,7 +45,7 @@ func Open(cfg Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("persistence: open %s: %w", driverName(cfg), err)
 	}
 
-	if err := db.AutoMigrate(&MCPRegistrationRow{}, &AccessPolicyRow{}, &FilterPolicyRow{}); err != nil {
+	if err := db.AutoMigrate(&MCPRegistrationRow{}, &AccessPolicyRow{}, &FilterPolicyRow{}, &SeedMarkerRow{}); err != nil {
 		return nil, fmt.Errorf("persistence: automigrate: %w", err)
 	}
 

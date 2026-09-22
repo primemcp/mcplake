@@ -180,10 +180,16 @@ rebuilt into the in-memory `MCPRegistry` cache on load, since they're only ever 
 as a whole per-MCP tool set, never queried individually in SQL.
 
 At startup, `config.toml`'s `[[mcps]]`, `[[access_policies]]`, and `[[filter_policies]]`
-entries are upserted into these tables by name (matching the `uniqueIndex`) before
-the caches are built — config is a seed mechanism, the database is the source of
-truth from that point on. Every Control-Plane API write goes through the same
-upsert path and then refreshes the corresponding in-memory cache.
+entries are seeded into these tables by name, **once per named entry, ever**
+([ADR-0016](decisions/0016-config-seeding-happens-once-per-entry.md)): a
+`seed_markers` row per `(kind, name)` records that an entry has been
+written, and is checked before every entry, before the caches are built.
+A name with no marker is written (and then marked); a name that already
+has one is left alone, however the config file now reads — the database
+is the source of truth from that point on, and a restart does not
+re-apply the file over a change made through the admin API. Every
+Control-Plane API write instead goes through the plain upsert path and
+then refreshes the corresponding in-memory cache.
 
 ## Request Lifecycle
 

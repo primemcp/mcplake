@@ -221,10 +221,27 @@ dsn = "gateway.db"   # SQLite file path, or a Postgres connection string
 - `dsn` — the SQLite file path when `driver = "sqlite"`, or a PostgreSQL
   connection string when `driver = "postgres"`.
 
-At startup, this section's entries plus the `[[mcps]]` / `[[access_policies]]` /
-`[[filter_policies]]` arrays below are upserted into this store by name — the
-database becomes the source of truth from then on; the config file is a seed
-mechanism, not a parallel state store.
+At startup, the `[[mcps]]` / `[[access_policies]]` / `[[filter_policies]]`
+arrays below are seeded into this store by name — the database becomes the
+source of truth from then on; the config file is a seed mechanism, not a
+parallel state store.
+
+**Seeding happens once per entry, ever**
+([ADR-0016](architecture/decisions/0016-config-seeding-happens-once-per-entry.md)):
+
+- A name the store has never seen is written on the next start, so adding a
+  new MCP or policy to this file works as expected.
+- A name that has been seeded before is left alone, whatever the file now
+  says. Anything you change through the admin API — disabling an MCP,
+  deleting a policy, tightening a `drop_fields` list — therefore survives a
+  restart. It did not before; a restart used to re-apply this file over it.
+- The corollary: **editing an already-seeded entry here has no effect.** Use
+  the admin API, or delete the stored entry first. The gateway logs each
+  entry it skips at `DEBUG` (`config entry already seeded; the stored record
+  wins`).
+- Upgrading an existing deployment: the first boot after the upgrade has no
+  seed markers yet, so it seeds every entry in this file one last time.
+  Re-apply any runtime changes that disagree with the file after that boot.
 
 ### 4. MCP Servers
 
