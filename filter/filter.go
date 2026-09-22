@@ -24,38 +24,51 @@ import (
 // array element (rather than a key within an object) is left in place,
 // since DropFields names *fields*, not array positions.
 func Strip(response json.RawMessage, fields []string) (json.RawMessage, error) {
+	out, _, err := stripDocument(response, fields)
+	return out, err
+}
+
+// stripDocument is Strip plus the count of locations actually removed. The
+// count is what lets StripToolResult tell "this filter removed nothing"
+// from "this filter removed something", so a policy whose paths no longer
+// match the tool's shape can be surfaced instead of failing silently.
+func stripDocument(response json.RawMessage, fields []string) (json.RawMessage, int, error) {
 	if len(fields) == 0 {
-		return response, nil
+		return response, 0, nil
 	}
 
 	var doc any
 	if err := json.Unmarshal(response, &doc); err != nil {
-		return nil, fmt.Errorf("filter: unmarshal response: %w", err)
+		return nil, 0, fmt.Errorf("filter: unmarshal response: %w", err)
 	}
 
+	removed := 0
 	for _, field := range fields {
 		path, err := jsonpath.Parse(field)
 		if err != nil {
-			return nil, fmt.Errorf("filter: parse field path %q: %w", field, err)
+			return nil, 0, fmt.Errorf("filter: parse field path %q: %w", field, err)
 		}
 		for _, located := range path.SelectLocated(doc) {
-			deleteField(doc, located.Path)
+			if deleteField(doc, located.Path) {
+				removed++
+			}
 		}
 	}
 
 	out, err := json.Marshal(doc)
 	if err != nil {
-		return nil, fmt.Errorf("filter: marshal filtered response: %w", err)
+		return nil, 0, fmt.Errorf("filter: marshal filtered response: %w", err)
 	}
-	return out, nil
+	return out, removed, nil
 }
 
 // deleteField removes the value at path from doc by walking to its parent
-// container and deleting the final segment. doc's maps are mutated through
-// their reference semantics, so nothing needs to be returned/reassigned.
-func deleteField(doc any, path spec.NormalizedPath) {
+// container and deleting the final segment, and reports whether anything
+// was actually deleted. doc's maps are mutated through their reference
+// semantics, so the document itself needs no reassignment.
+func deleteField(doc any, path spec.NormalizedPath) bool {
 	if len(path) == 0 {
-		return // can't delete the root itself
+		return false // can't delete the root itself
 	}
 
 	parent := doc
@@ -64,25 +77,29 @@ func deleteField(doc any, path spec.NormalizedPath) {
 		case spec.Name:
 			m, ok := parent.(map[string]any)
 			if !ok {
-				return
+				return false
 			}
 			parent = m[string(s)]
 		case spec.Index:
 			list, ok := parent.([]any)
 			if !ok || int(s) < 0 || int(s) >= len(list) {
-				return
+				return false
 			}
 			parent = list[int(s)]
 		default:
-			return
+			return false
 		}
 	}
 
 	if name, ok := path[len(path)-1].(spec.Name); ok {
 		if m, ok := parent.(map[string]any); ok {
-			delete(m, string(name))
+			if _, present := m[string(name)]; present {
+				delete(m, string(name))
+				return true
+			}
 		}
 	}
+	return false
 	// spec.Index as the final segment (deleting a bare array element) is
 	// intentionally unsupported — see the Strip doc comment.
 }

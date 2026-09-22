@@ -45,7 +45,7 @@ The full pipeline (auth → authorize → route → call → filter) is describe
 
 | Status | Body `error` code       | When                                                          |
 |--------|--------------------------|----------------------------------------------------------------|
-| 200    | —                        | Tool call succeeded; body is the (filtered) tool response.     |
+| 200    | —                        | Tool call succeeded; body is the tool result envelope, with every `drop_fields` path removed from each copy of the payload it carries. |
 | 400    | `invalid_json`           | Request body is not valid JSON.                                 |
 | 400    | `missing_field`          | `mcp` or `tool` is missing/empty.                               |
 | 401    | `missing_authorization`  | `Authorization` header is absent.                                |
@@ -55,6 +55,7 @@ The full pipeline (auth → authorize → route → call → filter) is describe
 | 404    | `mcp_not_found`          | `mcp` isn't registered, or isn't currently active.               |
 | 404    | `tool_not_found`         | `mcp` exists but doesn't advertise `tool`.                       |
 | 502    | `upstream_error`         | The downstream MCP call itself failed (connection issue, tool-level error). |
+| 502    | `filter_unenforceable`   | A filter policy applied to this call, but the tool answered with free-form text its `drop_fields` cannot be applied to. The gateway refuses to return a body it could not redact — see [ADR-0015](../architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.md). |
 | 504    | `upstream_timeout`       | The downstream MCP call didn't complete within the gateway's call timeout (`internal.Config.CallTimeout`, default 30s — not yet exposed as a `config.toml` key). |
 | 500    | `internal_error`         | The Policy Engine or response filter failed unexpectedly — not a caller error. |
 | 501    | `not_implemented`        | The gateway was started without a configured auth/policy/MCP pipeline (should not happen in a real deployment). |

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -157,11 +158,28 @@ func TestToolCall_DisabledMCPReturns403MCPDisabled(t *testing.T) {
 		"a disabled MCP must be rejected as mcp_disabled, distinct from mcp_not_found")
 }
 
+// toolResultEnvelope is the shape mcp.Client actually produces: the whole
+// marshaled CallToolResult, with the payload appearing both as
+// structuredContent and, per the MCP spec's own recommendation, serialized
+// into a text content block. Fakes that return a bare record test a shape
+// the real client cannot emit -- which is how the filtering defect in #159
+// survived a green suite.
+func toolResultEnvelope(t *testing.T, payload string) json.RawMessage {
+	t.Helper()
+	raw, err := json.Marshal(map[string]any{
+		"content":           []any{map[string]any{"type": "text", "text": payload}},
+		"structuredContent": json.RawMessage(payload),
+		"isError":           false,
+	})
+	require.NoError(t, err)
+	return raw
+}
+
 func TestToolCall_SuccessfulCallReturnsFilteredBody(t *testing.T) {
 	resolver := newFakeResolver()
 	resolver.addTool("postgres-ro", "get_user", &fakeMCPClient{
 		callTool: func(context.Context, string, map[string]any) (*mcp.ToolResponse, error) {
-			raw := json.RawMessage(`{"id":1,"email":"a@example.com","hashed_password":"secret"}`)
+			raw := toolResultEnvelope(t, `{"id":1,"email":"a@example.com","hashed_password":"secret"}`)
 			return &mcp.ToolResponse{Raw: raw}, nil
 		},
 	})
@@ -180,9 +198,66 @@ func TestToolCall_SuccessfulCallReturnsFilteredBody(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+	raw := readBody(t, resp)
+	// Both copies, not just the structured one: the text block carries the
+	// same record and leaking it there is the whole of #159.
+	assert.NotContains(t, string(raw), "hashed_password")
+	assert.NotContains(t, string(raw), "secret")
+	assert.Contains(t, string(raw), "a@example.com")
+}
+
+// Fail closed: a filter policy applies to this call, but the tool answered
+// with free-form text that field paths cannot be applied to. Returning it
+// would hand over exactly what the operator asked to strip.
+func TestToolCall_UnenforceableFilterFailsClosed(t *testing.T) {
+	resolver := newFakeResolver()
+	resolver.addTool("postgres-ro", "get_user", &fakeMCPClient{
+		callTool: func(context.Context, string, map[string]any) (*mcp.ToolResponse, error) {
+			raw := json.RawMessage(`{"content":[{"type":"text","text":"the ssn is 123-45-6789"}]}`)
+			return &mcp.ToolResponse{Raw: raw}, nil
+		},
+	})
+
+	addr, cleanup := startTestGatewayWithConfig(t, internal.Config{
+		Authenticator: &fakeAuthenticator{claims: validClaims()},
+		Policy: &fakePolicyEngine{
+			authorized: true,
+			dropFields: []string{"$.ssn"},
+		},
+		Resolver: resolver,
+	})
+	defer cleanup()
+
+	resp := postToolCall(t, addr, `{"mcp":"postgres-ro","tool":"get_user"}`, "Bearer token")
 	body := decodeJSONBody(t, resp)
-	assert.Equal(t, "a@example.com", body["email"])
-	assert.NotContains(t, body, "hashed_password", "the field filter's DropFields must have been applied")
+
+	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
+	assert.Equal(t, "filter_unenforceable", body["error"])
+	assert.NotContains(t, bodyString(t, body), "123-45-6789", "the unfiltered payload must not be echoed back")
+}
+
+// The same response with no filter in force is fine -- there is nothing to
+// enforce, so a text-only tool keeps working.
+func TestToolCall_FreeFormTextPassesThroughWhenNoFilterApplies(t *testing.T) {
+	resolver := newFakeResolver()
+	resolver.addTool("postgres-ro", "get_user", &fakeMCPClient{
+		callTool: func(context.Context, string, map[string]any) (*mcp.ToolResponse, error) {
+			raw := json.RawMessage(`{"content":[{"type":"text","text":"plain prose"}]}`)
+			return &mcp.ToolResponse{Raw: raw}, nil
+		},
+	})
+
+	addr, cleanup := startTestGatewayWithConfig(t, internal.Config{
+		Authenticator: &fakeAuthenticator{claims: validClaims()},
+		Policy:        &fakePolicyEngine{authorized: true},
+		Resolver:      resolver,
+	})
+	defer cleanup()
+
+	resp := postToolCall(t, addr, `{"mcp":"postgres-ro","tool":"get_user"}`, "Bearer token")
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, string(readBody(t, resp)), "plain prose")
 }
 
 func TestToolCall_DownstreamErrorReturns502(t *testing.T) {
@@ -236,4 +311,21 @@ func TestToolCall_DownstreamTimeoutReturns504GatewayTimeout(t *testing.T) {
 	assert.Equal(t, http.StatusGatewayTimeout, resp.StatusCode)
 	assert.Equal(t, "upstream_timeout", body["error"])
 	assert.Less(t, elapsed, 4*time.Second, "the request must not hang well past its configured CallTimeout")
+}
+
+// readBody drains the response body for assertions that need the raw bytes
+// rather than a decoded map.
+func readBody(t *testing.T, resp *http.Response) []byte {
+	t.Helper()
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	return raw
+}
+
+func bodyString(t *testing.T, body map[string]any) string {
+	t.Helper()
+	raw, err := json.Marshal(body)
+	require.NoError(t, err)
+	return string(raw)
 }

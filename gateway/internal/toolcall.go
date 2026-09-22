@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/atsokha/mcplake/filter"
@@ -241,9 +242,25 @@ func (g *Gateway) runPipeline(ctx context.Context, req ToolCallRequest) (json.Ra
 		return nil, internalError("policy evaluation failed")
 	}
 
-	filtered, err := filter.Strip(resp.Raw, fields)
+	filtered, removed, err := filter.StripToolResult(resp.Raw, fields)
 	if err != nil {
+		if errors.Is(err, filter.ErrUnenforceable) {
+			// The operator asked for fields to be removed and this
+			// response is shaped so that they cannot be. Returning it
+			// would hand over exactly what they meant to withhold, so
+			// the call fails instead. See ADR-0015.
+			slog.Error("response filtering could not be enforced; refusing to return the response",
+				"mcp", req.MCP, "tool", req.Tool, "fields", len(fields), "error", err)
+			return nil, badGateway("filter_unenforceable", "response filtering could not be enforced")
+		}
 		return nil, internalError("response filtering failed")
+	}
+	if len(fields) > 0 && removed == 0 {
+		// A filter policy matched this call and then removed nothing.
+		// Almost always a path that no longer matches the tool's shape
+		// (renamed field, renamed tool) -- silent until now.
+		slog.Warn("filter policy matched but removed no fields",
+			"mcp", req.MCP, "tool", req.Tool, "fields", len(fields))
 	}
 	return filtered, nil
 }
