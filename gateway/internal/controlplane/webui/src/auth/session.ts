@@ -81,12 +81,20 @@ export function savePending(pending: Pending): void {
 }
 
 /**
- * Reads and removes the pending PKCE state. Single-use on purpose: a
- * callback replayed against an already-consumed state finds nothing and
- * is rejected.
+ * Reads the pending PKCE state without consuming it.
+ *
+ * Reading and clearing used to be one step, which meant an unsolicited
+ * callback -- a link someone sends the operator -- destroyed a real
+ * sign-in that was in flight in the same tab. The caller now clears it
+ * only once the callback has been verified against it (see AuthProvider),
+ * so the state stays single-use for a legitimate flow and untouched by an
+ * unverifiable one.
  */
-export function takePending(): Pending | null {
-  const pending = readStorage(PENDING_KEY, isPending, sessionStorage);
+export function readPending(): Pending | null {
+  return readStorage(PENDING_KEY, isPending, sessionStorage);
+}
+
+/** Consumes the pending PKCE state, so a replayed callback finds nothing. */
+export function clearPending(): void {
   clearStorage(PENDING_KEY, sessionStorage);
-  return pending;
 }

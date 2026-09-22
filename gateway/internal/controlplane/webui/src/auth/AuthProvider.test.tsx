@@ -190,7 +190,12 @@ describe("AuthProvider", () => {
   });
 
   it("surfaces a provider-side refusal instead of a blank login screen", async () => {
-    vi.mocked(browser.currentHref).mockReturnValue("http://gw.local/?error=access_denied&error_description=User+said+no");
+    // A refusal from a sign-in this tab actually started: the state matches,
+    // so the provider's own words are trusted and shown.
+    sessionStorage.setItem("mcplake:auth:pending", JSON.stringify({ verifier: "ver", state: "st" }));
+    vi.mocked(browser.currentHref).mockReturnValue(
+      "http://gw.local/?error=access_denied&error_description=User+said+no&state=st",
+    );
     stubFetch(LOGIN);
 
     render(<AuthProvider>{app}</AuthProvider>);
@@ -318,5 +323,72 @@ describe("AuthProvider", () => {
     render(<AuthProvider>{app}</AuthProvider>);
 
     expect(await screen.findByRole("button", { name: /Retry/ })).toBeInTheDocument();
+  });
+});
+
+// RFC 6749 §4.1.2.1 requires `state` on the error response too, and the
+// client to verify it. Without that, anyone can hand an operator a link
+// that renders their own text inside the gateway's own sign-in card --
+// escaped by React, so not XSS, but a convincing phishing surface on a
+// trusted origin, with the query string already scrubbed from the address
+// bar by the time it is read.
+describe("AuthProvider: error callbacks are verified like successful ones", () => {
+  const attackerText = "Admin SSO moved, sign in at https://gw-sso.attacker.tld";
+
+  it("refuses a provider error whose state doesn't match this tab's", async () => {
+    sessionStorage.setItem("mcplake:auth:pending", JSON.stringify({ verifier: "ver", state: "st" }));
+    vi.mocked(browser.currentHref).mockReturnValue(
+      `http://gw.local/?error=invalid_request&error_description=${encodeURIComponent(attackerText)}&state=ATTACKER`,
+    );
+    stubFetch(LOGIN);
+
+    render(<AuthProvider>{app}</AuthProvider>);
+
+    expect(await screen.findByText(/could not be verified/i)).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(attackerText))).not.toBeInTheDocument();
+  });
+
+  it("refuses a provider error when this tab has no sign-in pending at all", async () => {
+    vi.mocked(browser.currentHref).mockReturnValue(
+      `http://gw.local/?error=access_denied&error_description=${encodeURIComponent(attackerText)}`,
+    );
+    stubFetch(LOGIN);
+
+    render(<AuthProvider>{app}</AuthProvider>);
+
+    expect(await screen.findByText(/could not be verified/i)).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(attackerText))).not.toBeInTheDocument();
+  });
+
+  // An unsolicited callback must not consume the pending PKCE state, or it
+  // breaks a real sign-in that is in flight in the same tab.
+  it("leaves a pending sign-in intact when it refuses an unsolicited callback", async () => {
+    sessionStorage.setItem("mcplake:auth:pending", JSON.stringify({ verifier: "ver", state: "st" }));
+    vi.mocked(browser.currentHref).mockReturnValue("http://gw.local/?error=access_denied&state=ATTACKER");
+    stubFetch(LOGIN);
+
+    render(<AuthProvider>{app}</AuthProvider>);
+    await screen.findByText(/could not be verified/i);
+
+    expect(JSON.parse(sessionStorage.getItem("mcplake:auth:pending") as string)).toEqual({
+      verifier: "ver",
+      state: "st",
+    });
+  });
+
+  // A genuine refusal by the provider still shows the provider's own words,
+  // which is what tells an operator whether to fix a client registration or
+  // just try again.
+  it("shows the provider's own message for a verified error callback", async () => {
+    sessionStorage.setItem("mcplake:auth:pending", JSON.stringify({ verifier: "ver", state: "st" }));
+    vi.mocked(browser.currentHref).mockReturnValue(
+      "http://gw.local/?error=access_denied&error_description=User+said+no&state=st",
+    );
+    stubFetch(LOGIN);
+
+    render(<AuthProvider>{app}</AuthProvider>);
+
+    expect(await screen.findByText(/User said no/)).toBeInTheDocument();
+    expect(sessionStorage.getItem("mcplake:auth:pending")).toBeNull();
   });
 });

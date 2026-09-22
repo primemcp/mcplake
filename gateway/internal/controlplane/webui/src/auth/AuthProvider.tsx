@@ -5,7 +5,17 @@ import type { AuthConfig, LoginConfig } from "../api/types";
 import { AuthBusyScreen, AuthUnavailableScreen, ForbiddenScreen, LoginScreen, LoginUnconfiguredScreen } from "./AuthScreens";
 import { currentHref, redirectTo, redirectUri, stripQuery } from "./browser";
 import { authorizeUrl, exchangeCode, loginConfigOf, readCallback, refreshWith, subjectOf } from "./oidc";
-import { clearSession, isExpired, loadSession, savePending, saveSession, sessionFrom, takePending, type Session } from "./session";
+import {
+  clearPending,
+  clearSession,
+  isExpired,
+  loadSession,
+  readPending,
+  savePending,
+  saveSession,
+  sessionFrom,
+  type Session,
+} from "./session";
 import { newState, newVerifier } from "./pkce";
 
 /**
@@ -154,14 +164,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const callback = readCallback(currentHref());
       if (callback.kind !== "none") {
-        const pending = takePending();
-        // Consume the code from the address bar before anything can fail,
-        // so a reload never replays it.
+        const pending = readPending();
+        // Clear the code/state from the address bar before anything can
+        // fail, so a reload never replays it.
         stripQuery();
-        if (callback.kind === "error") {
-          setState({ status: "anonymous", login, issuer: config.issuer, message: callback.message });
-          return;
-        }
+
+        // Both branches are gated on this. An error response carries
+        // `state` too (RFC 6749 §4.1.2.1), and verifying it is what stops
+        // a link someone sends the operator from rendering the sender's
+        // own text inside the gateway's own sign-in card. The pending
+        // entry is deliberately *not* consumed when the check fails: an
+        // unsolicited callback must not destroy a real sign-in that is in
+        // flight in this tab.
         if (!pending || pending.state !== callback.state) {
           setState({
             status: "anonymous",
@@ -169,6 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             issuer: config.issuer,
             message: "That sign-in could not be verified. Start again from this page.",
           });
+          return;
+        }
+        clearPending();
+
+        if (callback.kind === "error") {
+          // Verified, so the provider's own words are worth showing --
+          // they are what tells an operator whether to fix a client
+          // registration or simply try again.
+          setState({ status: "anonymous", login, issuer: config.issuer, message: callback.message });
           return;
         }
         setState({ status: "exchanging" });

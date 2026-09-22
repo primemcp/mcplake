@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { clearSession, isExpired, loadSession, saveSession, sessionFrom, takePending, savePending } from "./session";
+import { clearPending, clearSession, isExpired, loadSession, readPending, savePending, saveSession, sessionFrom } from "./session";
 
 afterEach(() => {
   sessionStorage.clear();
@@ -78,11 +78,19 @@ describe("session storage", () => {
 });
 
 describe("pending PKCE state", () => {
-  it("round-trips and is consumed exactly once -- a replayed callback finds nothing", () => {
+  it("round-trips, and reading does not consume -- an unverifiable callback must not destroy a real one", () => {
     savePending({ verifier: "v", state: "s" });
 
-    expect(takePending()).toEqual({ verifier: "v", state: "s" });
-    expect(takePending()).toBeNull();
+    expect(readPending()).toEqual({ verifier: "v", state: "s" });
+    expect(readPending()).toEqual({ verifier: "v", state: "s" });
+  });
+
+  it("is consumed explicitly, so a replayed callback finds nothing", () => {
+    savePending({ verifier: "v", state: "s" });
+
+    clearPending();
+
+    expect(readPending()).toBeNull();
   });
 
   it("keeps the verifier out of localStorage too", () => {

@@ -41,7 +41,7 @@ export async function authorizeUrl(config: LoginConfig, { verifier, state, redir
 export type Callback =
   | { kind: "none" }
   | { kind: "code"; code: string; state: string | null }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string; state: string | null };
 
 /**
  * Classifies the current URL: a returning authorization redirect, a
@@ -55,7 +55,11 @@ export function readCallback(href: string): Callback {
   const params = new URL(href).searchParams;
   const error = params.get("error");
   if (error !== null) {
-    return { kind: "error", message: params.get("error_description") ?? error };
+    // `state` is carried here too: RFC 6749 §4.1.2.1 requires the provider
+    // to echo it on the error response, and the client to verify it before
+    // trusting anything else in that response -- including the message it
+    // is about to render.
+    return { kind: "error", message: params.get("error_description") ?? error, state: params.get("state") };
   }
   const code = params.get("code");
   if (code !== null) {

@@ -55,11 +55,17 @@ describe("readCallback", () => {
   it("reads a provider error, preferring its description", () => {
     const got = readCallback("http://gw.local/?error=access_denied&error_description=User%20said%20no&state=st");
 
-    expect(got).toEqual({ kind: "error", message: "User said no" });
+    expect(got).toEqual({ kind: "error", message: "User said no", state: "st" });
   });
 
   it("falls back to the bare error code when there is no description", () => {
-    expect(readCallback("http://gw.local/?error=access_denied")).toEqual({ kind: "error", message: "access_denied" });
+    // state is null here, which is itself the signal the caller checks:
+    // an error response is required to echo it (RFC 6749 4.1.2.1).
+    expect(readCallback("http://gw.local/?error=access_denied")).toEqual({
+      kind: "error",
+      message: "access_denied",
+      state: null,
+    });
   });
 
   it("reports an ordinary page load as no callback at all", () => {
