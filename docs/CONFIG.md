@@ -327,8 +327,19 @@ pattern = "^user$"
 - `match` — same `{path, pattern}` rule list as access policies
   (`[[filter_policies.match]]` blocks)
 - `mcp` / `tool` — the exact tool call this filter applies to (no wildcards)
-- `drop_fields` — JSONPath expressions identifying fields to remove from the
-  response; a path that doesn't exist in a given response is a no-op
+- `drop_fields` — JSONPath expressions identifying fields to remove, written
+  against **the tool's own record** (`$.hashed_password`), not against the
+  JSON-RPC envelope it travels in. The gateway unwraps that envelope and
+  applies each path to every copy of the record it carries — MCP can return
+  the same payload both as structured content and serialized into a text
+  block, and both are filtered. See
+  [ADR-0015](architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.md).
+  A path that doesn't exist in a given response is a no-op, since
+  `drop_fields` are authored once against a tool's general shape; the
+  gateway logs a `WARN` when a policy matched a call and removed nothing.
+  If a filter applies but the tool answered with free-form (non-JSON) text,
+  the fields cannot be enforced and the call fails with
+  `502 filter_unenforceable` rather than returning an unchecked body
 - `enabled` — operator on/off switch (optional, default `true`). When
   `false`, the policy is skipped entirely: its `drop_fields` contribute
   nothing, so a response that this policy would have stripped is returned
@@ -379,7 +390,12 @@ variables; they were never implemented.)
   supported here, unlike access policy grants)
 - Verify the caller's claims satisfy the filter policy's `match` rules
 - Check that `drop_fields` paths match the actual response shape (a
-  nonexistent path is silently a no-op, not an error)
+  nonexistent path is a no-op, not an error — but the gateway logs
+  `filter policy matched but removed no fields` when that happens, so check
+  the log)
+- Write paths against the tool's record (`$.hashed_password`), not against
+  the transport envelope (`$.structuredContent.hashed_password`); the
+  gateway unwraps the envelope itself (ADR-0015)
 
 ### Startup fails with "config: access_policies[N] ... match[M]: ..."
 - The named policy's JSONPath expression or regexp failed to compile;

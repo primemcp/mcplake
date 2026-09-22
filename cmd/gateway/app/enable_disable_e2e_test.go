@@ -62,15 +62,21 @@ func TestHelperEchoMCPProcess(t *testing.T) {
 
 func boolPtr(b bool) *bool { return &b }
 
+// echoedMessage is deliberately distinctive: the filter assertions below
+// search the whole response body for it, so it must not collide with any
+// other token in the envelope.
+const echoedMessage = "e2e-echo-marker-9f2c"
+
 // e2eConfig builds a Config seeded with disabled entries of all three kinds:
 //   - mcp-off: an MCP with enabled=false (mcp-live is enabled)
 //   - access-ghost: an access policy with enabled=false, the only grant for
 //     role "ghost"
 //   - filter-off: a filter policy with enabled=false that would strip
-//     $.structuredContent.secret from mcp-live/echo
+//     $.secret from mcp-live/echo
 //
-// filter-live (enabled) strips $.structuredContent.message, so the enabled
-// path is exercised in the same response.
+// filter-live (enabled) strips $.message, so the enabled path is exercised
+// in the same response. Both paths are record-relative -- the form the docs
+// show -- not envelope-relative; see ADR-0015.
 func e2eConfig(t *testing.T, jwksURL string) *config.Config {
 	t.Helper()
 	echoCmd := os.Args[0]
@@ -109,14 +115,14 @@ func e2eConfig(t *testing.T, jwksURL string) *config.Config {
 				Match:      []config.ClaimRuleConfig{{Path: "$.role", Pattern: "^user$"}},
 				MCP:        "mcp-live",
 				Tool:       "echo",
-				DropFields: []string{"$.structuredContent.secret"},
+				DropFields: []string{"$.secret"},
 			},
 			{
 				Name:       "filter-live",
 				Match:      []config.ClaimRuleConfig{{Path: "$.role", Pattern: "^user$"}},
 				MCP:        "mcp-live",
 				Tool:       "echo",
-				DropFields: []string{"$.structuredContent.message"},
+				DropFields: []string{"$.message"},
 			},
 		},
 	}
@@ -145,7 +151,7 @@ func TestApp_EnableDisable_EndToEnd(t *testing.T) {
 
 	call := func(t *testing.T, token, mcp, tool string) (*http.Response, map[string]any) {
 		t.Helper()
-		body, err := json.Marshal(map[string]any{"mcp": mcp, "tool": tool, "arguments": map[string]any{"message": "hi"}})
+		body, err := json.Marshal(map[string]any{"mcp": mcp, "tool": tool, "arguments": map[string]any{"message": echoedMessage}})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/v1/call", dataAddr), bytes.NewReader(body))
 		require.NoError(t, err)
@@ -182,5 +188,15 @@ func TestApp_EnableDisable_EndToEnd(t *testing.T) {
 		assert.Equal(t, "s3cr3t", structured["secret"], "filter-off is disabled, so $.secret is not stripped")
 		_, hasMessage := structured["message"]
 		assert.False(t, hasMessage, "filter-live is enabled, so $.message is stripped")
+
+		// The payload also travels as a serialized JSON string inside the
+		// content block (the MCP spec's own recommendation, which the Go
+		// SDK follows). Asserting only on structuredContent is what let
+		// #159 ship: the "stripped" field survived here verbatim.
+		raw, err := json.Marshal(body)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), echoedMessage,
+			"the stripped field must be gone from every copy in the envelope, not just structuredContent")
+		assert.Contains(t, string(raw), "s3cr3t", "the field nobody filtered is still there")
 	})
 }

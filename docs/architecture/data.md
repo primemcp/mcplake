@@ -86,7 +86,7 @@ type FilterPolicy struct {
     Match      ClaimMatcher
     MCP        string
     Tool       string
-    DropFields []string // JSON field paths in the tool's response, e.g. "$.salary"
+    DropFields []string // field paths in the tool's own record, e.g. "$.salary"
 }
 ```
 
