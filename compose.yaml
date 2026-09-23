@@ -79,6 +79,14 @@ services:
         condition: service_healthy
     volumes:
       - ./deploy/demo/config.toml:/etc/mcplake/config.toml:ro,Z
+      # Mounted, not only baked in, for two reasons. It keeps the demo MCP
+      # server editable without a rebuild - poke at a tool, restart the
+      # gateway, see the difference - and it keeps the script from ever
+      # being a revision behind the config.toml above that names it, which
+      # is a mount too. The image still carries its own copy (see
+      # deploy/demo/Dockerfile), so it remains runnable on its own; this
+      # mount just wins when compose is what starts it.
+      - ./deploy/demo/mcp-servers:/opt/mcplake/demo-mcp:ro,Z
     command: ["--config", "/etc/mcplake/config.toml"]
     restart: on-failure
 

@@ -47,6 +47,12 @@ RUN apt-get update \
 # the container starts.
 COPY deploy/demo/mcp-servers/requirements.txt /opt/mcplake/demo-mcp/requirements.txt
 RUN pip install --no-cache-dir -r /opt/mcplake/demo-mcp/requirements.txt
+# Baked in so the image runs on its own, but compose.yaml also bind-mounts
+# deploy/demo/mcp-servers over this directory: the script is then editable
+# without a rebuild, and can never be a revision behind the config.toml that
+# names it (also a mount). The interpreter and fastmcp above are the parts
+# that genuinely need a rebuild -- entrypoint.sh checks for them and says so
+# rather than letting the gateway boot with an unreachable MCP.
 COPY deploy/demo/mcp-servers/employee_directory.py /opt/mcplake/demo-mcp/employee_directory.py
 COPY --from=build /out/mcp-gateway /usr/local/bin/mcp-gateway
 COPY deploy/demo/entrypoint.sh /usr/local/bin/entrypoint.sh
