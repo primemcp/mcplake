@@ -8,9 +8,12 @@ strip from. Seed data is in-memory and fictional; nothing here talks to
 Postgres — the demo's Postgres container backs the *gateway's own*
 [persistence], not this MCP (see deploy/demo/config.toml).
 
-Run over stdio (FastMCP's default transport) — the only transport
-mcp.Client (mcp/client.go) supports, so this always runs as a subprocess
-inside the gateway's own container, never as its own compose service.
+Run over stdio (FastMCP's default transport), so this runs as a subprocess
+inside the gateway's own container. That follows from the transport, not
+from a limit of the gateway: since ADR-0017 mcp.Client also speaks http and
+sse, and the demo's other MCP (postgres-mcp, see compose.yaml) is a
+separate container reached over the network. Having one of each is the
+point — the gateway's behaviour does not vary by transport.
 """
 
 from fastmcp import FastMCP

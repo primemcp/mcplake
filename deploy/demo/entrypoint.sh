@@ -14,6 +14,8 @@ set -eu
 jwks_url="${GATEWAY_JWKS_URL:-http://localhost:8080/realms/mcplake/protocol/openid-connect/certs}"
 pg_host="${GATEWAY_PG_HOST:-postgres}"
 pg_port="${GATEWAY_PG_PORT:-5432}"
+pg_mcp_host="${GATEWAY_PG_MCP_HOST:-localhost}"
+pg_mcp_port="${GATEWAY_PG_MCP_PORT:-8000}"
 
 echo "entrypoint: waiting for Keycloak realm ($jwks_url)..."
 until curl --fail --silent --output /dev/null "$jwks_url"; do
@@ -64,5 +66,26 @@ python3 -c 'import fastmcp' >/dev/null 2>&1 ||
     fail "the demo MCP server is missing at $demo_mcp_script." \
          "compose.yaml mounts deploy/demo/mcp-servers there - check that mount."
 echo "entrypoint: demo MCP server is present and its dependencies import"
+
+# And the same again for the sse MCP in its own container. Registry.Register
+# is tolerant by design (ADR-0003) -- an MCP that is merely slow to start
+# would be recorded as "unreachable" and skipped, and the gateway would come
+# up looking healthy with one of its two MCPs missing and no tools on it.
+# That is the exact failure #180 was about; a remote MCP just makes the race
+# easier to lose, because "the container started" and "the server is
+# listening" are further apart than they are for a subprocess.
+#
+# A TCP connect rather than an HTTP request: the endpoint is an SSE stream
+# that stays open once accepted, so curl would hang rather than return, and
+# "something is listening" is all this needs to know.
+echo "entrypoint: waiting for the Postgres MCP ($pg_mcp_host:$pg_mcp_port)..."
+until python3 - "$pg_mcp_host" "$pg_mcp_port" <<'PY' 2>/dev/null
+import socket, sys
+socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=2).close()
+PY
+do
+    sleep 2
+done
+echo "entrypoint: the Postgres MCP is accepting connections"
 
 exec mcp-gateway "$@"
