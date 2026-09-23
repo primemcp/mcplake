@@ -3,6 +3,7 @@ import { EmptyState } from "../primitives/EmptyState";
 import { ErrorNotice } from "../primitives/ErrorNotice";
 import { useEndpoints, findEndpoint } from "../../api/endpoints";
 import { useFilterPolicies } from "../../api/policies";
+import { MCPS_PATH, mcpPath, parseRoute } from "../../lib/route";
 import { clearStorage, readStorage, writeStorage } from "../../lib/storage";
 import { EndpointDetail } from "./EndpointDetail";
 import { EndpointList } from "./EndpointList";
@@ -11,15 +12,37 @@ import { ResponseFilterGroup } from "./ResponseFilterGroup";
 const SELECTED_KEY = "mcplake:instances:selected";
 const isString = (v: unknown): v is string => typeof v === "string";
 
+/** A direct load of /mcps/:name selects that MCP over whatever localStorage
+ * remembers -- a deep link should open what it links to. */
+function initialSelection(): string | null {
+  const route = parseRoute(window.location.pathname);
+  if (route?.screen === "instances" && route.mcpName !== null) return route.mcpName;
+  return readStorage(SELECTED_KEY, isString);
+}
+
 export function InstancesScreen() {
   const { endpoints, loading, error, retry, register, unregister, setEnabled } = useEndpoints();
   const filterPolicies = useFilterPolicies();
-  const [selectedName, setSelectedName] = useState<string | null>(() => readStorage(SELECTED_KEY, isString));
+  const [selectedName, setSelectedName] = useState<string | null>(initialSelection);
 
-  const selectEndpoint = (name: string | null) => {
+  // `replace` is for a selection this screen decided on its own (the
+  // initial auto-select, or snapping back to a valid endpoint after the
+  // selected one was deleted) -- it corrects the URL without adding a
+  // history entry, so Back doesn't require stepping through corrections
+  // the operator never asked for. A real click always pushes, so Back
+  // returns to whatever was selected before it.
+  const selectEndpoint = (name: string | null, { replace = false }: { replace?: boolean } = {}) => {
     setSelectedName(name);
-    if (name === null) clearStorage(SELECTED_KEY);
-    else writeStorage(SELECTED_KEY, name);
+    if (name === null) {
+      clearStorage(SELECTED_KEY);
+    } else {
+      writeStorage(SELECTED_KEY, name);
+    }
+    const path = name === null ? MCPS_PATH : mcpPath(name);
+    if (path !== window.location.pathname) {
+      if (replace) window.history.replaceState(null, "", path);
+      else window.history.pushState(null, "", path);
+    }
   };
 
   // Keep the selection valid as the list changes (e.g. after a delete).
@@ -29,12 +52,27 @@ export function InstancesScreen() {
   useEffect(() => {
     if (loading) return;
     if (selectedName === null && endpoints.length > 0) {
-      selectEndpoint(endpoints[0].name);
+      selectEndpoint(endpoints[0].name, { replace: true });
     } else if (selectedName !== null && !findEndpoint(endpoints, selectedName)) {
-      selectEndpoint(endpoints[0]?.name ?? null);
+      selectEndpoint(endpoints[0]?.name ?? null, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoints, selectedName, loading]);
+
+  // Browser back/forward between two /mcps/:name entries: useNav's own
+  // popstate listener only tracks which *screen* is active, so this stays
+  // in sync with which MCP is selected while this screen stays mounted.
+  useEffect(() => {
+    const onPopState = () => {
+      const route = parseRoute(window.location.pathname);
+      if (route?.screen !== "instances") return;
+      setSelectedName(route.mcpName);
+      if (route.mcpName === null) clearStorage(SELECTED_KEY);
+      else writeStorage(SELECTED_KEY, route.mcpName);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const selected = selectedName ? findEndpoint(endpoints, selectedName) : undefined;
 

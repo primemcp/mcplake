@@ -99,6 +99,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
   sessionStorage.clear();
+  // restorePath (unlike the browser.ts functions mocked above) really does
+  // call history.replaceState in these tests -- reset so one test's path
+  // can't leak into the next.
+  window.history.replaceState({}, "", "/");
 });
 
 describe("AuthProvider", () => {
@@ -145,6 +149,37 @@ describe("AuthProvider", () => {
     const pending = JSON.parse(sessionStorage.getItem("mcplake:auth:pending") as string);
     expect(pending.state).toBe(target.searchParams.get("state"));
     expect(target.search).not.toContain(pending.verifier);
+  });
+
+  it("signing in from a deep link remembers the current path to restore after sign-in", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/mcps/postgres-demo");
+    stubFetch(LOGIN);
+    render(<AuthProvider>{app}</AuthProvider>);
+
+    await user.click(await screen.findByRole("button", { name: /Sign in/ }));
+
+    await waitFor(() => expect(browser.redirectTo).toHaveBeenCalled());
+    const pending = JSON.parse(sessionStorage.getItem("mcplake:auth:pending") as string);
+    expect(pending.returnPath).toBe("/mcps/postgres-demo");
+  });
+
+  it("restores a deep-linked path after a successful exchange, since the provider always redirects back to '/'", async () => {
+    sessionStorage.setItem(
+      "mcplake:auth:pending",
+      JSON.stringify({ verifier: "ver", state: "st", returnPath: "/mcps/postgres-demo" }),
+    );
+    // Mirrors what the provider actually does: redirect_uri is fixed to
+    // the origin's "/", so the callback always lands there regardless of
+    // where sign-in started.
+    vi.mocked(browser.currentHref).mockReturnValue("http://gw.local/?code=abc&state=st");
+    const stub = stubFetch(LOGIN);
+    stub.tokenResponse = () => json({ access_token: ADMIN_TOKEN, expires_in: 300 });
+
+    render(<AuthProvider>{app}</AuthProvider>);
+
+    await screen.findByText("MCP connections");
+    expect(window.location.pathname).toBe("/mcps/postgres-demo");
   });
 
   it("completes the callback: exchanges the code, shows the app, and scrubs the URL", async () => {

@@ -25,7 +25,17 @@ export type Session = {
   expiresAt: number | null;
 };
 
-export type Pending = { verifier: string; state: string };
+export type Pending = {
+  verifier: string;
+  state: string;
+  // The path the operator was on when they hit "Sign in" (e.g. a
+  // bookmarked /mcps/:name), restored after a successful exchange. The
+  // OAuth redirect_uri is fixed to this origin's "/" (browser.ts,
+  // ADR-0014) — without this, Keycloak always hands the browser back to
+  // the root, silently dropping whatever was deep-linked. Optional so
+  // existing callers/tests that don't care about it don't have to say so.
+  returnPath?: string;
+};
 
 function isSession(v: unknown): v is Session {
   if (typeof v !== "object" || v === null) return false;
@@ -40,7 +50,11 @@ function isSession(v: unknown): v is Session {
 function isPending(v: unknown): v is Pending {
   if (typeof v !== "object" || v === null) return false;
   const p = v as Record<string, unknown>;
-  return typeof p.verifier === "string" && typeof p.state === "string";
+  return (
+    typeof p.verifier === "string" &&
+    typeof p.state === "string" &&
+    (p.returnPath === undefined || typeof p.returnPath === "string")
+  );
 }
 
 /**

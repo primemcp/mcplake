@@ -34,6 +34,18 @@ runs as part of `make ui-build` (`tsc -b && vite build`).
 Endpoint list (left column) + detail/edit panel + response filters, for the
 selected endpoint.
 
+- **URL-addressed.** Selecting an endpoint pushes `/mcps/:name` (the gateway
+  serves the SPA for any path outside `/admin/*` — `RegisterUIRoutes`'s
+  `NoRoute` handler already did this, so no backend change was needed to
+  add it); loading that URL directly opens the UI with that endpoint
+  pre-selected. `/users` is the other addressed screen. Everything else
+  (including bare `/`) falls back to whichever screen localStorage
+  remembers, same as before — see `lib/route.ts`/`state/useNav.ts`. Browser
+  back/forward moves between both screens and between endpoints. Kept
+  deliberately dependency-free (hand-rolled `history.pushState`/`popstate`,
+  not a router library) — two screens and one deep-linkable detail page
+  don't justify one, the same reasoning as `auth/oidc.ts`'s hand-written
+  PKCE.
 - **Add/edit an endpoint** registers via `POST /admin/mcps` (there is no
   `PUT` — editing re-registers under the same name, which the backend
   upserts). Only `stdio` transport actually works against the real gateway
@@ -195,6 +207,15 @@ why this shape.
   out — re-authenticating as the same person would loop forever.
 - With admin auth **off**, none of this appears: no sign-in screen, no
   `Authorization` header, no identity in the sidebar.
+- **A deep link survives sign-in.** `redirectUri()` is fixed to this
+  origin's bare `/` (never taken from the current path — that's how open
+  redirects happen), so the provider always sends the browser back to the
+  root regardless of where sign-in started. The path at the moment "Sign
+  in" is clicked (e.g. a bookmarked `/mcps/:name`) is stashed alongside the
+  PKCE `verifier`/`state` in `auth/session.ts`'s `Pending` record and put
+  back (`history.replaceState`, `auth/browser.ts`'s `restorePath`) once the
+  code exchange succeeds — otherwise a shared/bookmarked MCP link would
+  silently land on the endpoint list after signing in.
 - Not covered: signature/`exp`/`iss` checks (the gateway does those), and
   signing out of the provider itself — sign-out is local to this UI.
 

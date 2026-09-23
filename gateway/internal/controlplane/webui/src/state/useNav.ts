@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { MCPS_PATH, USERS_PATH, parseRoute } from "../lib/route";
 
 export type Screen = "instances" | "users";
 
@@ -27,20 +28,42 @@ function writeStoredScreen(screen: Screen) {
   }
 }
 
+function pathFor(screen: Screen): string {
+  return screen === "instances" ? MCPS_PATH : USERS_PATH;
+}
+
 /**
- * Which of the two screens is active, persisted to localStorage so a page
- * reload lands back where the operator left off instead of always
- * bouncing to MCP connections. Still no client-side router (the mockup's
- * own navigation isn't URL-addressed either, see the Admin UI design
- * doc) -- this is just a remembered default, not a real route.
+ * Which of the two screens is active. A direct load of a recognized URL
+ * (`/mcps`, `/mcps/:name`, `/users`) wins over the remembered screen -- a
+ * deep link should open what it links to, not wherever the operator was
+ * last -- and browser back/forward between two different screens is
+ * handled via `popstate`. Anything else (including bare "/") falls back to
+ * localStorage, so a plain reload still lands where the operator left off.
+ *
+ * This owns the screen, not the selected MCP: InstancesScreen already
+ * persists+validates that against the live endpoint list, and duplicating
+ * it here would just be two sources of truth for the same thing. It reads
+ * the same URL (see `parseRoute`) to seed its own initial selection.
  */
 export function useNav(initial: Screen = "instances") {
-  const [screen, setScreen] = useState<Screen>(() => readStoredScreen() ?? initial);
+  const [screen, setScreen] = useState<Screen>(() => parseRoute(window.location.pathname)?.screen ?? readStoredScreen() ?? initial);
 
   const go = (next: Screen) => {
     setScreen(next);
     writeStoredScreen(next);
+    window.history.pushState(null, "", pathFor(next));
   };
+
+  useEffect(() => {
+    const onPopState = () => {
+      const route = parseRoute(window.location.pathname);
+      if (!route) return;
+      setScreen(route.screen);
+      writeStoredScreen(route.screen);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   return { screen, goInstances: () => go("instances"), goUsers: () => go("users") };
 }

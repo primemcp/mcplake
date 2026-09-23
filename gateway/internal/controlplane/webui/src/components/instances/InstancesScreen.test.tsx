@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FilterPolicy, MCPRegistration } from "../../api/types";
@@ -41,6 +41,9 @@ function stubEndpointsFetch() {
 afterEach(() => {
   vi.unstubAllGlobals();
   localStorage.clear();
+  // Several tests below navigate for real via history.pushState; reset so
+  // one test's URL can't leak into the next.
+  window.history.pushState({}, "", "/");
 });
 
 describe("InstancesScreen", () => {
@@ -115,6 +118,54 @@ describe("InstancesScreen", () => {
 
     await waitFor(() => expect(createdFilters).toHaveLength(1));
     expect(createdFilters[0]).toMatchObject({ name: "hide-b::only_in_b", mcp: "mcp-b", tool: "only_in_b" });
+  });
+
+  it("a direct load of /mcps/:name selects that endpoint over whatever localStorage remembers", async () => {
+    localStorage.setItem("mcplake:instances:selected", JSON.stringify("mcp-a"));
+    window.history.pushState({}, "", "/mcps/mcp-b");
+    stubEndpointsFetch();
+
+    render(<InstancesScreen />);
+
+    await waitFor(() => expect(screen.getByText("$.b_field")).toBeInTheDocument());
+    expect(screen.queryByText("$.a_field")).not.toBeInTheDocument();
+  });
+
+  it("selecting an endpoint pushes /mcps/:name so it's bookmarkable/shareable", async () => {
+    const user = userEvent.setup();
+    stubEndpointsFetch();
+    render(<InstancesScreen />);
+
+    await user.click(await screen.findByRole("button", { name: /^mcp-b/ }));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/mcps/mcp-b"));
+  });
+
+  it("auto-selecting the first endpoint on load corrects the URL without adding a history entry", async () => {
+    stubEndpointsFetch();
+    const pushSpy = vi.spyOn(window.history, "pushState");
+
+    render(<InstancesScreen />);
+
+    await waitFor(() => expect(window.location.pathname).toBe("/mcps/mcp-a"));
+    expect(pushSpy).not.toHaveBeenCalled();
+  });
+
+  it("browser back/forward between two endpoints re-selects to match the URL", async () => {
+    const user = userEvent.setup();
+    stubEndpointsFetch();
+    render(<InstancesScreen />);
+
+    await screen.findByRole("button", { name: /^mcp-a/ });
+    await user.click(screen.getByRole("button", { name: /^mcp-b/ }));
+    await waitFor(() => expect(screen.getByText("$.b_field")).toBeInTheDocument());
+
+    act(() => {
+      window.history.pushState({}, "", "/mcps/mcp-a");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() => expect(screen.getByText("$.a_field")).toBeInTheDocument());
   });
 
   it("toggling Enabled end to end calls the real PATCH and the list reflects it after refresh", async () => {
