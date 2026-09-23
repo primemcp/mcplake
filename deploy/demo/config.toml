@@ -1,0 +1,69 @@
+# mcplake Gateway - compose demo configuration. See config.example.toml for
+# the full annotated reference and docs/DEMO.md for how this file is used.
+
+[server]
+# 8080 is Keycloak's port: the gateway container shares Keycloak's network
+# namespace (see compose.yaml), so these must not collide with it or with
+# each other.
+data_plane_addr = ":9090"
+# Bound to all interfaces (not the usual loopback-only default) and published
+# in compose.yaml so the admin web UI is reachable from the host browser.
+# README.md's "widen it only once admin_auth is configured" caveat is why
+# that's paired with the [admin_auth] section below rather than left open.
+control_plane_addr = ":9091"
+
+[oidc]
+# Reached over loopback because the gateway container shares Keycloak's
+# network namespace (network_mode: "service:keycloak" in compose.yaml) -
+# config.validateSecureHTTPURL requires https everywhere except a loopback
+# host, and this genuinely is one, not a bypass of that check.
+jwks_url = "http://localhost:8080/realms/mcplake/protocol/openid-connect/certs"
+issuer = "http://localhost:8080/realms/mcplake"
+audience = "mcplake-demo"
+
+[persistence]
+driver = "postgres"
+dsn = "postgres://gateway:gateway@postgres:5432/gateway?sslmode=disable"
+
+# The dummy MCP: the official postgres reference server, run as a subprocess
+# inside the gateway's own container (mcp.Client only speaks stdio - see
+# ADR-0003). It takes a single connection-string argument, always runs every
+# query inside a read-only transaction, and exposes one tool: "query".
+[[mcps]]
+name = "postgres-demo"
+type = "stdio"
+command = "mcp-server-postgres"
+arguments = ["postgresql://demo_reader:demo_reader@postgres:5432/demo"]
+
+# Only "alice" (role=db-reader) can call the demo MCP; "bob" (role=guest)
+# authenticates fine but gets 403 forbidden on /v1/call - see docs/DEMO.md.
+[[access_policies]]
+name = "demo-reader"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+[[access_policies.grants]]
+mcp = "postgres-demo"
+tools = ["*"]
+
+[[access_policies]]
+name = "admin"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^admin$"
+[[access_policies.grants]]
+mcp = "*"
+tools = ["*"]
+
+# Gates /admin/* (the JSON API and the embedded web UI's calls to it) and
+# tells the UI how to sign in - ADR-0010 and ADR-0014. Only "admin"
+# (role=admin) is let in; alice and bob authenticate fine at Keycloak but get
+# 403 here, same as they would against a real deployment's admin API.
+[[admin_auth.match]]
+path = "$.role"
+pattern = "^admin$"
+
+[admin_auth.login]
+client_id = "mcplake-demo"
+authorization_endpoint = "http://localhost:8080/realms/mcplake/protocol/openid-connect/auth"
+token_endpoint = "http://localhost:8080/realms/mcplake/protocol/openid-connect/token"

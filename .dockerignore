@@ -1,0 +1,9 @@
+.git
+.devcontainer
+docs
+# NOT testdata/ - gateway/internal/controlplane/webui's own test suite
+# imports a fixture from there via a relative path assuming the real repo
+# layout (deploy/demo/Dockerfile's webui-build stage relies on it).
+**/node_modules
+gateway/internal/controlplane/webui/dist
+**/*.db
