@@ -15,6 +15,7 @@ what a real deployment's config file looks like; this demo's own config is
 | `gateway`      | The mcplake gateway, built from this repo: the data plane fronting both MCPs below, and the control plane serving the embedded admin web UI. |
 | `postgres-mcp` | An MCP server in its **own container**, reached over the `sse` transport. |
 | `postgres`     | Backs the gateway's own `[persistence]` (a `gateway` database) *and* the `demo` database `postgres-mcp` reads. The two are deliberately separate. |
+| `webui`        | The admin web UI as its own prebuilt image (`gcr.io/distroless/static`), serving the SPA and reverse-proxying `/admin/*` to the gateway. See [ADR-0020](architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.md). |
 | `inspector`    | [MCP Inspector](https://modelcontextprotocol.io/docs/2026-07-28/tools/inspector), for driving the gateway's own MCP control server from a browser. |
 
 ### The two MCPs, and why there are two
@@ -345,16 +346,28 @@ worth knowing if you add your own list-returning tool with a filter on it.
 
 ## Admin web UI
 
-The gateway serves its embedded admin UI from the same listener as
-`/admin/*` (`control_plane_addr`), so once the stack is up it's just a
-browser away at **http://localhost:9091/**.
+There are two ways to reach it in this demo, and they serve the same app:
+
+- **http://localhost:8082/** — the `webui` container (ADR-0020). The SPA is
+  compiled into that image at build time and the container only serves it;
+  `/admin/*` is reverse-proxied to the gateway so the browser sees one origin.
+  This is the shape a real install would use, and the one the walkthrough
+  below assumes.
+- **http://localhost:9091/** — the gateway's own embedded copy, served from the
+  same listener as `/admin/*` (`control_plane_addr`). Still supported, and what
+  you get when running the `mcp-gateway` binary on its own with no second
+  container.
+
+Substitute either origin below; everything else is identical.
 
 `deploy/demo/config.toml`'s `[admin_auth]` section gates it: only a token
 whose `role` claim is `admin` gets past `/admin/*` (ADR-0010), and
 `[admin_auth.login]` tells the UI itself how to run the Authorization
 Code + PKCE flow against Keycloak (ADR-0014) - no manual token-pasting.
 
-1. Open http://localhost:9091/ - the UI redirects to Keycloak.
+1. Open http://localhost:8082/ (or http://localhost:9091/) - the UI
+   redirects to Keycloak. The demo realm allows any redirect URI, so both
+   origins work; a real deployment registers the one it serves.
 2. Sign in as **mcplake-admin** / **mcplake-admin** (not Keycloak's own
    `admin`/`admin` console login - see the note above).
 3. Keycloak redirects back to the UI, now authenticated - try alice/alice or

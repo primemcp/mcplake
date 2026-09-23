@@ -73,6 +73,7 @@ services:
       # is published here with a known, in-repo session token, and the
       # Postgres MCP talks to the demo database directly, below the
       # gateway's policy layer. Neither belongs on a LAN.
+      - "8082:8082"           # admin web UI (the webui container)
       - "127.0.0.1:8000:8000" # postgres-mcp, sse endpoint at /sse
       - "127.0.0.1:6274:6274" # MCP Inspector web UI
 
@@ -133,6 +134,36 @@ services:
     environment:
       DATABASE_URI: "postgresql://demo_reader:demo_reader@postgres:5432/demo"
     command: ["--access-mode=restricted", "--transport=sse"]
+    restart: on-failure
+
+  # The admin web UI as its own prebuilt image (ADR-0020): the SPA is compiled
+  # at image build time and this container only serves it, so nothing builds
+  # when the stack comes up.
+  #
+  # It is also the browser's single origin. The UI fetches the admin API with
+  # relative URLs and ADR-0014's PKCE redirect names whatever origin you
+  # browsed to, so this container serves the assets *and* reverse-proxies
+  # /admin/* to the gateway's control plane. Split those across two origins
+  # and you need a CORS allowlist on the admin API plus a second registered
+  # redirect URI -- see the ADR.
+  #
+  # Joining Keycloak's network namespace like everything else is what lets
+  # WEBUI_API_TARGET be a loopback address.
+  #
+  # The gateway's own control plane still serves its embedded copy of the UI
+  # on :9091. Both work; this is the one the demo points you at, and the one
+  # that shows the deployment shape a real install would use.
+  webui:
+    build:
+      context: .
+      dockerfile: deploy/webui/Dockerfile
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+    environment:
+      WEBUI_ADDR: ":8082"
+      WEBUI_API_TARGET: "http://localhost:9091"
     restart: on-failure
 
   # MCP Inspector, the reference client, for driving the gateway's own MCP
