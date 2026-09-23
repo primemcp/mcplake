@@ -57,7 +57,7 @@ type MCPResolver interface {
 	Disabled(mcp string) bool
 	// List returns every registration the registry holds, with its status,
 	// operator flag and discovered tool schemas. It is what the data-plane
-	// MCP endpoint builds its tools/list from (ADR-0020); the REST
+	// MCP endpoint builds its tools/list from (ADR-0021); the REST
 	// POST /v1/call path, which is told the mcp and tool up front, has no
 	// need of it.
 	List() []cache.MCPRegistration
@@ -109,7 +109,7 @@ type Gateway struct {
 	baseCancel context.CancelFunc
 
 	// mcpStreamable and mcpSSE serve the data plane's MCP endpoints
-	// (ADR-0020). Built once by buildMCPHandlers.
+	// (ADR-0021). Built once by buildMCPHandlers.
 	mcpStreamable fasthttp.RequestHandler
 	mcpSSE        fasthttp.RequestHandler
 

@@ -40,7 +40,7 @@ func connectGatewayAsMCPClient(t *testing.T, ctx context.Context, transport sdk.
 	return session
 }
 
-// The acceptance criterion for ADR-0020, end to end through the real
+// The acceptance criterion for ADR-0021, end to end through the real
 // binary's wiring: an off-the-shelf MCP client points at the gateway, over
 // either transport, and gets back a tool catalogue filtered to what its
 // token authorizes — then calls one of those tools and receives a result the

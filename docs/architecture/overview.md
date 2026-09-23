@@ -35,7 +35,7 @@ its workload ([ADR-0001](decisions/0001-use-fasthttp-for-gateway-server.md),
   itself, at `/v1/mcp` (Streamable HTTP) and `/v1/sse`, so an off-the-shelf MCP
   client can connect to the gateway directly; `POST /v1/call` remains for callers
   that prefer plain REST. Both run the same pipeline
-  ([ADR-0020](decisions/0020-serve-mcp-on-the-data-plane.md)).
+  ([ADR-0021](decisions/0021-serve-mcp-on-the-data-plane.md)).
 - **Control plane** (`Gin`) — low-volume CRUD for MCP registrations and access/filter
   policies, backed by SQLite by default and PostgreSQL for distributed deployments
   ([ADR-0006](decisions/0006-gorm-sqlite-postgres-persistence.md)).
@@ -60,7 +60,7 @@ underneath them.
    (see [ADR-0011](decisions/0011-mcp-control-server.md)).
 3. An MCP-protocol data-plane surface, so the gateway is reachable by any MCP client
    and its `tools/list` is filtered per caller to exactly the tools that caller's
-   access policy grants (see [ADR-0020](decisions/0020-serve-mcp-on-the-data-plane.md)).
+   access policy grants (see [ADR-0021](decisions/0021-serve-mcp-on-the-data-plane.md)).
 4. A single policy pipeline that runs the same JWT-claim rule evaluation twice per
    request — once to authorize which MCPs/tools a caller may invoke, and once to decide
    which response fields must be dropped before the result reaches the caller

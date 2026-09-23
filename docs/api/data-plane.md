@@ -85,7 +85,7 @@ The gateway is itself an MCP server. Any MCP client — an agent, an MCP-enabled
 editor, MCP Inspector — can connect to it directly instead of hand-rolling
 `POST /v1/call`, and gets a tool catalogue filtered to what its token
 authorizes. See
-[ADR-0020](../architecture/decisions/0020-serve-mcp-on-the-data-plane.md).
+[ADR-0021](../architecture/decisions/0021-serve-mcp-on-the-data-plane.md).
 
 | Path | Transport | Methods |
 |------|-----------|---------|

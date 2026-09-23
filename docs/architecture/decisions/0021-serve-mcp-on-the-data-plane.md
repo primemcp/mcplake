@@ -1,4 +1,4 @@
-# ADR-0020: Serve MCP on the Data Plane (Streamable HTTP and SSE)
+# ADR-0021: Serve MCP on the Data Plane (Streamable HTTP and SSE)
 
 - Status: Accepted
 - Date: 2026-09-23

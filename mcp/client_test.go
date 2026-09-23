@@ -240,6 +240,6 @@ func TestListTools_CarriesTheToolDescription(t *testing.T) {
 	}
 	require.NotNil(t, echo, "fixture server should list an echo tool")
 	// An MCP client picks a tool by its description, so discovery has to
-	// carry it rather than dropping it on the floor. See ADR-0020.
+	// carry it rather than dropping it on the floor. See ADR-0021.
 	assert.Equal(t, "echoes the given message back", echo.Description)
 }

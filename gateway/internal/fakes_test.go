@@ -52,7 +52,7 @@ type fakeResolver struct {
 	// See ADR-0019 and fakeResolver.setUnreachable.
 	registered map[string]bool
 	// schemas backs List, which the data-plane MCP endpoint needs in order
-	// to advertise a tool catalogue (ADR-0020). addTool, which predates it,
+	// to advertise a tool catalogue (ADR-0021). addTool, which predates it,
 	// records a tool with no schema.
 	schemas map[string]map[string]cache.ToolSchema
 	// unreachable names registrations the registry knows about but which

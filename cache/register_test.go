@@ -267,7 +267,7 @@ func TestRegister_NormalizesAnOmittedTransportToStdio(t *testing.T) {
 
 // TestRegistry_Register_KeepsToolDescriptions pins the field the data-plane
 // MCP endpoint needs: an MCP client picks a tool by its description, so
-// discovery has to store it rather than drop it. See ADR-0020.
+// discovery has to store it rather than drop it. See ADR-0021.
 func TestRegistry_Register_KeepsToolDescriptions(t *testing.T) {
 	fake := &fakeMCPClient{
 		tools: []mcp.ToolSchema{{

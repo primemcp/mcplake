@@ -13,7 +13,7 @@ import (
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
 
-// The data plane's MCP endpoints. See ADR-0020.
+// The data plane's MCP endpoints. See ADR-0021.
 const (
 	// MCPStreamablePath serves the MCP Streamable HTTP transport, the
 	// current standard. A client POSTs JSON-RPC to it and may hold a GET
@@ -105,7 +105,7 @@ func (g *Gateway) adaptMCPHandler(h http.Handler, kind mcpTransportKind) fasthtt
 // sdk's own SSE client does not resend the header on those, so requiring it
 // would reject a conforming client. Such a request is authorized by
 // possession of the unguessable session id that an authenticated GET was
-// handed. See ADR-0020.
+// handed. See ADR-0021.
 func (g *Gateway) authenticateMCP(next http.Handler, kind mcpTransportKind) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if g.authenticator == nil {

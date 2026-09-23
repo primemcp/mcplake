@@ -54,7 +54,7 @@ See [docs/OVERVIEW.md](docs/OVERVIEW.md) for detailed architecture and design ra
 
 - [x] Project scaffolding and architecture design
 - [x] fasthttp data-plane gateway (OIDC/JWT validation, claims-based authorization, tool-call proxy)
-- [x] MCP endpoints on the data plane — connect any MCP client to the gateway over Streamable HTTP (`/v1/mcp`) or SSE (`/v1/sse`), with `tools/list` filtered per caller ([ADR-0020](docs/architecture/decisions/0020-serve-mcp-on-the-data-plane.md))
+- [x] MCP endpoints on the data plane — connect any MCP client to the gateway over Streamable HTTP (`/v1/mcp`) or SSE (`/v1/sse`), with `tools/list` filtered per caller ([ADR-0021](docs/architecture/decisions/0021-serve-mcp-on-the-data-plane.md))
 - [x] Dynamic MCP registration and schema discovery
 - [x] Unified JSONPath+regexp claim-rule engine (access policies and response filtering)
 - [x] GORM persistence (SQLite default, PostgreSQL-ready)

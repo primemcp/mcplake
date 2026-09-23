@@ -49,7 +49,7 @@ type ToolSchema struct {
 	// Description is the tool's human-readable description, as the
 	// downstream advertised it. The data-plane MCP endpoint re-advertises
 	// it to its own callers, which is how a client's model picks a tool;
-	// see ADR-0020. Empty when the MCP doesn't provide one.
+	// see ADR-0021. Empty when the MCP doesn't provide one.
 	Description  string
 	InputSchema  json.RawMessage
 	OutputSchema json.RawMessage // nil when the MCP doesn't provide one

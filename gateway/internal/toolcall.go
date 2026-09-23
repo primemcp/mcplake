@@ -217,7 +217,7 @@ func (g *Gateway) runPipeline(ctx context.Context, req ToolCallRequest) (json.Ra
 // filter.
 //
 // It is split out from runPipeline because the data-plane MCP endpoint
-// (ADR-0020) validates the bearer token once when a session is established
+// (ADR-0021) validates the bearer token once when a session is established
 // and then holds the claims, so it has nothing left to validate per call.
 // Both surfaces run this same function, rather than each growing its own
 // copy of "call a tool subject to policy" -- which is the reasoning ADR-0011
