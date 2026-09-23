@@ -7,10 +7,15 @@
 # ---- frontend: build the admin UI (make ui-build's own steps) ----
 FROM oven/bun:1 AS webui-build
 WORKDIR /src
-COPY gateway/internal/controlplane/webui/package.json gateway/internal/controlplane/webui/bun.lock ./
-RUN bun install --frozen-lockfile
-COPY gateway/internal/controlplane/webui/ ./
-RUN bun run build
+COPY gateway/internal/controlplane/webui/package.json gateway/internal/controlplane/webui/bun.lock ./gateway/internal/controlplane/webui/
+RUN cd gateway/internal/controlplane/webui && bun install --frozen-lockfile
+# claimMatch.test.ts imports ../../../../../../testdata/claim_stringify_cases.json
+# (kept alongside router/claimrule_test.go's Go twin of the same cases), so
+# testdata/ has to land at the same relative depth from webui/ that it sits
+# at in the real repo, not get flattened away like the rest of the repo.
+COPY testdata ./testdata
+COPY gateway/internal/controlplane/webui/ ./gateway/internal/controlplane/webui/
+RUN cd gateway/internal/controlplane/webui && bun run build
 
 # ---- backend: build the gateway binary against the full workspace ----
 FROM golang:1.27 AS build
@@ -25,7 +30,7 @@ COPY gateway ./gateway
 COPY mcp ./mcp
 COPY persistence ./persistence
 COPY router ./router
-COPY --from=webui-build /src/dist ./gateway/internal/controlplane/webui/dist
+COPY --from=webui-build /src/gateway/internal/controlplane/webui/dist ./gateway/internal/controlplane/webui/dist
 # glebarez/sqlite is pure Go (modernc.org/sqlite); CGO_ENABLED=0 keeps the
 # binary portable across the build and runtime base images.
 RUN CGO_ENABLED=0 go build -o /out/mcp-gateway ./cmd/gateway
