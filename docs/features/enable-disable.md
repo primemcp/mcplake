@@ -18,7 +18,10 @@ different point in the [request pipeline](../architecture/overview.md#pipeline-p
 For MCP registrations, `enabled` (operator intent) is separate from `status`
 (`connecting` / `active` / `unreachable`, connection health owned by the
 gateway). A disabled MCP can still be `active`; a disabled MCP that later goes
-`unreachable` stays disabled.
+`unreachable` stays disabled — and the
+[health check](mcp-health-check.md) reconnects it like any other, so
+re-enabling it still needs no reconnect. The health loop never touches
+`enabled`.
 
 `enabled` is *only* ever changed through configuration or the admin API — it is
 never inferred. An existing deployment upgrading to a build with this feature

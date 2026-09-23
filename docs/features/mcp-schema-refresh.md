@@ -52,8 +52,19 @@ moment it is re-enabled.
   (`DELETE` then `POST /admin/mcps`); an on-demand refresh endpoint is tracked
   as follow-up in ADR-0013.
 
+## What it does *not* do
+
+A refresh never reconnects. It calls `tools/list` on the client the
+registration already holds, and if that client's session is dead the refresh
+fails and is logged — the previous schema stays put. Detecting and repairing a
+dead session is
+[the health check](mcp-health-check.md)'s job, on its own interval.
+
 ## Related
 
+- [mcp-health-check.md](mcp-health-check.md) — the other `[mcp]` timer. Schema
+  freshness and connection health are separate questions; note that the health
+  check is **on by default** and this one is not.
 - [CONFIG.md](../CONFIG.md#mcp-global) — the `[mcp]` table.
 - [enable-disable.md](enable-disable.md) — why a disabled MCP is still refreshed.
 - [ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.md).

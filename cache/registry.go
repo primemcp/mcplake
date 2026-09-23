@@ -57,6 +57,9 @@ type ToolSchema struct {
 type MCPClient interface {
 	ListTools(ctx context.Context) ([]mcp.ToolSchema, error)
 	CallTool(ctx context.Context, tool string, args map[string]any) (*mcp.ToolResponse, error)
+	// Ping reports whether the session is still usable. See
+	// Registry.CheckHealth (health.go) and ADR-0019.
+	Ping(ctx context.Context) error
 	Close() error
 }
 
@@ -148,6 +151,18 @@ func (r *Registry) Disabled(mcp string) bool {
 	defer r.mu.RUnlock()
 	reg, ok := r.byName[mcp]
 	return ok && !reg.Enabled
+}
+
+// Registered reports whether name is in the Registry at all, whatever its
+// status. Resolve answers the narrower "is there a client I may call
+// through"; this answers "does this MCP exist", which is what tells a
+// caller whether a refused call means an unknown name or a known one whose
+// downstream is currently unreachable (ADR-0019).
+func (r *Registry) Registered(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.byName[name]
+	return ok
 }
 
 // SetEnabled flips the operator on/off switch for name in place, without

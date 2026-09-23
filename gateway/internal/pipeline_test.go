@@ -114,6 +114,29 @@ func TestToolCall_UnknownMCPReturns404(t *testing.T) {
 	assert.Equal(t, "mcp_not_found", body["error"])
 }
 
+// A registered MCP whose downstream is currently unreachable is a
+// different answer from an unknown one, and a recoverable one: the health
+// loop is already trying to reconnect it (ADR-0019). Returning 404 sent an
+// operator looking for a missing registration that was in fact fine.
+func TestToolCall_UnreachableMCPReturns503(t *testing.T) {
+	resolver := newFakeResolver()
+	resolver.setUnreachable("postgres-ro") // registered, but Resolve has no client
+
+	addr, cleanup := startTestGatewayWithConfig(t, internal.Config{
+		Authenticator: &fakeAuthenticator{claims: validClaims()},
+		Policy:        &fakePolicyEngine{authorized: true},
+		Resolver:      resolver,
+	})
+	defer cleanup()
+
+	resp := postToolCall(t, addr, `{"mcp":"postgres-ro","tool":"get_user"}`, "Bearer token")
+	body := decodeJSONBody(t, resp)
+
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	assert.Equal(t, "mcp_unavailable", body["error"],
+		"a registered-but-down MCP must be distinguishable from one that does not exist")
+}
+
 func TestToolCall_UnknownToolReturns404(t *testing.T) {
 	resolver := newFakeResolver()
 	resolver.addTool("postgres-ro", "get_user", &fakeMCPClient{}) // only get_user exists

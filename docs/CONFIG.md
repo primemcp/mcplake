@@ -205,6 +205,7 @@ Settings that apply to every registered MCP.
 ```toml
 [mcp]
 schema_refresh_interval = "15m"
+health_check_interval = "30s"
 ```
 
 **Fields:**
@@ -216,6 +217,22 @@ schema_refresh_interval = "15m"
   at registration). A `tools/list` failure during a refresh is logged and
   leaves the previous schema in place. See
   [ADR-0013](architecture/decisions/0013-periodic-mcp-schema-refresh.md).
+- `health_check_interval` — a Go duration string. How often the gateway pings
+  every registered MCP and **reconnects** the ones that have stopped answering,
+  including retrying registrations that are currently `unreachable`. This is
+  what lets an `http`/`sse` MCP survive a restart of the server behind it, and
+  what lets an MCP registered before its server was listening heal itself.
+
+  Unlike `schema_refresh_interval`, **an omitted key does not mean off**: it
+  means `"30s"`. Disabling the loop takes an explicit `health_check_interval =
+  "0"`, and the gateway logs a `WARN` at startup when you do, because a
+  downstream that restarts then stays broken until the gateway is restarted. A
+  negative value is rejected at startup.
+
+  An MCP that cannot be reconnected is retried on a doubling backoff, capped at
+  five minutes. See
+  [mcp-health-check.md](features/mcp-health-check.md) and
+  [ADR-0019](architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md).
 
 ### 3. Persistence
 

@@ -173,8 +173,11 @@ operators opt in with one duration.
 
 ### Follow-up
 
-- A health/reconnect mechanism that re-`Register`s an MCP stuck in
-  `unreachable` (Alternative A's genuine use).
+- ~~A health/reconnect mechanism that re-`Register`s an MCP stuck in
+  `unreachable` (Alternative A's genuine use).~~ Done in
+  [ADR-0019](0019-reconnect-downstream-mcps-on-a-health-check-loop.md), as a
+  separate loop rather than an extension of this one: it probes with `ping`
+  rather than `tools/list`, and it is on by default where this is opt-in.
 - An on-demand `POST /admin/mcps/:name/refresh` (Alternative D) and/or a
   `refresh_mcp` MCP control tool, both calling `Registry.RefreshTools`.
 - Consuming `notifications/tools/list_changed` where an MCP provides it

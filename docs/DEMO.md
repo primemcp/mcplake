@@ -259,6 +259,29 @@ the one thing a single-MCP demo can never show.
 Worth trying too: `list_schemas` and `list_objects` to see what the MCP
 advertises about the database, and `explain_query` on the SELECT above.
 
+#### Restarting it out from under the gateway
+
+The interesting property of an MCP the gateway does not own is that it can go
+away without asking. Try it:
+
+```bash
+docker compose restart postgres-mcp
+```
+
+Call `demo-postgres` immediately afterwards and you get
+`503 mcp_unavailable` — the session the gateway was holding died with the old
+container, and the admin UI shows the endpoint as `unreachable`. Wait half a
+minute and call again: it answers, with nobody having touched the gateway.
+
+That is the health-check loop
+([ADR-0019](architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md)),
+which pings every registered MCP on `mcp.health_check_interval` (30s by
+default) and rebuilds the ones that have stopped answering. Before it existed,
+this exact `restart` left the demo permanently broken until the gateway itself
+was restarted — `restart: on-failure` on that container made it a matter of
+time. `employee-directory` never had the problem, because a stdio MCP is the
+gateway's own child process.
+
 ## Field-level filtering
 
 Two `[[filter_policies]]` entries in `deploy/demo/config.toml` strip
@@ -515,6 +538,19 @@ container regardless.
   container in the gateway's own network namespace, which makes
   `localhost:8000` genuinely loopback. Either keep it loopback or put TLS in
   front of the MCP.
+- **`demo-postgres` shows `unreachable` in the admin UI, or a call returns
+  `503 mcp_unavailable`.** Its container is down or restarting. The gateway
+  retries it every `mcp.health_check_interval` (30s by default) and recovers on
+  its own once the container is back, so give it a moment before digging - see
+  [the health check](features/mcp-health-check.md). If it stays unreachable,
+  the reason is in the gateway log:
+
+  ```bash
+  docker compose logs gateway | grep -i "could not reconnect"
+  ```
+
+  Note that repeated failures back off, doubling up to five minutes, so the
+  retries thin out rather than stopping.
 - **Inspector says `403` connecting to `/admin/mcp`.** It is behind
   `admin_auth`, so it needs `mcplake-admin`'s bearer token in an
   `Authorization` header — alice's and bob's tokens authenticate but are not

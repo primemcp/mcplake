@@ -52,6 +52,10 @@ func badGateway(code, message string) *requestError {
 	return &requestError{status: fasthttp.StatusBadGateway, code: code, message: message}
 }
 
+func serviceUnavailable(code, message string) *requestError {
+	return &requestError{status: fasthttp.StatusServiceUnavailable, code: code, message: message}
+}
+
 func gatewayTimeout(code, message string) *requestError {
 	return &requestError{status: fasthttp.StatusGatewayTimeout, code: code, message: message}
 }
@@ -223,7 +227,16 @@ func (g *Gateway) runPipeline(ctx context.Context, req ToolCallRequest) (json.Ra
 
 	client, ok := g.resolver.Resolve(req.MCP)
 	if !ok {
-		return nil, notFound("mcp_not_found", "mcp not found or not active")
+		// Registered but not active is a different answer from unknown, and
+		// since ADR-0019 it is a *recoverable* one: the health loop is
+		// already trying to reconnect it, so the caller should retry rather
+		// than conclude the MCP does not exist. Conflating the two under
+		// 404 sent an operator looking for a missing registration when the
+		// registration was fine and the downstream was merely down.
+		if g.resolver.Registered(req.MCP) {
+			return nil, serviceUnavailable("mcp_unavailable", "mcp is registered but not currently reachable")
+		}
+		return nil, notFound("mcp_not_found", "mcp not found")
 	}
 	if !g.resolver.HasTool(req.MCP, req.Tool) {
 		return nil, notFound("tool_not_found", "tool not found on this mcp")

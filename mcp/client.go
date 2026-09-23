@@ -235,6 +235,31 @@ func (c *Client) ListTools(ctx context.Context) ([]ToolSchema, error) {
 	return schemas, nil
 }
 
+// Ping issues an MCP `ping` on the existing session and reports whether the
+// server answered.
+//
+// It exists to answer one question the Registry cannot otherwise ask: is
+// this session still usable? For stdio that is nearly always yes, because
+// the subprocess is the gateway's own child. For http and sse it is a real
+// question — the server on the other end is somebody else's process, free
+// to restart, redeploy or be rescheduled, and nothing tells this client
+// when that happens. See ADR-0019.
+//
+// `ping` rather than `tools/list` because liveness and schema freshness are
+// separate concerns with separate costs: ping is an empty round trip, while
+// tools/list may page through a large catalogue and is already ADR-0013's
+// job on its own interval.
+//
+// Callers should bound ctx. A peer that accepted the connection and then
+// stopped answering is exactly the case this has to detect, and without a
+// deadline it is also the case that hangs here.
+func (c *Client) Ping(ctx context.Context) error {
+	if err := c.session.Ping(ctx, nil); err != nil {
+		return fmt.Errorf("mcp: ping: %w", err)
+	}
+	return nil
+}
+
 // CallTool invokes tool with args and returns its raw result.
 func (c *Client) CallTool(ctx context.Context, tool string, args map[string]any) (*ToolResponse, error) {
 	result, err := c.session.CallTool(ctx, &sdk.CallToolParams{

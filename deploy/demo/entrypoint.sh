@@ -67,13 +67,16 @@ python3 -c 'import fastmcp' >/dev/null 2>&1 ||
          "compose.yaml mounts deploy/demo/mcp-servers there - check that mount."
 echo "entrypoint: demo MCP server is present and its dependencies import"
 
-# And the same again for the sse MCP in its own container. Registry.Register
-# is tolerant by design (ADR-0003) -- an MCP that is merely slow to start
-# would be recorded as "unreachable" and skipped, and the gateway would come
-# up looking healthy with one of its two MCPs missing and no tools on it.
-# That is the exact failure #180 was about; a remote MCP just makes the race
-# easier to lose, because "the container started" and "the server is
-# listening" are further apart than they are for a subprocess.
+# And the same again for the sse MCP in its own container -- though since
+# ADR-0019 this one is a convenience rather than a correctness requirement.
+#
+# The gateway now pings every registered MCP on mcp.health_check_interval and
+# reconnects the ones that are not answering, so an MCP that is merely slow to
+# start is picked up within half a minute on its own. What this wait buys is
+# that the demo is fully working the moment compose reports it up, instead of
+# spending its first half-minute with one of its two MCPs showing
+# "unreachable" and no tools -- which reads like the #180 failure even though
+# it would resolve itself.
 #
 # A TCP connect rather than an HTTP request: the endpoint is an SSE stream
 # that stays open once accepted, so curl would hang rather than return, and
