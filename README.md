@@ -66,7 +66,9 @@ and MCP servers? `docker compose up --build` (or `podman compose up --build`)
 brings up Keycloak, a dummy MCP server, and Postgres, with demo users that
 show a `200` vs a `403` under the same claims-based access control the
 gateway uses in production — and, since the dummy MCP returns structured
-data, a live field-level filtering example too. See [`docs/DEMO.md`](docs/DEMO.md).
+data, a live field-level filtering example too. See [`docs/DEMO.md`](docs/DEMO.md),
+including [Upgrading or resetting the demo](docs/DEMO.md#upgrading-or-resetting-the-demo)
+if you are coming back to it after pulling a newer revision.
 
 ## Contributing
 

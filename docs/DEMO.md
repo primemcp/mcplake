@@ -74,10 +74,51 @@ docker compose up --build
 First boot pulls the Keycloak/Postgres images, builds the gateway image
 (admin UI + Go binary), and imports the realm - give it a minute or two. The
 gateway's own entrypoint (`deploy/demo/entrypoint.sh`) waits for Keycloak's
-realm and Postgres to actually be ready before starting, so a clean exit
-with no gateway errors means the stack is up.
+realm and Postgres to actually be ready, and checks that the demo MCP server
+can actually run, before starting - so a clean exit with no gateway errors
+means the stack is up.
 
 Leave it running in that terminal, or add `-d` to run detached.
+
+### Upgrading or resetting the demo
+
+**After pulling a new revision of this repo, use both `--build` and `-v`:**
+
+```bash
+docker compose down -v && docker compose up -d --build
+# or: podman compose down -v && podman compose up -d --build
+```
+
+Neither flag is optional, and each covers a different half of the stack:
+
+- **`--build` (the image).** `deploy/demo/config.toml` and
+  `deploy/demo/mcp-servers/` are bind mounts, so a `git pull` changes them
+  immediately. The Python interpreter and `fastmcp` are baked into the image
+  and only change on a rebuild. Skip `--build` after pulling a revision that
+  changed the demo MCP's dependencies and the two halves disagree.
+  `entrypoint.sh` checks for exactly this and refuses to start, naming the
+  fix, rather than letting the gateway come up with an MCP it can never
+  reach.
+- **`-v` (the volume).** Config seeding happens **once per named entry, ever**
+  ([ADR-0016](architecture/decisions/0016-config-seeding-happens-once-per-entry.md)):
+  the database is the source of truth, and `config.toml` only ever seeds a
+  name the store has not seen. So an entry that changed *without* changing
+  its name is ignored on an upgrade. When the demo replaced its
+  `postgres-demo` MCP with `employee-directory`, the `demo-reader` access
+  policy kept its own name - so on a surviving volume it goes on granting
+  `postgres-demo`, alice gets `403` on the MCP that actually exists, and the
+  dead `postgres-demo` registration sits in the admin UI as permanently
+  unreachable.
+
+  Dropping the volume is the right fix for a demo. In a real deployment you
+  would make the change through the admin API instead, which is the whole
+  point of the rule. Either way the gateway now logs a `WARN` naming any
+  entry whose stored record disagrees with `config.toml`, so this is visible
+  rather than silent - see [CONFIG.md](CONFIG.md#3-persistence).
+
+Between pulls, `up -d` on its own is fine: the config and the MCP script are
+mounts, so a `compose restart gateway` picks up edits to either without a
+rebuild.
 
 ## Trying it out
 
@@ -265,6 +306,31 @@ regardless.
 
 ## Troubleshooting
 
+- **The admin UI lists `employee-directory` but it is never connected, shows
+  zero tools, and nothing you do to it helps.** That is a registration
+  failure: `cache.Registry.Register` records an MCP it cannot reach as
+  `unreachable` and the gateway serves on without it (ADR-0003). With zero
+  discovered tools there is also nothing for the response-filter editor to
+  offer, and saving an edit just re-runs the same failing exec - hence the
+  endpoint feeling inert. Check why:
+
+  ```bash
+  docker compose logs gateway | grep -i "registration failed"
+  ```
+
+  On a current image `entrypoint.sh` catches the common cause before the
+  gateway starts, so if you are seeing this at all, the stack is probably
+  running an image from before that check existed - see
+  [Upgrading or resetting the demo](#upgrading-or-resetting-the-demo).
+- **`entrypoint: python3 is not installed in this image` (or `fastmcp is not
+  importable`), and the gateway exits.** Working as intended: the image
+  predates the demo's Python MCP server while the bind-mounted `config.toml`
+  already references it. Rebuild - `docker compose up -d --build`.
+- **alice gets `403 forbidden` on a tool that clearly exists.** Check whether
+  the gateway logged `config entry already seeded and DIFFERS from the stored
+  record` at startup. On a volume that survived an upgrade, the stored
+  `demo-reader` policy still grants whatever MCP it was first seeded with -
+  see [Upgrading or resetting the demo](#upgrading-or-resetting-the-demo).
 - **Gateway keeps restarting / logs "load config" or JWKS errors.** Check
   `docker compose logs keycloak` - the realm import runs once, at Keycloak's
   own startup, and the gateway's entrypoint polls
