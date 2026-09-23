@@ -7,6 +7,7 @@ import (
 
 	"github.com/atsokha/mcplake/cache"
 	"github.com/atsokha/mcplake/persistence"
+	"github.com/atsokha/mcplake/router"
 )
 
 // Seed writes c's mcps/access_policies/filter_policies entries into the
@@ -26,7 +27,12 @@ import (
 // Adding a new entry to the config file still works: its name has no marker,
 // so the next boot seeds it. Editing an entry that has already been seeded
 // does not -- the stored record is authoritative, and Seed logs each entry
-// it skips so the operator can see why their edit had no effect.
+// it skips so the operator can see why their edit had no effect. A skip
+// whose stored record still says exactly what the config file says is
+// logged at DEBUG (the ordinary case on every boot after the first); a skip
+// where the two disagree is logged at WARN, naming the fields that differ,
+// because otherwise an operator who edits a seeded entry and restarts is
+// told nothing at all and has no way to tell that their edit was ignored.
 //
 // Seeded MCPs start in cache.StatusConnecting: Seed only records the
 // declared intent to register each MCP, it does not connect to any of them
@@ -57,17 +63,25 @@ func (c *Config) Seed(
 		return fmt.Errorf("config: read seed markers: %w", err)
 	}
 
-	seeded, err = backfillSeedMarkers(ctx, markerRepo, mcpRepo, accessRepo, filterRepo, seeded)
+	stored, err := loadStoredRecords(ctx, mcpRepo, accessRepo, filterRepo)
+	if err != nil {
+		return fmt.Errorf("config: read stored records: %w", err)
+	}
+
+	seeded, err = backfillSeedMarkers(ctx, markerRepo, stored, seeded)
 	if err != nil {
 		return fmt.Errorf("config: backfill seed markers: %w", err)
 	}
 
 	// mark is called only after the entry itself is written, so a crash in
 	// between costs one harmless re-seed rather than losing the entry.
-	seedOnce := func(kind, name string, write func() error) error {
+	//
+	// reportSkip is invoked instead of the write when the entry is already
+	// seeded; each caller supplies it because only the caller knows how to
+	// compare its own kind of record against what the store holds.
+	seedOnce := func(kind, name string, reportSkip func(), write func() error) error {
 		if seeded.Has(kind, name) {
-			slog.Debug("config entry already seeded; the stored record wins",
-				"kind", kind, "name", name)
+			reportSkip()
 			return nil
 		}
 		if err := write(); err != nil {
@@ -81,12 +95,18 @@ func (c *Config) Seed(
 
 	for _, reg := range c.MCPRegistrations() {
 		reg.Status = cache.StatusConnecting
-		err := seedOnce(persistence.SeedKindMCP, reg.Name, func() error {
-			if err := mcpRepo.Upsert(ctx, reg); err != nil {
-				return fmt.Errorf("config: seed mcp %q: %w", reg.Name, err)
-			}
-			return nil
-		})
+		err := seedOnce(persistence.SeedKindMCP, reg.Name,
+			func() {
+				got, ok := stored.mcps[reg.Name]
+				reportSeedSkipped(persistence.SeedKindMCP, reg.Name, ok,
+					mcpSeedFields(reg), mcpSeedFields(got))
+			},
+			func() error {
+				if err := mcpRepo.Upsert(ctx, reg); err != nil {
+					return fmt.Errorf("config: seed mcp %q: %w", reg.Name, err)
+				}
+				return nil
+			})
 		if err != nil {
 			return err
 		}
@@ -97,12 +117,18 @@ func (c *Config) Seed(
 		return fmt.Errorf("config: seed access policies: %w", err)
 	}
 	for _, p := range accessPolicies {
-		err := seedOnce(persistence.SeedKindAccessPolicy, p.Name, func() error {
-			if err := accessRepo.Upsert(ctx, p); err != nil {
-				return fmt.Errorf("config: seed access policy %q: %w", p.Name, err)
-			}
-			return nil
-		})
+		err := seedOnce(persistence.SeedKindAccessPolicy, p.Name,
+			func() {
+				got, ok := stored.accessPolicies[p.Name]
+				reportSeedSkipped(persistence.SeedKindAccessPolicy, p.Name, ok,
+					accessPolicySeedFields(p), accessPolicySeedFields(got))
+			},
+			func() error {
+				if err := accessRepo.Upsert(ctx, p); err != nil {
+					return fmt.Errorf("config: seed access policy %q: %w", p.Name, err)
+				}
+				return nil
+			})
 		if err != nil {
 			return err
 		}
@@ -113,18 +139,108 @@ func (c *Config) Seed(
 		return fmt.Errorf("config: seed filter policies: %w", err)
 	}
 	for _, p := range filterPolicies {
-		err := seedOnce(persistence.SeedKindFilterPolicy, p.Name, func() error {
-			if err := filterRepo.Upsert(ctx, p); err != nil {
-				return fmt.Errorf("config: seed filter policy %q: %w", p.Name, err)
-			}
-			return nil
-		})
+		err := seedOnce(persistence.SeedKindFilterPolicy, p.Name,
+			func() {
+				got, ok := stored.filterPolicies[p.Name]
+				reportSeedSkipped(persistence.SeedKindFilterPolicy, p.Name, ok,
+					filterPolicySeedFields(p), filterPolicySeedFields(got))
+			},
+			func() error {
+				if err := filterRepo.Upsert(ctx, p); err != nil {
+					return fmt.Errorf("config: seed filter policy %q: %w", p.Name, err)
+				}
+				return nil
+			})
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// storedRecords is everything the store already held when Seed began, keyed
+// by name. Seed needs it twice -- backfillSeedMarkers needs to know which
+// names exist, and a skipped entry has to be compared against what is
+// actually stored under its name -- so it is read once, here, rather than
+// once per use.
+type storedRecords struct {
+	mcps           map[string]cache.MCPRegistration
+	accessPolicies map[string]router.AccessPolicy
+	filterPolicies map[string]router.FilterPolicy
+}
+
+func loadStoredRecords(
+	ctx context.Context,
+	mcpRepo *persistence.MCPRegistrationRepo,
+	accessRepo *persistence.AccessPolicyRepo,
+	filterRepo *persistence.FilterPolicyRepo,
+) (storedRecords, error) {
+	var stored storedRecords
+
+	mcps, err := mcpRepo.List(ctx)
+	if err != nil {
+		return stored, fmt.Errorf("list mcps: %w", err)
+	}
+	stored.mcps = make(map[string]cache.MCPRegistration, len(mcps))
+	for _, reg := range mcps {
+		stored.mcps[reg.Name] = reg
+	}
+
+	accessPolicies, err := accessRepo.List(ctx)
+	if err != nil {
+		return stored, fmt.Errorf("list access policies: %w", err)
+	}
+	stored.accessPolicies = make(map[string]router.AccessPolicy, len(accessPolicies))
+	for _, p := range accessPolicies {
+		stored.accessPolicies[p.Name] = p
+	}
+
+	filterPolicies, err := filterRepo.List(ctx)
+	if err != nil {
+		return stored, fmt.Errorf("list filter policies: %w", err)
+	}
+	stored.filterPolicies = make(map[string]router.FilterPolicy, len(filterPolicies))
+	for _, p := range filterPolicies {
+		stored.filterPolicies[p.Name] = p
+	}
+
+	return stored, nil
+}
+
+// reportSeedSkipped logs why an already-seeded config entry had no effect.
+//
+// At DEBUG when the stored record says exactly what the config file says --
+// the ordinary case on every boot after the first, and not worth an
+// operator's attention -- and also when no row exists at all under that
+// name, which means the operator deleted it through the admin API and
+// ADR-0016's marker is doing precisely the job it exists for.
+//
+// At WARN when the two disagree. ADR-0016 lists exactly this as its open
+// follow-up ("surface 'config entry skipped because it is already seeded'"),
+// and DEBUG is below the default level, so until this existed an operator
+// who edited a seeded entry and restarted was told nothing at all. Only the
+// names of the mismatched fields are logged -- see seedField on why not the
+// values.
+//
+// This changes nothing about what Seed writes. The stored record still wins
+// unconditionally; ADR-0016's revocation-durability guarantees are untouched.
+func reportSeedSkipped(kind, name string, storedExists bool, fromConfig, fromStore []seedField) {
+	if !storedExists {
+		slog.Debug("config entry already seeded and since deleted; it is not recreated",
+			"kind", kind, "name", name)
+		return
+	}
+	differing := seedFieldsDiffer(fromConfig, fromStore)
+	if len(differing) == 0 {
+		slog.Debug("config entry already seeded; the stored record wins",
+			"kind", kind, "name", name)
+		return
+	}
+	slog.Warn("config entry already seeded and DIFFERS from the stored record; "+
+		"the stored record is in force and this part of the config file has no effect "+
+		"(change it through the admin API, or delete the stored entry first)",
+		"kind", kind, "name", name, "differing_fields", differing)
 }
 
 // backfillSeedMarkers marks every already-stored MCP/access-policy/filter-policy
@@ -134,13 +250,11 @@ func (c *Config) Seed(
 // original (marker-less) seed stays exactly as they left it. Returns the
 // possibly-refreshed seeded set: re-read from the store only when this call
 // actually backfilled something, so a normal boot (nothing to backfill)
-// costs the three List() calls and nothing more.
+// costs nothing beyond the reads loadStoredRecords already did.
 func backfillSeedMarkers(
 	ctx context.Context,
 	markerRepo *persistence.SeedMarkerRepo,
-	mcpRepo *persistence.MCPRegistrationRepo,
-	accessRepo *persistence.AccessPolicyRepo,
-	filterRepo *persistence.FilterPolicyRepo,
+	stored storedRecords,
 	seeded persistence.SeededSet,
 ) (persistence.SeededSet, error) {
 	backfilledAny := false
@@ -156,32 +270,18 @@ func backfillSeedMarkers(
 		return nil
 	}
 
-	mcps, err := mcpRepo.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list mcps: %w", err)
-	}
-	for _, reg := range mcps {
-		if err := mark(persistence.SeedKindMCP, reg.Name); err != nil {
+	for name := range stored.mcps {
+		if err := mark(persistence.SeedKindMCP, name); err != nil {
 			return nil, err
 		}
 	}
-
-	accessPolicies, err := accessRepo.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list access policies: %w", err)
-	}
-	for _, p := range accessPolicies {
-		if err := mark(persistence.SeedKindAccessPolicy, p.Name); err != nil {
+	for name := range stored.accessPolicies {
+		if err := mark(persistence.SeedKindAccessPolicy, name); err != nil {
 			return nil, err
 		}
 	}
-
-	filterPolicies, err := filterRepo.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list filter policies: %w", err)
-	}
-	for _, p := range filterPolicies {
-		if err := mark(persistence.SeedKindFilterPolicy, p.Name); err != nil {
+	for name := range stored.filterPolicies {
+		if err := mark(persistence.SeedKindFilterPolicy, name); err != nil {
 			return nil, err
 		}
 	}

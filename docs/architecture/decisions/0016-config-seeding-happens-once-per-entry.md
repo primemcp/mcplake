@@ -198,7 +198,14 @@ add-an-entry workflow (C).
 - If a config-is-authoritative mode is ever wanted (Alternative D), add it as an
   explicit `seed_mode = "always"` rather than by loosening this default.
 - Surface "config entry skipped because it is already seeded" in the admin UI,
-  so the operator sees it without reading logs.
+  so the operator sees it without reading logs. **Partly addressed in #179**,
+  in the logs rather than the UI: a skip whose stored record *disagrees* with
+  the config entry now logs at `WARN` naming the fields that differ, instead of
+  at `DEBUG` — which, being below the default level, meant the operator was in
+  practice told nothing at all. Field names only, never values: an MCP's
+  `arguments` commonly carry a credential, and a warning on every boot is the
+  wrong place for one. The seeding semantics decided above are unchanged; only
+  the reporting is. The admin-UI half remains open.
 
 ## Validation
 
@@ -210,7 +217,11 @@ add-an-entry workflow (C).
   rows (the exact upgrade scenario) backfills correctly — a disabled MCP
   stays disabled across the upgrade boot, and a policy deleted before
   upgrading is seeded fresh exactly once, then stays gone on every boot
-  after that.
+  after that. On the reporting added in #179: a changed entry warns and names
+  the differing field while still not being applied; an unchanged entry, an
+  MCP that has merely since connected (its `Status`/`Tools` are the gateway's,
+  not the config's), an omitted `arguments` list round-tripping as `[]`, and an
+  entry the operator deleted all stay quiet; and no field value reaches the log.
 - `cmd/gateway/app`: the whole gateway started twice against one store — disable
   an MCP and delete a policy through the admin API, restart, and both stay
   revoked; a config entry added between the two boots is applied.
