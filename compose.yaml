@@ -9,6 +9,12 @@
 #
 # See docs/DEMO.md for the walkthrough (getting a token, calling /v1/call,
 # seeing alice's 200 vs bob's 403).
+#
+# Every bind mount below carries a trailing ",Z": on an SELinux-enforcing
+# host (Fedora/RHEL and derivatives) a container is otherwise denied access
+# to bind-mounted host files regardless of Unix permissions - Z has Podman
+# (and Docker, on a host where SELinux is enabled) relabel the path for this
+# container's exclusive use. It's a no-op wherever SELinux isn't enforcing.
 name: mcplake-demo
 
 services:
@@ -19,7 +25,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     volumes:
-      - ./deploy/demo/postgres:/docker-entrypoint-initdb.d:ro
+      - ./deploy/demo/postgres:/docker-entrypoint-initdb.d:ro,Z
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
@@ -45,7 +51,7 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
     volumes:
-      - ./deploy/demo/keycloak/mcplake-realm.json:/opt/keycloak/data/import/mcplake-realm.json:ro
+      - ./deploy/demo/keycloak/mcplake-realm.json:/opt/keycloak/data/import/mcplake-realm.json:ro,Z
     ports:
       - "8080:8080" # Keycloak
       - "9090:9090" # gateway data plane (POST /v1/call, GET /healthz)
@@ -67,7 +73,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./deploy/demo/config.toml:/etc/mcplake/config.toml:ro
+      - ./deploy/demo/config.toml:/etc/mcplake/config.toml:ro,Z
     command: ["--config", "/etc/mcplake/config.toml"]
     restart: on-failure
 
