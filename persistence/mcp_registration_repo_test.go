@@ -58,6 +58,20 @@ func TestMCPRegistrationRepo_UpsertThenGetRoundTrips(t *testing.T) {
 	assert.Nil(t, got.Client)
 }
 
+func TestMCPRegistrationRepo_UpsertThenGetRoundTripsEnv(t *testing.T) {
+	repo := newMCPRegistrationRepo(t)
+	ctx := context.Background()
+	reg := sampleRegistration()
+	reg.Connect.Env = map[string]string{"API_KEY": "secret"}
+
+	require.NoError(t, repo.Upsert(ctx, reg))
+
+	got, ok, err := repo.Get(ctx, reg.Name)
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, reg.Connect.Env, got.Connect.Env)
+}
+
 func TestMCPRegistrationRepo_GetUnknownNameReturnsNotFoundNotError(t *testing.T) {
 	repo := newMCPRegistrationRepo(t)
 

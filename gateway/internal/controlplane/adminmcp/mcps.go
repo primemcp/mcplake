@@ -18,14 +18,15 @@ type toolSchemaView struct {
 // mcpView is the MCP-tool representation of a cache.MCPRegistration,
 // mirroring the REST admin API's mcpRegistrationDTO.
 type mcpView struct {
-	Name      string           `json:"name"`
-	Transport string           `json:"transport"`
-	Command   string           `json:"command,omitempty"`
-	Arguments []string         `json:"arguments,omitempty"`
-	URL       string           `json:"url,omitempty"`
-	Status    string           `json:"status"`
-	Enabled   bool             `json:"enabled"`
-	Tools     []toolSchemaView `json:"tools,omitempty"`
+	Name      string            `json:"name"`
+	Transport string            `json:"transport"`
+	Command   string            `json:"command,omitempty"`
+	Arguments []string          `json:"arguments,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
+	URL       string            `json:"url,omitempty"`
+	Status    string            `json:"status"`
+	Enabled   bool              `json:"enabled"`
+	Tools     []toolSchemaView  `json:"tools,omitempty"`
 }
 
 func mcpViewFrom(reg cache.MCPRegistration) mcpView {
@@ -34,6 +35,7 @@ func mcpViewFrom(reg cache.MCPRegistration) mcpView {
 		Transport: reg.Transport,
 		Command:   reg.Connect.Command,
 		Arguments: reg.Connect.Arguments,
+		Env:       reg.Connect.Env,
 		URL:       reg.Connect.URL,
 		Status:    reg.Status,
 		Enabled:   reg.Enabled,
@@ -53,12 +55,13 @@ type listMCPsOutput struct {
 }
 
 type registerMCPInput struct {
-	Name      string   `json:"name" jsonschema:"unique MCP identifier"`
-	Transport string   `json:"transport,omitempty" jsonschema:"stdio (default), sse, or http"`
-	Command   string   `json:"command,omitempty" jsonschema:"binary to execute, for stdio transport"`
-	Arguments []string `json:"arguments,omitempty" jsonschema:"command-line arguments"`
-	URL       string   `json:"url,omitempty" jsonschema:"endpoint URL, for sse/http transport"`
-	Enabled   *bool    `json:"enabled,omitempty" jsonschema:"operator on/off switch; omitted means enabled"`
+	Name      string            `json:"name" jsonschema:"unique MCP identifier"`
+	Transport string            `json:"transport,omitempty" jsonschema:"stdio (default), sse, or http"`
+	Command   string            `json:"command,omitempty" jsonschema:"binary to execute, for stdio transport"`
+	Arguments []string          `json:"arguments,omitempty" jsonschema:"command-line arguments"`
+	Env       map[string]string `json:"env,omitempty" jsonschema:"additional environment for the stdio subprocess, beyond the gateway's documented base set"`
+	URL       string            `json:"url,omitempty" jsonschema:"endpoint URL, for sse/http transport"`
+	Enabled   *bool             `json:"enabled,omitempty" jsonschema:"operator on/off switch; omitted means enabled"`
 }
 
 type setMCPEnabledInput struct {
@@ -91,6 +94,7 @@ func registerMCPTools(s *sdk.Server, svc *adminservice.MCPService) {
 			Connect: cache.ConnectConfig{
 				Command:   in.Command,
 				Arguments: in.Arguments,
+				Env:       in.Env,
 				URL:       in.URL,
 			},
 			Enabled: in.Enabled == nil || *in.Enabled,

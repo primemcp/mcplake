@@ -81,7 +81,6 @@ func TestApp_SchemaRefresh_EndToEnd(t *testing.T) {
 	defer jwks.Close()
 
 	sentinel := filepath.Join(t.TempDir(), "beta.on")
-	t.Setenv(growingSentinelEnv, sentinel) // inherited by the fixture subprocess
 
 	cfg := testConfig(t, jwks.URL)
 	cfg.MCP.SchemaRefreshInterval = config.Duration{Duration: 100 * time.Millisecond}
@@ -90,6 +89,10 @@ func TestApp_SchemaRefresh_EndToEnd(t *testing.T) {
 		Type:      "stdio",
 		Command:   os.Args[0],
 		Arguments: []string{"-test.run=^TestHelperGrowingMCPProcess$", "--", growingMCPMarker},
+		// Declared explicitly: the fixture subprocess no longer inherits the
+		// gateway's full environment (#166), only its documented base set
+		// plus whatever an MCP declares here.
+		Env: map[string]string{growingSentinelEnv: sentinel},
 	}}
 	cfg.AccessPolicies = []config.AccessPolicyConfig{{
 		Name:   "growing-users",

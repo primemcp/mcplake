@@ -37,6 +37,10 @@ Two consequences worth stating plainly:
 
 Treat control-plane credentials as host credentials.
 
+The subprocess does not, however, inherit the gateway's own process
+environment — only a minimal documented base set plus whatever the MCP's own
+`env` declares; see [ADR-0018](decisions/0018-stdio-mcp-subprocesses-get-a-minimal-base-environment.md).
+
 ### The browser is inside the network perimeter
 
 "Bind `control_plane_addr` to a trusted interface" is necessary but not
@@ -140,9 +144,6 @@ not by itself enough. `config.example.toml` binds loopback for this reason.
   plaintext by accident.
 - The control plane's "open + warn" default is not fail-closed; a future major
   version may flip it.
-- MCP subprocesses inherit the gateway's environment, so a registered MCP can
-  read the persistence DSN and any other secret in it
-  ([#166](https://github.com/atsokha/mcplake/issues/166)).
 
 ## References
 
@@ -151,3 +152,4 @@ not by itself enough. `config.example.toml` binds loopback for this reason.
 - [ADR-0005](decisions/0005-use-gin-for-control-plane-api.md) — control-plane surface
 - [ADR-0010](decisions/0010-control-plane-admin-authentication.md) — control-plane admin authentication
 - [ADR-0011](decisions/0011-mcp-control-server.md) — MCP control server (inherits the admin gate)
+- [ADR-0018](decisions/0018-stdio-mcp-subprocesses-get-a-minimal-base-environment.md) — stdio MCP subprocess environment isolation

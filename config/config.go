@@ -187,6 +187,11 @@ type MCPConfig struct {
 	// Command and Arguments are the subprocess to spawn, for stdio.
 	Command   string   `toml:"command"`
 	Arguments []string `toml:"arguments"`
+	// Env is additional environment for the stdio subprocess. It does not
+	// otherwise inherit the gateway's own environment -- only a minimal,
+	// documented base set (PATH, HOME, LANG, LC_ALL, TZ, TMPDIR) plus
+	// whatever is declared here. See docs/CONFIG.md.
+	Env map[string]string `toml:"env"`
 	// URL is the server's endpoint, for http and sse. It must be https, or
 	// http on a loopback host.
 	URL string `toml:"url"`

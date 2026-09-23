@@ -26,9 +26,10 @@ func RegisterMCPRoutes(admin *gin.RouterGroup, svc *adminservice.MCPService) {
 }
 
 type connectConfigDTO struct {
-	Command   string   `json:"command,omitempty"`
-	Arguments []string `json:"arguments,omitempty"`
-	URL       string   `json:"url,omitempty"`
+	Command   string            `json:"command,omitempty"`
+	Arguments []string          `json:"arguments,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
+	URL       string            `json:"url,omitempty"`
 }
 
 type toolSchemaDTO struct {
@@ -64,6 +65,7 @@ func mcpRegistrationDTOFrom(reg cache.MCPRegistration) mcpRegistrationDTO {
 		Connect: connectConfigDTO{
 			Command:   reg.Connect.Command,
 			Arguments: reg.Connect.Arguments,
+			Env:       reg.Connect.Env,
 			URL:       reg.Connect.URL,
 		},
 		Status:  reg.Status,
@@ -114,6 +116,7 @@ func (h *mcpHandlers) register(c *gin.Context) {
 		Connect: cache.ConnectConfig{
 			Command:   req.Connect.Command,
 			Arguments: req.Connect.Arguments,
+			Env:       req.Connect.Env,
 			URL:       req.Connect.URL,
 		},
 		Enabled: enabledOrTrue(req.Enabled),

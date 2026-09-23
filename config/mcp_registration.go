@@ -29,6 +29,7 @@ func (c *Config) MCPRegistrations() []cache.MCPRegistration {
 			Connect: cache.ConnectConfig{
 				Command:   m.Command,
 				Arguments: m.Arguments,
+				Env:       m.Env,
 				URL:       m.URL,
 			},
 			Enabled: enabledOrDefault(m.Enabled),
@@ -76,6 +77,9 @@ func validateMCP(m MCPConfig) error {
 		}
 		if m.Command != "" {
 			return fmt.Errorf("command is not used by type = %q (the gateway does not start a remote MCP)", transport)
+		}
+		if len(m.Env) > 0 {
+			return fmt.Errorf("env is not used by type = %q (the gateway does not start a remote MCP)", transport)
 		}
 	default:
 		return fmt.Errorf("unsupported type %q (supported: %s)",

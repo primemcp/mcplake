@@ -17,6 +17,7 @@ func TestConfig_MCPRegistrations_MapsFields(t *testing.T) {
 				Type:      "stdio",
 				Command:   "mcp-server-postgres",
 				Arguments: []string{"--read-only"},
+				Env:       map[string]string{"PGCONNECT_TIMEOUT": "5"},
 			},
 		},
 	}
@@ -29,6 +30,7 @@ func TestConfig_MCPRegistrations_MapsFields(t *testing.T) {
 	assert.Equal(t, cache.ConnectConfig{
 		Command:   "mcp-server-postgres",
 		Arguments: []string{"--read-only"},
+		Env:       map[string]string{"PGCONNECT_TIMEOUT": "5"},
 	}, regs[0].Connect)
 }
 

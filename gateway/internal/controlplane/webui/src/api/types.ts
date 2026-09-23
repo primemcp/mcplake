@@ -24,7 +24,7 @@ export type FilterPolicy = {
 };
 export type FilterPolicyRequest = Omit<FilterPolicy, "enabled"> & { enabled?: boolean };
 
-export type ConnectConfig = { command?: string; arguments?: string[]; url?: string };
+export type ConnectConfig = { command?: string; arguments?: string[]; env?: Record<string, string>; url?: string };
 
 export type ToolSchema = {
   name: string;

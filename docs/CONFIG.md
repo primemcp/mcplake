@@ -282,6 +282,7 @@ name = "postgres-ro"
 type = "stdio"
 command = "mcp-server-postgres"
 arguments = ["--connection-string", "postgresql://user@localhost/db", "--read-only"]
+env = { PGCONNECT_TIMEOUT = "5" }
 
 # http: a server running somewhere else, reached over MCP Streamable HTTP.
 [[mcps]]
@@ -300,8 +301,9 @@ url = "https://mcp.analytics.example.com/sse"
 - `name` — Unique identifier for this MCP instance (required)
 - `type` — Transport (default: `"stdio"`). One of:
   - `"stdio"` — the gateway spawns `command` as a subprocess and speaks over
-    its stdin/stdout. The server's lifetime is the gateway's, and it inherits
-    the gateway's process environment and filesystem.
+    its stdin/stdout. The server's lifetime is the gateway's, and it shares
+    the gateway's filesystem, but **not** its process environment — see
+    `env` below.
   - `"http"` — MCP Streamable HTTP, for a server the gateway does not run.
   - `"sse"` — the older HTTP+SSE transport.
 
@@ -309,6 +311,22 @@ url = "https://mcp.analytics.example.com/sse"
 - `command` — Binary to execute. **Required for `stdio`**, and rejected for
   `http`/`sse` (the gateway does not start a remote MCP).
 - `arguments` — Command-line arguments, for `stdio`.
+- `env` — Additional environment variables for the `stdio` subprocess, as a
+  table of strings, e.g. `env = { API_KEY = "secret" }`. Rejected for
+  `http`/`sse` (there is no subprocess to set it on).
+
+  **The subprocess does not inherit the gateway's own environment.** It
+  gets only a minimal, fixed base set — `PATH`, `HOME`, `LANG`, `LC_ALL`,
+  `TZ`, `TMPDIR`, whichever of those the gateway itself has set — plus
+  whatever this table declares. A key here overrides the base set's value
+  for that key. This is a deliberate boundary: an MCP is trusted to serve
+  tools, not to see every credential and setting in the gateway's own
+  process environment.
+
+  **Breaking change:** if an existing `stdio` MCP relies on inheriting a
+  gateway environment variable it never declared here (a credential, a
+  proxy setting, anything outside the base set above), it will stop
+  seeing that value. Add it to `env` explicitly.
 - `url` — The server's endpoint. **Required for `http`/`sse`**, and rejected
   for `stdio`.
 

@@ -267,6 +267,23 @@ func TestMCPTools_RegisterListDisableUnregisterRoundTrip(t *testing.T) {
 	assert.Empty(t, empty.MCPs)
 }
 
+func TestMCPTools_RegisterMCP_ThreadsEnvThroughToTheView(t *testing.T) {
+	cs := connect(t)
+
+	reg := call(t, cs, "register_mcp", map[string]any{
+		"name":    "postgres-ro",
+		"command": "mcp-server-postgres",
+		"env":     map[string]string{"PGCONNECT_TIMEOUT": "5"},
+	})
+	require.False(t, reg.IsError, "%s", reg.Content)
+
+	var registered struct {
+		Env map[string]string `json:"env"`
+	}
+	decode(t, reg, &registered)
+	assert.Equal(t, map[string]string{"PGCONNECT_TIMEOUT": "5"}, registered.Env)
+}
+
 func TestMCPTools_SetEnabledUnknownNameIsToolError(t *testing.T) {
 	cs := connect(t)
 

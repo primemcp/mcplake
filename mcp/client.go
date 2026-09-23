@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -15,9 +16,9 @@ import (
 
 // Config describes how to reach one downstream MCP.
 //
-// Which fields matter depends on Transport: stdio uses Command/Arguments,
-// http and sse use URL. NewClient rejects a Config that omits what its
-// transport needs, rather than dialing something half-specified.
+// Which fields matter depends on Transport: stdio uses Command/Arguments/
+// Env, http and sse use URL. NewClient rejects a Config that omits what
+// its transport needs, rather than dialing something half-specified.
 type Config struct {
 	// Transport is one of the Transport* constants. Empty means
 	// TransportStdio -- every caller predating the other two passed a
@@ -26,6 +27,15 @@ type Config struct {
 	// Command and Arguments are the subprocess to spawn, for stdio.
 	Command   string
 	Arguments []string
+	// Env is additional environment for the stdio subprocess, beyond the
+	// documented base set (see baseSubprocessEnv). A downstream MCP is
+	// trusted to serve tools, not with the gateway's own secrets, so it
+	// does not inherit the gateway's full environment -- an MCP that
+	// genuinely needs a credential gets it explicitly, here. A key that
+	// collides with the base set overrides it: the operator named it on
+	// purpose. Ignored for http/sse, which run as a separate process (or
+	// no process at all) that this gateway never spawns.
+	Env map[string]string
 	// URL is the server's endpoint, for http and sse. It must satisfy
 	// ValidateEndpointURL.
 	URL string
@@ -95,9 +105,9 @@ func newTransport(ctx context.Context, cfg Config) (sdk.Transport, string, error
 		if cfg.Command == "" {
 			return nil, "", fmt.Errorf("mcp: Config.Command is required for the %s transport", TransportStdio)
 		}
-		return &sdk.CommandTransport{
-			Command: exec.CommandContext(ctx, cfg.Command, cfg.Arguments...),
-		}, cfg.Command, nil
+		cmd := exec.CommandContext(ctx, cfg.Command, cfg.Arguments...)
+		cmd.Env = subprocessEnv(cfg.Env)
+		return &sdk.CommandTransport{Command: cmd}, cfg.Command, nil
 
 	case TransportHTTP:
 		if err := validateURLFor(t, cfg.URL); err != nil {
@@ -148,6 +158,50 @@ func validateURLFor(transport, raw string) error {
 		return fmt.Errorf("mcp: Config.URL: %w", err)
 	}
 	return nil
+}
+
+// baseSubprocessEnvVars is the minimal, documented set of the gateway's own
+// environment variables an MCP subprocess inherits by default -- just
+// enough for it to run and resolve its own tooling, not to see anything
+// about the gateway it's running under. See docs/CONFIG.md's `env` field
+// for the operator-facing statement of this list; keep the two in sync.
+//
+//   - PATH    -- to resolve interpreters/binaries it shells out to itself
+//     (bunx, node, python, ...). Without it, a stdio MCP launched via a
+//     wrapper script commonly can't find anything to wrap.
+//   - HOME    -- tools that cache or configure under the user's home
+//     directory (npm/bun/pip caches, credential helpers) need it to agree
+//     with PATH-resolved tooling about where that is.
+//   - LANG, LC_ALL -- locale, so a subprocess's own text output/parsing
+//     isn't silently different from the gateway's.
+//   - TZ      -- so timestamps a subprocess generates agree with the
+//     gateway's, without it needing to be told separately.
+//   - TMPDIR  -- so temp files it creates land on a filesystem/permission
+//     set that's actually known to work, matching the gateway's own.
+var baseSubprocessEnvVars = []string{"PATH", "HOME", "LANG", "LC_ALL", "TZ", "TMPDIR"}
+
+// subprocessEnv builds the environment for an MCP subprocess: the
+// documented base set (whichever of baseSubprocessEnvVars the gateway's
+// own environment actually has set), overlaid with the MCP's own declared
+// Env -- explicit beats inherited, for exactly the keys the operator
+// named. Everything else in the gateway's environment (secrets very much
+// included) is absent; this is what closes off exec.Cmd's documented
+// default of inheriting the entire parent environment when Env is left
+// nil.
+func subprocessEnv(declared map[string]string) []string {
+	env := make([]string, 0, len(baseSubprocessEnvVars)+len(declared))
+	for _, key := range baseSubprocessEnvVars {
+		if _, overridden := declared[key]; overridden {
+			continue // the declared value wins; added below.
+		}
+		if value, ok := os.LookupEnv(key); ok {
+			env = append(env, key+"="+value)
+		}
+	}
+	for key, value := range declared {
+		env = append(env, key+"="+value)
+	}
+	return env
 }
 
 // ListTools returns every tool the MCP currently advertises, transparently

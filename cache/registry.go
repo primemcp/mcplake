@@ -32,10 +32,14 @@ const (
 )
 
 // ConnectConfig holds the transport-specific details needed to connect to an
-// MCP: Command/Arguments for the stdio transport, or URL for sse/http.
+// MCP: Command/Arguments/Env for the stdio transport, or URL for sse/http.
+// Env is additional environment for the subprocess, beyond the gateway's
+// documented base set (see mcp.Config.Env) — the MCP does not otherwise
+// inherit the gateway's own environment.
 type ConnectConfig struct {
 	Command   string
 	Arguments []string
+	Env       map[string]string
 	URL       string
 }
 
