@@ -25,15 +25,17 @@ audience = "mcplake-demo"
 driver = "postgres"
 dsn = "postgres://gateway:gateway@postgres:5432/gateway?sslmode=disable"
 
-# The dummy MCP: the official postgres reference server, run as a subprocess
-# inside the gateway's own container (mcp.Client only speaks stdio - see
-# ADR-0003). It takes a single connection-string argument, always runs every
-# query inside a read-only transaction, and exposes one tool: "query".
+# The dummy MCP: a small FastMCP server (deploy/demo/mcp-servers/), run as a
+# subprocess inside the gateway's own container (mcp.Client only speaks
+# stdio - see ADR-0003). Three tools over an in-memory fictional employee
+# directory - list_employees/get_employee carry sensitive fields the
+# filter_policies below strip; list_departments has nothing sensitive to
+# strip, on purpose, for contrast.
 [[mcps]]
-name = "postgres-demo"
+name = "employee-directory"
 type = "stdio"
-command = "mcp-server-postgres"
-arguments = ["postgresql://demo_reader:demo_reader@postgres:5432/demo"]
+command = "python3"
+arguments = ["/opt/mcplake/demo-mcp/employee_directory.py"]
 
 # Only "alice" (role=db-reader) can call the demo MCP; "bob" (role=guest)
 # authenticates fine but gets 403 forbidden on /v1/call - see docs/DEMO.md.
@@ -43,8 +45,43 @@ name = "demo-reader"
 path = "$.role"
 pattern = "^db-reader$"
 [[access_policies.grants]]
-mcp = "postgres-demo"
+mcp = "employee-directory"
 tools = ["*"]
+
+# Field-level filtering (ADR-0015): alice (role=db-reader) can call these
+# tools but never sees salary/SSN; admin's wildcard grant above isn't
+# subject to either filter, so mcplake-admin sees the same calls
+# unfiltered - see docs/DEMO.md for the side-by-side.
+#
+# get_employee returns its record unwrapped, so the paths are bare; the
+# FastMCP result-wrapping rules take a different shape:
+#   - a tool returning one Pydantic model -> structuredContent *is* the
+#     record, hence "$.salary_usd" here;
+[[filter_policies]]
+name = "hide-sensitive-fields-get-employee"
+mcp = "employee-directory"
+tool = "get_employee"
+drop_fields = ["$.salary_usd", "$.ssn_last4"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+
+#   - list_employees returns a named `employees` field instead of a bare
+#     list on purpose (see employee_directory.py's docstring on it): a bare
+#     `list[Employee]` return gets wrapped as {"result": [...]} in
+#     structuredContent by FastMCP, but the human-readable text copy of the
+#     same result stays a bare array - two different shapes for one tool,
+#     and "$.result[*].ssn_last4" would silently miss the text copy,
+#     leaking the field through it. The named field keeps both copies
+#     identically shaped, so one path reaches both.
+[[filter_policies]]
+name = "hide-sensitive-fields-list-employees"
+mcp = "employee-directory"
+tool = "list_employees"
+drop_fields = ["$.employees[*].salary_usd", "$.employees[*].ssn_last4"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
 
 [[access_policies]]
 name = "admin"

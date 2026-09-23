@@ -63,9 +63,10 @@ Configuration is a single TOML file ([ADR-0012](docs/architecture/decisions/0012
 
 Want to see it running end to end before wiring up your own OIDC provider
 and MCP servers? `docker compose up --build` (or `podman compose up --build`)
-brings up Keycloak, a dummy MCP server, and Postgres, with two demo users
-that show a `200` vs a `403` under the same claims-based access control the
-gateway uses in production. See [`docs/DEMO.md`](docs/DEMO.md).
+brings up Keycloak, a dummy MCP server, and Postgres, with demo users that
+show a `200` vs a `403` under the same claims-based access control the
+gateway uses in production — and, since the dummy MCP returns structured
+data, a live field-level filtering example too. See [`docs/DEMO.md`](docs/DEMO.md).
 
 ## Contributing
 

@@ -4,11 +4,12 @@
 #     users - alice/alice, bob/bob, mcplake-admin/mcplake-admin - can log in
 #     immediately; mcplake-admin is a realm user, distinct from Keycloak's
 #     own KEYCLOAK_ADMIN bootstrap superuser below)
-#   - the mcplake gateway itself, fronting a dummy MCP server (the official
-#     postgres reference server, run as a subprocess - see deploy/demo/config.toml)
-#     and serving its embedded admin web UI, gated by admin_auth (ADR-0010/0014)
-#   - Postgres, backing both the gateway's own control-plane persistence and
-#     the small dataset the dummy MCP server queries
+#   - the mcplake gateway itself, fronting a dummy MCP server (a small
+#     FastMCP script, run as a subprocess - see deploy/demo/config.toml and
+#     deploy/demo/mcp-servers/) and serving its embedded admin web UI,
+#     gated by admin_auth (ADR-0010/0014)
+#   - Postgres, backing only the gateway's own control-plane persistence -
+#     the dummy MCP's data is in-memory, nothing else here touches Postgres
 #
 # See docs/DEMO.md for the walkthrough: getting a token, calling /v1/call
 # (alice's 200 vs bob's 403), and signing into the admin UI as admin.
