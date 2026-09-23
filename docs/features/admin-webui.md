@@ -48,13 +48,36 @@ selected endpoint.
   PKCE.
 - **Add/edit an endpoint** registers via `POST /admin/mcps` (there is no
   `PUT` — editing re-registers under the same name, which the backend
-  upserts). Only `stdio` transport actually works against the real gateway
-  today (`sse`/`http` are shown, explicitly disabled, not hidden — the
-  backend doesn't implement them yet); the form collects a command +
-  arguments accordingly, not a URL. Every save carries the endpoint's
-  current `enabled` flag explicitly (never left to the request's
-  default-to-`true`) so editing command/args on a disabled endpoint
-  doesn't silently re-enable it.
+  upserts). Every save carries the endpoint's current `enabled` flag
+  explicitly (never left to the request's default-to-`true`) so editing an
+  endpoint's connection details on a disabled one doesn't silently
+  re-enable it.
+- **Transport is a real choice.** All three of `stdio`, `http` and `sse`
+  are selectable and all three work
+  ([ADR-0017](../architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.md));
+  the picker used to render `sse`/`http` as permanently disabled buttons
+  captioned "Not implemented by the gateway yet", which was accurate until
+  the backend implemented them.
+
+  The form shows the fields the selected transport actually uses — command
+  + arguments for `stdio`, a URL for `http`/`sse` — and sends **only**
+  those. That matters: the backend rejects a `url` on a stdio entry and a
+  `command` on a remote one outright, rather than ignoring the stray field,
+  so carrying an abandoned value along would turn a correctly filled form
+  into a `400`. Both sets stay in form state while you are deciding, so
+  flipping between transports doesn't eat what you already typed; the drop
+  happens at the request boundary (`lib/transport.ts`'s `buildConnect`).
+
+  The URL field states the endpoint rule up front — https, or http only on
+  a loopback host — rather than making you submit to discover it. That is a
+  **hint, not a client-side check**: duplicating a security rule in
+  TypeScript is how the two drift, so the gateway stays the single place
+  that decides, and its refusal is rendered against the URL field instead
+  of as a banner you have to map back onto the form yourself.
+- **A remote endpoint shows its URL** wherever a stdio one shows its
+  command line — in the list row, in the detail header, and in search. The
+  detail panel reports the endpoint's real transport rather than the
+  hardcoded `stdio` it printed before.
 - **Enable/disable** is a real, reversible toggle on the detail panel
   (`PATCH /admin/mcps/:name`) — a disabled endpoint stays registered
   (connected, tools cached) but rejects every data-plane call with 403

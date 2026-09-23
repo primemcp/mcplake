@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { Button } from "../primitives/Button";
 import { Card } from "../primitives/Card";
-import { Input } from "../primitives/Input";
 import { statusFromString, statusTextColor } from "../primitives/StatusDot";
-import type { MCPRegistration, RegisterMCPRequest } from "../../api/types";
-import { TransportPicker } from "./TransportPicker";
+import type { MCPRegistration, MCPTransport, RegisterMCPRequest } from "../../api/types";
+import {
+  asTransport,
+  buildConnect,
+  connectFieldsComplete,
+  endpointTarget,
+  errorField,
+  type ConnectFields,
+} from "../../lib/transport";
+import { ConnectFieldsEditor } from "./ConnectFieldsEditor";
 
 export type EndpointDetailProps = {
   endpoint: MCPRegistration;
@@ -29,19 +36,19 @@ export type EndpointDetailProps = {
  * two-step confirm -- it was only ever bolted onto the toggle here because
  * there was no real disable to wire it to yet.
  *
- * Transport is fixed to stdio when saving: cache.Registry.Register on the
- * real backend rejects anything else with "unsupported transport (only
- * stdio is implemented)" — sse/http aren't wired up in the mcp package
- * yet. TransportPicker shows all three explicitly, with sse/http visibly
- * disabled, rather than hiding the fact that they exist but don't work —
- * an explicit UX request over silently defaulting in code. A URL field is
- * still omitted; unlike transport, the DTO having a `url` slot doesn't
- * make showing it as a live option honest when nothing consumes it.
+ * Transport is editable since ADR-0017 implemented http and sse; it used to
+ * be pinned to "stdio" on save because the backend rejected anything else.
+ * Changing it is a real operation, not a display setting: an upsert that
+ * re-registers the same name against a different kind of downstream.
  */
 export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: EndpointDetailProps) {
   const [editing, setEditing] = useState(false);
-  const [command, setCommand] = useState(endpoint.connect.command ?? "");
-  const [args, setArgs] = useState((endpoint.connect.arguments ?? []).join(" "));
+  const [transport, setTransport] = useState<MCPTransport>(asTransport(endpoint.transport));
+  const [fields, setFields] = useState<ConnectFields>({
+    command: endpoint.connect.command ?? "",
+    args: (endpoint.connect.arguments ?? []).join(" "),
+    url: endpoint.connect.url ?? "",
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -56,11 +63,11 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
     try {
       await onUpdate({
         name: endpoint.name,
-        transport: "stdio",
-        connect: {
-          command,
-          arguments: args.trim() === "" ? undefined : args.trim().split(/\s+/),
-        },
+        transport,
+        connect: buildConnect(transport, fields),
+        // Passed through explicitly (not left to the request's
+        // default-to-true) so saving an unrelated command/url edit on a
+        // disabled endpoint doesn't silently re-enable it.
         enabled: endpoint.enabled,
       });
       setEditing(false);
@@ -98,6 +105,10 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
   };
 
   const status = statusFromString(endpoint.status);
+  // A failed save is usually about the url or the command; show the server's
+  // complaint against that field rather than as a banner the operator has to
+  // map back onto the form themselves.
+  const field = error ? errorField(error) : null;
 
   return (
     <div className="flex flex-col gap-4 p-5 overflow-y-auto">
@@ -105,9 +116,11 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
         <div className="p-[14px_16px] border-b border-border-soft flex flex-wrap items-center gap-[10px_14px]">
           <div className="flex-[1_1_240px] min-w-0 flex flex-col gap-[3px]">
             <div className="text-base font-semibold tracking-tight">{endpoint.name}</div>
+            {/* The command line for stdio, the URL for anything remote --
+                the same slot, because it answers the same question: what is
+                on the other end of this registration. */}
             <div className="text-[11.5px] font-mono text-subtle truncate">
-              {endpoint.connect.command}
-              {endpoint.connect.arguments?.length ? ` ${endpoint.connect.arguments.join(" ")}` : ""}
+              {endpointTarget(endpoint)}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -146,20 +159,21 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
           </div>
         </div>
 
-        {error && <p className="text-[10.5px] text-danger px-4 pt-2.5">{error}</p>}
+        {error && field === null && <p className="text-[10.5px] text-danger px-4 pt-2.5">{error}</p>}
 
         {editing && (
           <div className="p-[14px_16px] border-b border-border-soft bg-form-soft flex flex-col gap-2">
-            <TransportPicker />
-            <Input value={command} onChange={(e) => setCommand(e.target.value)} placeholder="command" mono />
-            <Input
-              value={args}
-              onChange={(e) => setArgs(e.target.value)}
-              placeholder="arguments (space-separated)"
-              mono
+            <ConnectFieldsEditor
+              transport={transport}
+              onTransportChange={setTransport}
+              fields={fields}
+              onFieldsChange={setFields}
+              errorField={field}
+              errorMessage={error}
+              disabled={saving}
             />
             <div className="flex flex-wrap items-center gap-1.5">
-              <Button onClick={save} disabled={saving}>
+              <Button onClick={save} disabled={saving || !connectFieldsComplete(transport, fields)}>
                 Save endpoint
               </Button>
               <Button
@@ -191,7 +205,7 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
               : "Disabled — requests to this endpoint are rejected and grants are suspended"}
           </span>
           <span className="flex-1" />
-          <span className="text-[11.5px] text-subtle">stdio</span>
+          <span className="text-[11.5px] text-subtle font-mono">{endpoint.transport}</span>
           <span className="text-[11.5px] text-subtle">
             {tools.length} {tools.length === 1 ? "tool" : "tools"}
           </span>

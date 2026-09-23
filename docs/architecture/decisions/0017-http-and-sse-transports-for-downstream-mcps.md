@@ -225,9 +225,13 @@ plaintext to a remote host. Tool payloads qualify.
 - Outbound auth to a downstream MCP (static bearer token, then OAuth via the
   sdk's `OAuthHandler`). This is the main thing standing between "works for a
   sidecar" and "works for a third-party hosted MCP".
-- Admin UI support for choosing a transport and entering a URL — the
+- ~~Admin UI support for choosing a transport and entering a URL — the
   `TransportPicker` and `connectConfigDTO.url` are both already in place waiting
-  for it.
+  for it.~~ Done in #186: the picker is a real control over all three
+  transports, the form swaps command/arguments for a URL and sends only the
+  selected transport's fields, and a rejected URL is rendered against the URL
+  field. The endpoint rule is shown there as a hint rather than re-implemented
+  in TypeScript — a third copy of it would be a third thing to drift.
 - Per-MCP timeout/retry configuration, if the shared defaults prove wrong.
 
 ## Validation
