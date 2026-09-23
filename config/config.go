@@ -180,10 +180,16 @@ type OIDCConfig struct {
 }
 
 type MCPConfig struct {
-	Name      string   `toml:"name"`
-	Type      string   `toml:"type"` // "stdio", "sse", etc.
+	Name string `toml:"name"`
+	// Type is the transport: "stdio" (the default), "http" or "sse".
+	// See ADR-0017.
+	Type string `toml:"type"`
+	// Command and Arguments are the subprocess to spawn, for stdio.
 	Command   string   `toml:"command"`
 	Arguments []string `toml:"arguments"`
+	// URL is the server's endpoint, for http and sse. It must be https, or
+	// http on a loopback host.
+	URL string `toml:"url"`
 	// Enabled is the operator on/off switch for this MCP. It is a pointer so
 	// an omitted key is distinguishable from an explicit `enabled = false`;
 	// omitted defaults to enabled. See enabledOrDefault.
@@ -288,6 +294,12 @@ func (c *Config) Validate() error {
 
 	if c.MCP.SchemaRefreshInterval.Duration < 0 {
 		return fmt.Errorf("config: mcp.schema_refresh_interval must not be negative (got %s)", c.MCP.SchemaRefreshInterval.Duration)
+	}
+
+	for i, m := range c.MCPs {
+		if err := validateMCP(m); err != nil {
+			return fmt.Errorf("config: mcps[%d]%s: %w", i, namedSuffix(m.Name), err)
+		}
 	}
 
 	for i, policy := range c.AccessPolicies {

@@ -8,14 +8,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Config configures a stdio-transport connection to a downstream MCP.
+// Config describes how to reach one downstream MCP.
+//
+// Which fields matter depends on Transport: stdio uses Command/Arguments,
+// http and sse use URL. NewClient rejects a Config that omits what its
+// transport needs, rather than dialing something half-specified.
 type Config struct {
+	// Transport is one of the Transport* constants. Empty means
+	// TransportStdio -- every caller predating the other two passed a
+	// Command and nothing else, and they should keep working unchanged.
+	Transport string
+	// Command and Arguments are the subprocess to spawn, for stdio.
 	Command   string
 	Arguments []string
+	// URL is the server's endpoint, for http and sse. It must satisfy
+	// ValidateEndpointURL.
+	URL string
+}
+
+// transport resolves Transport's zero value to stdio.
+func (c Config) transport() string {
+	if c.Transport == "" {
+		return TransportStdio
+	}
+	return c.Transport
 }
 
 // ToolSchema describes one tool a downstream MCP advertises. It mirrors
@@ -43,26 +64,90 @@ type Client struct {
 	session *sdk.ClientSession
 }
 
-// NewClient spawns cfg.Command as a subprocess and performs the MCP
-// initialize handshake over stdio. The subprocess's lifetime is tied to ctx
-// (via exec.CommandContext): callers that want a long-lived connection (as
-// the Registry does once it holds a Client for a registration) must pass a
-// context that outlives this call, not a short-lived request context.
+// NewClient connects to the MCP described by cfg and performs the
+// initialize handshake.
+//
+// For stdio the subprocess's lifetime is tied to ctx (via
+// exec.CommandContext): callers that want a long-lived connection (as the
+// Registry does once it holds a Client for a registration) must pass a
+// context that outlives this call, not a short-lived request context. The
+// same applies to http and sse, where ctx bounds the session's underlying
+// requests rather than a process.
 func NewClient(ctx context.Context, cfg Config) (*Client, error) {
-	if cfg.Command == "" {
-		return nil, fmt.Errorf("mcp: Config.Command is required")
+	transport, target, err := newTransport(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	client := sdk.NewClient(&sdk.Implementation{Name: "mcplake-gateway", Version: "0.1.0"}, nil)
-	transport := &sdk.CommandTransport{
-		Command: exec.CommandContext(ctx, cfg.Command, cfg.Arguments...),
-	}
-
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
-		return nil, fmt.Errorf("mcp: connect to %q: %w", cfg.Command, err)
+		return nil, fmt.Errorf("mcp: connect to %q: %w", target, err)
 	}
 	return &Client{session: session}, nil
+}
+
+// newTransport builds the sdk transport cfg names, and returns it with a
+// human-readable target for error messages (the command, or the URL).
+func newTransport(ctx context.Context, cfg Config) (sdk.Transport, string, error) {
+	switch t := cfg.transport(); t {
+	case TransportStdio:
+		if cfg.Command == "" {
+			return nil, "", fmt.Errorf("mcp: Config.Command is required for the %s transport", TransportStdio)
+		}
+		return &sdk.CommandTransport{
+			Command: exec.CommandContext(ctx, cfg.Command, cfg.Arguments...),
+		}, cfg.Command, nil
+
+	case TransportHTTP:
+		if err := validateURLFor(t, cfg.URL); err != nil {
+			return nil, "", err
+		}
+		return &sdk.StreamableClientTransport{
+			Endpoint:   cfg.URL,
+			HTTPClient: httpTransportClient,
+			// The standalone SSE stream is the transport's optional
+			// second channel: a GET the client holds open for the
+			// lifetime of the session so the server can push
+			// notifications (tools/list_changed and friends) unprompted.
+			//
+			// This gateway consumes none of them. ADR-0013 settled on
+			// polling tools/list on an interval instead, precisely so
+			// schema freshness does not depend on a downstream
+			// implementing notifications. Leaving the stream on would
+			// therefore hold one connection open per registered MCP
+			// forever, plus a reconnect loop behind it, and buy nothing.
+			//
+			// Turn this back on if the gateway ever starts reacting to
+			// server-initiated messages -- at which point ADR-0013's
+			// polling is what should be reconsidered, not this flag on
+			// its own.
+			DisableStandaloneSSE: true,
+		}, cfg.URL, nil
+
+	case TransportSSE:
+		if err := validateURLFor(t, cfg.URL); err != nil {
+			return nil, "", err
+		}
+		return &sdk.SSEClientTransport{
+			Endpoint:   cfg.URL,
+			HTTPClient: httpTransportClient,
+		}, cfg.URL, nil
+
+	default:
+		return nil, "", fmt.Errorf("mcp: unsupported transport %q (supported: %s)",
+			t, strings.Join(SupportedTransports(), ", "))
+	}
+}
+
+func validateURLFor(transport, raw string) error {
+	if raw == "" {
+		return fmt.Errorf("mcp: Config.URL is required for the %s transport", transport)
+	}
+	if err := ValidateEndpointURL(raw); err != nil {
+		return fmt.Errorf("mcp: Config.URL: %w", err)
+	}
+	return nil
 }
 
 // ListTools returns every tool the MCP currently advertises, transparently
