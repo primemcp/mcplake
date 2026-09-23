@@ -45,15 +45,15 @@ ui-test:
 
 test:
 	@echo "Running tests (all modules)..."
-	go test -v -cover ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/...
+	go test -v -cover ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/... ./cmd/webui/...
 
 test-race:
 	@echo "Running tests with race detector..."
-	go test -race ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/...
+	go test -race ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/... ./cmd/webui/...
 
 lint:
 	@echo "Running go vet..."
-	go vet ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/...
+	go vet ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/... ./cmd/webui/...
 
 fmt:
 	@echo "Formatting code..."
@@ -61,7 +61,7 @@ fmt:
 
 vet:
 	@echo "Running go vet..."
-	go vet ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/...
+	go vet ./auth/... ./router/... ./cache/... ./filter/... ./mcp/... ./config/... ./persistence/... ./gateway/... ./cmd/gateway/... ./cmd/webui/...
 
 tidy:
 	@echo "Syncing workspace..."

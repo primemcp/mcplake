@@ -7,6 +7,8 @@
 *.dylib
 mcp-gateway
 /cmd/gateway/gateway
+/cmd/webui/webui
+webui-server
 
 # Build artifacts
 dist/
