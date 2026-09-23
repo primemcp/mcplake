@@ -64,7 +64,12 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
       await onUpdate({
         name: endpoint.name,
         transport,
-        connect: buildConnect(transport, fields),
+        connect: {
+          ...buildConnect(transport, fields),
+          // Not editable here (no env UI yet) -- carried through explicitly
+          // so saving a command/args edit never silently wipes it.
+          env: endpoint.connect.env,
+        },
         // Passed through explicitly (not left to the request's
         // default-to-true) so saving an unrelated command/url edit on a
         // disabled endpoint doesn't silently re-enable it.

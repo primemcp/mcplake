@@ -25,6 +25,18 @@ type echoResult struct {
 	Message string `json:"message"`
 }
 
+type getenvArgs struct {
+	Name string `json:"name" jsonschema:"the environment variable to read from this process's own environment"`
+}
+
+type getenvResult struct {
+	Value string `json:"value"`
+	// Set distinguishes "the variable is absent" from "the variable is set
+	// to the empty string" -- os.Getenv alone can't, and env-isolation
+	// tests need exactly that distinction.
+	Set bool `json:"set"`
+}
+
 // TestHelperMCPServerProcess is not a real test: run directly (without the
 // marker argument) it's a no-op. The mcp.Client tests re-exec the test
 // binary with -test.run pinned to this function plus the marker argument,
@@ -40,6 +52,17 @@ func TestHelperMCPServerProcess(t *testing.T) {
 		Description: "echoes the given message back",
 	}, func(_ context.Context, _ *sdk.CallToolRequest, args echoArgs) (*sdk.CallToolResult, echoResult, error) {
 		return nil, echoResult{Message: args.Message}, nil
+	})
+	// Lets tests observe exactly what environment the real spawned
+	// subprocess sees, rather than only what mcp.Config asked for --
+	// proving isolation (or a leak) end to end instead of trusting the
+	// caller's side of exec.Cmd construction.
+	sdk.AddTool(server, &sdk.Tool{
+		Name:        "getenv",
+		Description: "reads a named environment variable from this process's own environment",
+	}, func(_ context.Context, _ *sdk.CallToolRequest, args getenvArgs) (*sdk.CallToolResult, getenvResult, error) {
+		value, set := os.LookupEnv(args.Name)
+		return nil, getenvResult{Value: value, Set: set}, nil
 	})
 
 	if err := server.Run(context.Background(), &sdk.StdioTransport{}); err != nil {

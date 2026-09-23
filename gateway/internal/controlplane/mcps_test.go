@@ -154,7 +154,11 @@ func TestRegisterMCPRoutes_PostRegistersAndPersists(t *testing.T) {
 	rec := doJSON(t, engine, http.MethodPost, "/admin/mcps", map[string]any{
 		"name":      "postgres-ro",
 		"transport": "stdio",
-		"connect":   map[string]any{"command": "mcp-server-postgres", "arguments": []string{"--read-only"}},
+		"connect": map[string]any{
+			"command":   "mcp-server-postgres",
+			"arguments": []string{"--read-only"},
+			"env":       map[string]string{"PGCONNECT_TIMEOUT": "5"},
+		},
 	})
 
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -163,11 +167,13 @@ func TestRegisterMCPRoutes_PostRegistersAndPersists(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 	assert.Equal(t, "postgres-ro", got["name"])
 	assert.Equal(t, cache.StatusActive, got["status"])
+	assert.Equal(t, map[string]any{"PGCONNECT_TIMEOUT": "5"}, got["connect"].(map[string]any)["env"])
 
 	// Immediately visible to the registry (what the data plane consults).
 	reg, ok := registry.Get("postgres-ro")
 	require.True(t, ok)
 	assert.Equal(t, cache.StatusActive, reg.Status)
+	assert.Equal(t, map[string]string{"PGCONNECT_TIMEOUT": "5"}, reg.Connect.Env)
 
 	// Persisted.
 	repo.mu.Lock()

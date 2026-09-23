@@ -61,6 +61,7 @@ func (r *Registry) Register(ctx context.Context, reg MCPRegistration) error {
 		Transport: reg.Transport,
 		Command:   reg.Connect.Command,
 		Arguments: reg.Connect.Arguments,
+		Env:       reg.Connect.Env,
 		URL:       reg.Connect.URL,
 	})
 	if err != nil {

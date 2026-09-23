@@ -95,6 +95,20 @@ describe("EndpointDetail", () => {
     });
   });
 
+  it("saving a command/arguments edit carries the endpoint's existing env through unchanged", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    const withEnv: MCPRegistration = { ...ENDPOINT, connect: { ...ENDPOINT.connect, env: { API_KEY: "secret" } } };
+    render(<EndpointDetail endpoint={withEnv} {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
+    await user.click(screen.getByRole("button", { name: "Save endpoint" }));
+
+    expect(props.onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ connect: expect.objectContaining({ env: { API_KEY: "secret" } }) }),
+    );
+  });
+
   it("saving an edit on a disabled endpoint keeps it disabled, rather than re-enabling by omission", async () => {
     const user = userEvent.setup();
     const props = baseProps();

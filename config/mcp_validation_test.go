@@ -76,6 +76,11 @@ func TestValidateMCP(t *testing.T) {
 			entry:   MCPConfig{Name: "confused", Type: "http", URL: "https://mcp.example.com/mcp", Command: "x"},
 			wantErr: `command is not used by type = "http"`,
 		},
+		{
+			name:    "env on an http entry",
+			entry:   MCPConfig{Name: "confused", Type: "http", URL: "https://mcp.example.com/mcp", Env: map[string]string{"X": "1"}},
+			wantErr: `env is not used by type = "http"`,
+		},
 	}
 
 	for _, tt := range tests {
