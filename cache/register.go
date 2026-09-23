@@ -76,14 +76,7 @@ func (r *Registry) Register(ctx context.Context, reg MCPRegistration) error {
 		return fmt.Errorf("cache: discover tools for %q: %w", reg.Name, err)
 	}
 
-	toolMap := make(map[string]ToolSchema, len(tools))
-	for _, t := range tools {
-		toolMap[t.Name] = ToolSchema{
-			Name:         t.Name,
-			InputSchema:  t.InputSchema,
-			OutputSchema: t.OutputSchema,
-		}
-	}
+	toolMap := toolMapFrom(tools)
 
 	previous, hadPrevious := r.set(MCPRegistration{
 		Name:      reg.Name,

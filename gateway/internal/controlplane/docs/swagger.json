@@ -637,6 +637,12 @@
                 "command": {
                     "type": "string"
                 },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "url": {
                     "type": "string"
                 }
@@ -794,6 +800,9 @@
         "controlplane.toolSchemaDTO": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "input_schema": {
                     "type": "object"
                 },

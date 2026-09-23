@@ -12,7 +12,7 @@ recorded as ADRs in [`decisions/`](decisions/).
 
 ```mermaid
 flowchart LR
-    Agent[AI Agent / Client] -- "HTTP + Bearer JWT\n(data plane)" --> DP["fasthttp\ntool-call proxy"]
+    Agent[AI Agent / Client] -- "MCP over Streamable HTTP / SSE,\nor POST /v1/call\n(data plane, Bearer JWT)" --> DP["fasthttp\ntool-call proxy\n+ MCP server"]
     Admin[Operator / Admin UI] -- "CRUD: MCPs, policies\n(control plane)" --> CP["Gin\nadmin API"]
     DP -- "reads (cache)" --> Store[(SQLite / PostgreSQL\nvia GORM)]
     CP -- "writes + refreshes cache" --> Store
@@ -31,7 +31,11 @@ its workload ([ADR-0001](decisions/0001-use-fasthttp-for-gateway-server.md),
 [ADR-0005](decisions/0005-use-gin-for-control-plane-api.md)):
 
 - **Data plane** (`fasthttp`) — the performance-critical tool-call proxy, read-only
-  against the policy/registration store via an in-memory cache.
+  against the policy/registration store via an in-memory cache. It speaks MCP
+  itself, at `/v1/mcp` (Streamable HTTP) and `/v1/sse`, so an off-the-shelf MCP
+  client can connect to the gateway directly; `POST /v1/call` remains for callers
+  that prefer plain REST. Both run the same pipeline
+  ([ADR-0020](decisions/0020-serve-mcp-on-the-data-plane.md)).
 - **Control plane** (`Gin`) — low-volume CRUD for MCP registrations and access/filter
   policies, backed by SQLite by default and PostgreSQL for distributed deployments
   ([ADR-0006](decisions/0006-gorm-sqlite-postgres-persistence.md)).
@@ -54,7 +58,10 @@ underneath them.
    configured (see [ADR-0010](decisions/0010-control-plane-admin-authentication.md)),
    and can additionally be exposed as MCP tools for MCP-speaking operators
    (see [ADR-0011](decisions/0011-mcp-control-server.md)).
-3. A single policy pipeline that runs the same JWT-claim rule evaluation twice per
+3. An MCP-protocol data-plane surface, so the gateway is reachable by any MCP client
+   and its `tools/list` is filtered per caller to exactly the tools that caller's
+   access policy grants (see [ADR-0020](decisions/0020-serve-mcp-on-the-data-plane.md)).
+4. A single policy pipeline that runs the same JWT-claim rule evaluation twice per
    request — once to authorize which MCPs/tools a caller may invoke, and once to decide
    which response fields must be dropped before the result reaches the caller
    (see [ADR-0002](decisions/0002-jsonpath-regexp-claim-rule-engine.md) and

@@ -25,9 +25,16 @@ type fakePolicyEngine struct {
 	authorizeErr error
 	dropFields   []string
 	fieldsErr    error
+	// authorizeFunc, when set, replaces the flat authorized/authorizeErr
+	// pair -- the MCP tools/list tests need the decision to vary per
+	// (mcp, tool) pair, which is the whole point of filtering a catalogue.
+	authorizeFunc func(claims json.RawMessage, mcpName, tool string) (bool, error)
 }
 
-func (f *fakePolicyEngine) Authorize(json.RawMessage, string, string) (bool, error) {
+func (f *fakePolicyEngine) Authorize(claims json.RawMessage, mcpName, tool string) (bool, error) {
+	if f.authorizeFunc != nil {
+		return f.authorizeFunc(claims, mcpName, tool)
+	}
 	return f.authorized, f.authorizeErr
 }
 
@@ -44,19 +51,30 @@ type fakeResolver struct {
 	// to serve — a registration whose downstream is currently unreachable.
 	// See ADR-0019 and fakeResolver.setUnreachable.
 	registered map[string]bool
+	// schemas backs List, which the data-plane MCP endpoint needs in order
+	// to advertise a tool catalogue (ADR-0020). addTool, which predates it,
+	// records a tool with no schema.
+	schemas map[string]map[string]cache.ToolSchema
+	// unreachable names registrations the registry knows about but which
+	// have no live client, so List reports them as not active.
+	unreachable map[string]bool
 }
 
 func newFakeResolver() *fakeResolver {
 	return &fakeResolver{
-		clients:    make(map[string]cache.MCPClient),
-		tools:      make(map[string]map[string]bool),
-		disabled:   make(map[string]bool),
-		registered: make(map[string]bool),
+		clients:     make(map[string]cache.MCPClient),
+		tools:       make(map[string]map[string]bool),
+		disabled:    make(map[string]bool),
+		registered:  make(map[string]bool),
+		schemas:     make(map[string]map[string]cache.ToolSchema),
+		unreachable: make(map[string]bool),
 	}
 }
 
 func (f *fakeResolver) addTool(mcpName, tool string, client cache.MCPClient) {
-	f.clients[mcpName] = client
+	if client != nil {
+		f.clients[mcpName] = client
+	}
 	f.registered[mcpName] = true
 	if f.tools[mcpName] == nil {
 		f.tools[mcpName] = make(map[string]bool)
@@ -76,6 +94,38 @@ func (f *fakeResolver) setDisabled(mcpName string) {
 // reconnect it (ADR-0019).
 func (f *fakeResolver) setUnreachable(mcpName string) {
 	f.registered[mcpName] = true
+	f.unreachable[mcpName] = true
+	delete(f.clients, mcpName)
+}
+
+// addToolSchema registers a tool along with the schema List has to
+// advertise. addTool remains for the pipeline tests, which only care whether
+// a tool exists.
+func (f *fakeResolver) addToolSchema(mcpName string, schema cache.ToolSchema) {
+	f.addTool(mcpName, schema.Name, nil)
+	if f.schemas[mcpName] == nil {
+		f.schemas[mcpName] = make(map[string]cache.ToolSchema)
+	}
+	f.schemas[mcpName][schema.Name] = schema
+}
+
+// List mirrors cache.Registry.List: every registration the registry holds,
+// with its status and operator flag, whether or not it is currently usable.
+func (f *fakeResolver) List() []cache.MCPRegistration {
+	regs := make([]cache.MCPRegistration, 0, len(f.registered))
+	for name := range f.registered {
+		status := cache.StatusActive
+		if f.unreachable[name] {
+			status = cache.StatusUnreachable
+		}
+		regs = append(regs, cache.MCPRegistration{
+			Name:    name,
+			Status:  status,
+			Enabled: !f.disabled[name],
+			Tools:   f.schemas[name],
+		})
+	}
+	return regs
 }
 
 func (f *fakeResolver) Resolve(mcpName string) (cache.MCPClient, bool) {

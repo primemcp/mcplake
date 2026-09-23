@@ -36,14 +36,7 @@ func (r *Registry) RefreshTools(ctx context.Context, name string) error {
 		return fmt.Errorf("cache: refresh tools for %q: %w", name, err)
 	}
 
-	toolMap := make(map[string]ToolSchema, len(tools))
-	for _, t := range tools {
-		toolMap[t.Name] = ToolSchema{
-			Name:         t.Name,
-			InputSchema:  t.InputSchema,
-			OutputSchema: t.OutputSchema,
-		}
-	}
+	toolMap := toolMapFrom(tools)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()

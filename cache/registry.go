@@ -45,9 +45,31 @@ type ConnectConfig struct {
 
 // ToolSchema describes one tool a registered MCP advertises via tools/list.
 type ToolSchema struct {
-	Name         string
+	Name string
+	// Description is the tool's human-readable description, as the
+	// downstream advertised it. The data-plane MCP endpoint re-advertises
+	// it to its own callers, which is how a client's model picks a tool;
+	// see ADR-0020. Empty when the MCP doesn't provide one.
+	Description  string
 	InputSchema  json.RawMessage
 	OutputSchema json.RawMessage // nil when the MCP doesn't provide one
+}
+
+// toolMapFrom converts a discovery result into the by-name map a
+// registration stores. Every path that discovers tools -- Register,
+// RefreshTools and the health loop's reconnect -- goes through here, so a
+// field added to ToolSchema reaches all three or none.
+func toolMapFrom(tools []mcp.ToolSchema) map[string]ToolSchema {
+	toolMap := make(map[string]ToolSchema, len(tools))
+	for _, t := range tools {
+		toolMap[t.Name] = ToolSchema{
+			Name:         t.Name,
+			Description:  t.Description,
+			InputSchema:  t.InputSchema,
+			OutputSchema: t.OutputSchema,
+		}
+	}
+	return toolMap
 }
 
 // MCPClient is the connection surface Registry needs from a downstream MCP

@@ -644,6 +644,12 @@ const docTemplate = `{
                 "command": {
                     "type": "string"
                 },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "url": {
                     "type": "string"
                 }
@@ -801,6 +807,9 @@ const docTemplate = `{
         "controlplane.toolSchemaDTO": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "input_schema": {
                     "type": "object"
                 },
