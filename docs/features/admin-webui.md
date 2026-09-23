@@ -15,6 +15,30 @@ standalone via `make ui-build`, which writes `webui/dist`, embedded by
 `gateway/internal/controlplane/webui.go` via `//go:embed`). The compiled
 gateway binary serves it directly — nothing to run separately.
 
+**Container (`deploy/webui/Dockerfile`):** a prebuilt image of its own, whose
+final layer is `gcr.io/distroless/static` — the SPA is compiled during the
+image build and the running container only serves it. The compose demo brings
+it up as the `webui` service on port 8082. See
+[ADR-0020](../architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.md).
+
+That container is also the browser's single origin: it serves the assets **and**
+reverse-proxies `/admin/*` to the gateway's control plane, because the UI calls
+the admin API with relative URLs and ADR-0014's PKCE redirect names the origin
+you browsed to. Its settings, all overridable by flag or environment variable:
+
+| Flag | Env | Default | Purpose |
+| --- | --- | --- | --- |
+| `-addr` | `WEBUI_ADDR` | `:8081` | Listen address. |
+| `-root` | `WEBUI_ROOT` | `/srv/www` | Directory holding the built SPA. Startup fails if it has no `index.html`. |
+| `-api-prefix` | `WEBUI_API_PREFIX` | `/admin` | The single path prefix forwarded to the gateway. Nothing else is proxied. |
+| `-api-target` | `WEBUI_API_TARGET` | *(empty)* | Gateway control-plane base URL, e.g. `http://localhost:9091`. Empty disables proxying entirely — the right setting when something in front already routes `/admin/*`; the server logs a warning so it is not a silent misconfiguration. |
+
+The two ways of serving the UI differ in exactly one behaviour: a request for a
+*missing asset* (a path with a file extension) returns `404` here, where the
+embedded server returns `index.html`. Returning the shell for
+`/assets/index-abc123.js` hands the browser HTML with a JavaScript content type,
+which shows up as a syntax error rather than a clear miss.
+
 **Local frontend development:** `make ui-dev` starts Vite's dev server, which
 proxies `/admin` to a gateway control-plane already running locally (default
 `http://localhost:8081` — see `vite.config.ts`), so the dev server talks to

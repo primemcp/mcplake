@@ -43,6 +43,7 @@ For each registered MCP, whatever its transport:
 | State found | What happens |
 | --- | --- |
 | `active`, session answers `ping` | Nothing. One empty round trip. |
+| `active`, session answers `ping` with `-32601 Method not found` | Nothing. The server does not implement `ping`, but it *answered on this session*, which is exactly what the probe is asking. |
 | `active`, session does not answer | The ping is retried once first — a single failure is usually a pooled TCP connection the server closed rather than a dead session. If the retry also fails, reconnect. On success the MCP **stays** `active` — the client and tool schemas are swapped underneath it, so a concurrent caller sees the old working client or the new one, never a gap. The superseded client is closed. |
 | not `active` (`unreachable`) | Reconnect. On success it becomes `active` with a freshly discovered tool list. This is how an MCP registered before its server existed heals itself. |
 | reconnect fails | The MCP is demoted to `unreachable`, its dead client is closed, and it is retried on a backoff. |
@@ -97,6 +98,21 @@ retrying; the health loop is already working on it.
   only way to shorten it.
 - Seconds are reasonable here, unlike `schema_refresh_interval`. A `ping` is far
   cheaper than a `tools/list`.
+
+## Servers that do not implement `ping`
+
+`ping` is in the MCP spec and the official SDKs answer it, but plenty of
+deployed servers do not, replying `-32601 Method not found`. That counts as
+healthy here, and deliberately so: the request reached the server, was decoded,
+was matched against its method table and was answered on this session — which is
+the whole question a liveness probe asks.
+
+You do not need to configure anything for such a server, and it is not
+second-class: it gets the same detection as any other, because once it really
+goes away the failure is at the transport, not a `-32601`.
+
+Any *other* JSON-RPC error to a ping is treated as a dead session, because a
+server answering, say, `-32603` to an empty request is not obviously well.
 
 ## Failure modes this does *not* cover
 

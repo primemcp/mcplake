@@ -6,11 +6,13 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -256,14 +258,41 @@ func (c *Client) ListTools(ctx context.Context) ([]ToolSchema, error) {
 // tools/list may page through a large catalogue and is already ADR-0013's
 // job on its own interval.
 //
+// A server that replies "method not found" counts as healthy — see
+// answeredButUnimplemented.
+//
 // Callers should bound ctx. A peer that accepted the connection and then
 // stopped answering is exactly the case this has to detect, and without a
 // deadline it is also the case that hangs here.
 func (c *Client) Ping(ctx context.Context) error {
-	if err := c.session.Ping(ctx, nil); err != nil {
-		return fmt.Errorf("mcp: ping: %w", err)
+	err := c.session.Ping(ctx, nil)
+	if err == nil || answeredButUnimplemented(err) {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("mcp: ping: %w", err)
+}
+
+// answeredButUnimplemented reports whether err is the server telling us it
+// does not implement `ping` — which, for a liveness probe, is a *success*.
+//
+// `ping` is in the MCP spec and the official SDKs answer it, but plenty of
+// deployed servers do not, and they say so with a JSON-RPC
+// -32601 "Method not found" response. That response is itself the
+// strongest liveness signal available: the request reached the server, the
+// server decoded it, matched it against its method table and replied on
+// this session. Treating it as a dead session made the health loop tear the
+// session down and rebuild it on every single tick, forever, against a
+// server that was working perfectly — churning `initialize` + `tools/list`
+// at the health-check interval and eventually tipping a slow downstream
+// into "unreachable" when one of those rebuilds failed. See #194.
+//
+// Only this one code is forgiven. Any other JSON-RPC error to a ping is
+// ambiguous (a server answering -32603 to an empty request is not obviously
+// well), and every transport-level failure still means what it meant: no
+// answer came back, so the session is gone.
+func answeredButUnimplemented(err error) bool {
+	wire, ok := errors.AsType[*jsonrpc.Error](err)
+	return ok && wire.Code == jsonrpc.CodeMethodNotFound
 }
 
 // CallTool invokes tool with args and returns its raw result.

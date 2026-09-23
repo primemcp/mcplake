@@ -4,6 +4,7 @@ use (
 	./auth
 	./cache
 	./cmd/gateway
+	./cmd/webui
 	./config
 	./filter
 	./gateway
