@@ -184,3 +184,48 @@ func TestSupportedTransports(t *testing.T) {
 	assert.True(t, mcp.TransportSupported(""), "an omitted transport means stdio")
 	assert.False(t, mcp.TransportSupported("grpc"))
 }
+
+// Ping is what the Registry's health loop leans on (ADR-0019), so it has to
+// mean "this session works" over every transport, not just report that a
+// TCP connection exists.
+func TestClient_PingSucceedsOnALiveSession(t *testing.T) {
+	for _, tc := range []struct {
+		transport string
+		url       func(*testing.T) string
+	}{
+		{mcp.TransportHTTP, newHTTPFixture},
+		{mcp.TransportSSE, newSSEFixture},
+	} {
+		t.Run(tc.transport, func(t *testing.T) {
+			client, err := mcp.NewClient(t.Context(), mcp.Config{
+				Transport: tc.transport,
+				URL:       tc.url(t),
+			})
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = client.Close() })
+
+			assert.NoError(t, client.Ping(t.Context()))
+		})
+	}
+}
+
+// The case the loop actually has to detect: the server on the other end is
+// gone. A stale session must fail the probe rather than report health from
+// a cached handshake.
+func TestClient_PingFailsAfterTheServerGoesAway(t *testing.T) {
+	handler := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return fixtureServer() }, nil)
+	srv := httptest.NewServer(handler)
+
+	client, err := mcp.NewClient(t.Context(), mcp.Config{
+		Transport: mcp.TransportHTTP,
+		URL:       srv.URL,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = client.Close() })
+	require.NoError(t, client.Ping(t.Context()), "healthy before the server stops")
+
+	srv.Close()
+
+	assert.Error(t, client.Ping(t.Context()),
+		"a session whose server has gone must not report itself healthy")
+}

@@ -11,6 +11,44 @@ const ENDPOINTS: MCPRegistration[] = [
 ];
 
 describe("EndpointList", () => {
+  // The row used to print "stdio" unconditionally, so an http or sse
+  // endpoint was mislabelled in the list while the detail panel next to it
+  // showed the truth. See ADR-0019.
+  it("labels each row with that endpoint's own transport", () => {
+    render(
+      <EndpointList
+        endpoints={[
+          ...ENDPOINTS,
+          {
+            name: "remote-http",
+            transport: "http",
+            connect: { url: "https://mcp.example.com/mcp" },
+            status: "active",
+            enabled: true,
+            tools: { get_user: { name: "get_user" } },
+          },
+          {
+            name: "remote-sse",
+            transport: "sse",
+            connect: { url: "https://mcp.example.com/sse" },
+            status: "active",
+            enabled: true,
+          },
+        ]}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        selectedName={null}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("http · 1 tool")).toBeInTheDocument();
+    expect(screen.getByText("sse · 0 tools")).toBeInTheDocument();
+    expect(screen.getAllByText("stdio · 0 tools")).toHaveLength(3);
+  });
+
   it("search narrows the visible endpoints by name", async () => {
     const user = userEvent.setup();
     render(

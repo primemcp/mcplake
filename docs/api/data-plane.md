@@ -52,8 +52,9 @@ The full pipeline (auth → authorize → route → call → filter) is describe
 | 401    | `invalid_authorization`  | Header present but not a (non-empty) `Bearer` token.             |
 | 401    | `unauthorized`           | Token present but fails signature/exp/iss/aud validation.        |
 | 403    | `forbidden`              | Token valid but claims don't authorize this `(mcp, tool)` (no `AccessPolicy` grants it). |
-| 404    | `mcp_not_found`          | `mcp` isn't registered, or isn't currently active.               |
+| 404    | `mcp_not_found`          | No MCP is registered under that name.                            |
 | 404    | `tool_not_found`         | `mcp` exists but doesn't advertise `tool`.                       |
+| 503    | `mcp_unavailable`        | `mcp` is registered but has no live session right now — its downstream is down or restarting. The health-check loop is already retrying it, so this is worth retrying; see [mcp-health-check.md](../features/mcp-health-check.md). |
 | 502    | `upstream_error`         | The downstream MCP call itself failed (connection issue, tool-level error). |
 | 502    | `filter_unenforceable`   | A filter policy applied to this call, but the tool answered with free-form text its `drop_fields` cannot be applied to. The gateway refuses to return a body it could not redact — see [ADR-0015](../architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.md). |
 | 504    | `upstream_timeout`       | The downstream MCP call didn't complete within the gateway's call timeout (`internal.Config.CallTimeout`, default 30s — not yet exposed as a `config.toml` key). |
@@ -61,6 +62,11 @@ The full pipeline (auth → authorize → route → call → filter) is describe
 | 501    | `not_implemented`        | The gateway was started without a configured auth/policy/MCP pipeline (should not happen in a real deployment). |
 
 Every error body has the shape `{"error": "<code>", "message": "<human-readable>"}`.
+
+`404 mcp_not_found` and `503 mcp_unavailable` are deliberately distinct. The
+first means the registration does not exist and a caller should stop; the second
+means it exists and its downstream is currently unreachable, which the gateway is
+already working on ([ADR-0019](../architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md)).
 
 Authorization is checked *before* existence: a caller lacking a grant for a given
 `(mcp, tool)` gets 403 even if that `mcp`/`tool` doesn't actually exist, matching the

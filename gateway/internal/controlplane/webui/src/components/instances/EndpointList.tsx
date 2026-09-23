@@ -97,8 +97,14 @@ export function EndpointList({
                   <div className={`text-[10.5px] font-medium ${e.enabled ? statusTextColor[status] : "text-danger"}`}>
                     {e.enabled ? e.status : "disabled"}
                   </div>
+                  {/* The transport is read off the registration, not assumed.
+                      This row said "stdio" unconditionally until ADR-0019 --
+                      left behind when ADR-0017 added the other two and
+                      updated the detail panel but not the list, so every
+                      http/sse endpoint was mislabelled in the one view an
+                      operator scans. */}
                   <div className={`text-[10.5px] ${selected ? "text-subtle" : "text-muted"}`}>
-                    stdio · {toolCount} {toolCount === 1 ? "tool" : "tools"}
+                    {e.transport || "stdio"} · {toolCount} {toolCount === 1 ? "tool" : "tools"}
                   </div>
                 </button>
               );
@@ -117,7 +123,7 @@ export function EndpointList({
         </span>
         <span className="flex flex-col gap-0.5">
           <span className="text-[12.5px] font-semibold">Add MCP endpoint</span>
-          <span className="text-[10.5px] text-muted">a command is all the gateway needs</span>
+          <span className="text-[10.5px] text-muted">a command, or a URL for a remote MCP</span>
         </span>
       </button>
 
