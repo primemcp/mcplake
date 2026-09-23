@@ -55,6 +55,12 @@ type MCPResolver interface {
 	// operator (see #95). A disabled MCP stays connected with its tools
 	// cached; the pipeline rejects calls to it without a downstream call.
 	Disabled(mcp string) bool
+	// List returns every registration the registry holds, with its status,
+	// operator flag and discovered tool schemas. It is what the data-plane
+	// MCP endpoint builds its tools/list from (ADR-0021); the REST
+	// POST /v1/call path, which is told the mcp and tool up front, has no
+	// need of it.
+	List() []cache.MCPRegistration
 	// Registered reports whether mcp is known to the registry at all,
 	// whatever its status. It is what separates "no such MCP" (404) from
 	// "registered, currently unreachable, being reconnected" (503) once
@@ -96,6 +102,17 @@ type Gateway struct {
 
 	server *fasthttp.Server
 
+	// baseCtx is the gateway's own lifetime, cancelled by Stop. It is the
+	// root of a streamable MCP session's context, which must outlive the
+	// request that created it; see mcpSessionScope.
+	baseCtx    context.Context
+	baseCancel context.CancelFunc
+
+	// mcpStreamable and mcpSSE serve the data plane's MCP endpoints
+	// (ADR-0021). Built once by buildMCPHandlers.
+	mcpStreamable fasthttp.RequestHandler
+	mcpSSE        fasthttp.RequestHandler
+
 	mu    sync.Mutex
 	ln    net.Listener
 	ready chan struct{}
@@ -110,18 +127,22 @@ func NewGateway(cfg Config) *Gateway {
 		callTimeout = defaultCallTimeout
 	}
 
+	baseCtx, baseCancel := context.WithCancel(context.Background())
 	g := &Gateway{
 		addr:          cfg.DataPlaneAddr,
 		authenticator: cfg.Authenticator,
 		policy:        cfg.Policy,
 		resolver:      cfg.Resolver,
 		callTimeout:   callTimeout,
+		baseCtx:       baseCtx,
+		baseCancel:    baseCancel,
 		ready:         make(chan struct{}),
 	}
 	g.server = &fasthttp.Server{
 		Handler:     g.handleRequest,
 		IdleTimeout: idleTimeout,
 	}
+	g.buildMCPHandlers()
 	return g
 }
 
@@ -167,6 +188,14 @@ func (g *Gateway) Start(_ context.Context) error {
 // and waits for in-flight requests to finish, up to ctx's deadline. It
 // unblocks the goroutine running Start.
 func (g *Gateway) Stop(ctx context.Context) error {
+	// Cancelled before Shutdown, not after, and deliberately not deferred.
+	// An open MCP session holds a hanging GET, and fasthttp's graceful
+	// shutdown waits for in-flight requests to finish -- so ending the
+	// sessions is what lets Shutdown return rather than something to tidy
+	// up once it has. Streamable sessions hold a context rooted here; SSE
+	// sessions hold their request's, which fasthttp closes as the server
+	// shuts down.
+	g.baseCancel()
 	if err := g.server.ShutdownWithContext(ctx); err != nil {
 		return fmt.Errorf("gateway: shutdown: %w", err)
 	}
@@ -186,6 +215,13 @@ func (g *Gateway) handleRequest(ctx *fasthttp.RequestCtx) {
 		ctx.SetBodyString("ok")
 	case method == fasthttp.MethodPost && path == "/v1/call":
 		g.handleToolCall(ctx)
+	// Both MCP handlers are method-agnostic: the transports key off the
+	// method and a session header or query parameter, not off the path, so
+	// one case per path covers the whole transport.
+	case path == MCPStreamablePath:
+		g.mcpStreamable(ctx)
+	case path == MCPSSEPath:
+		g.mcpSSE(ctx)
 	default:
 		ctx.SetStatusCode(fasthttp.StatusNotFound)
 	}

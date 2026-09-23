@@ -11,6 +11,7 @@ import (
 // toolSchemaView is one discovered downstream tool in an mcpView.
 type toolSchemaView struct {
 	Name         string         `json:"name"`
+	Description  string         `json:"description,omitempty"`
 	InputSchema  map[string]any `json:"input_schema,omitempty"`
 	OutputSchema map[string]any `json:"output_schema,omitempty"`
 }
@@ -43,6 +44,7 @@ func mcpViewFrom(reg cache.MCPRegistration) mcpView {
 	for _, ts := range reg.Tools {
 		v.Tools = append(v.Tools, toolSchemaView{
 			Name:         ts.Name,
+			Description:  ts.Description,
 			InputSchema:  rawToMap(ts.InputSchema),
 			OutputSchema: rawToMap(ts.OutputSchema),
 		})

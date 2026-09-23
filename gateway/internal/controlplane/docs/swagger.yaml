@@ -77,6 +77,10 @@ definitions:
         type: array
       command:
         type: string
+      env:
+        additionalProperties:
+          type: string
+        type: object
       url:
         type: string
     type: object
@@ -180,6 +184,8 @@ definitions:
     type: object
   controlplane.toolSchemaDTO:
     properties:
+      description:
+        type: string
       input_schema:
         type: object
       name:

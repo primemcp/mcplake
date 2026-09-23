@@ -55,7 +55,12 @@ func (c Config) transport() string {
 // cache.ToolSchema; the two aren't the same type because mcp must not
 // depend on cache (cache, the Registry, depends on mcp — not the reverse).
 type ToolSchema struct {
-	Name         string
+	Name string
+	// Description is the tool's human-readable description, as the MCP
+	// advertised it. It is what an MCP client shows a model to let it pick
+	// a tool, so the data-plane MCP endpoint (ADR-0021) carries it through
+	// to its own tools/list. Empty when the MCP doesn't advertise one.
+	Description  string
 	InputSchema  json.RawMessage
 	OutputSchema json.RawMessage // nil when the MCP doesn't advertise one
 }
@@ -230,6 +235,7 @@ func (c *Client) ListTools(ctx context.Context) ([]ToolSchema, error) {
 
 		schemas = append(schemas, ToolSchema{
 			Name:         tool.Name,
+			Description:  tool.Description,
 			InputSchema:  input,
 			OutputSchema: output,
 		})

@@ -34,6 +34,7 @@ type connectConfigDTO struct {
 
 type toolSchemaDTO struct {
 	Name         string          `json:"name"`
+	Description  string          `json:"description,omitempty"`
 	InputSchema  json.RawMessage `json:"input_schema,omitempty" swaggertype:"object"`
 	OutputSchema json.RawMessage `json:"output_schema,omitempty" swaggertype:"object"`
 }
@@ -54,6 +55,7 @@ func mcpRegistrationDTOFrom(reg cache.MCPRegistration) mcpRegistrationDTO {
 		for name, schema := range reg.Tools {
 			tools[name] = toolSchemaDTO{
 				Name:         schema.Name,
+				Description:  schema.Description,
 				InputSchema:  schema.InputSchema,
 				OutputSchema: schema.OutputSchema,
 			}

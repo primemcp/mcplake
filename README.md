@@ -42,12 +42,19 @@ The gateway consists of four main components:
 3. **Schema Cache** — Caches tool and response schemas from all connected MCPs
 4. **Response Filter** — Filters response fields based on caller's claims
 
+The gateway speaks MCP on the way in as well as on the way out: point an MCP
+client at `/v1/mcp` (Streamable HTTP) or `/v1/sse` and it sees a tool catalogue
+filtered to exactly what its token authorizes, with every tool named
+`<mcp>__<tool>`. `POST /v1/call` remains available for plain REST callers; both
+run the same pipeline. See [docs/api/data-plane.md](docs/api/data-plane.md).
+
 See [docs/OVERVIEW.md](docs/OVERVIEW.md) for detailed architecture and design rationale.
 
 ## Phase 1 Roadmap
 
 - [x] Project scaffolding and architecture design
 - [x] fasthttp data-plane gateway (OIDC/JWT validation, claims-based authorization, tool-call proxy)
+- [x] MCP endpoints on the data plane — connect any MCP client to the gateway over Streamable HTTP (`/v1/mcp`) or SSE (`/v1/sse`), with `tools/list` filtered per caller ([ADR-0021](docs/architecture/decisions/0021-serve-mcp-on-the-data-plane.md))
 - [x] Dynamic MCP registration and schema discovery
 - [x] Unified JSONPath+regexp claim-rule engine (access policies and response filtering)
 - [x] GORM persistence (SQLite default, PostgreSQL-ready)

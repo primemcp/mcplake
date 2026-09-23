@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/atsokha/mcplake/auth"
 	"github.com/atsokha/mcplake/filter"
 	"github.com/valyala/fasthttp"
 )
@@ -208,6 +209,21 @@ func (g *Gateway) runPipeline(ctx context.Context, req ToolCallRequest) (json.Ra
 	if err != nil {
 		return nil, unauthorized("unauthorized", "token failed validation")
 	}
+	return g.callWithClaims(ctx, claims, req.MCP, req.Tool, req.Arguments)
+}
+
+// callWithClaims is the pipeline from authorization onwards, for a caller
+// whose token has already been validated: authorize -> route -> call ->
+// filter.
+//
+// It is split out from runPipeline because the data-plane MCP endpoint
+// (ADR-0021) validates the bearer token once when a session is established
+// and then holds the claims, so it has nothing left to validate per call.
+// Both surfaces run this same function, rather than each growing its own
+// copy of "call a tool subject to policy" -- which is the reasoning ADR-0011
+// applied to adminservice, and the divergence it avoids is the same one.
+func (g *Gateway) callWithClaims(ctx context.Context, claims *auth.Claims, mcpName, tool string, arguments map[string]any) (json.RawMessage, error) {
+	req := ToolCallRequest{MCP: mcpName, Tool: tool, Arguments: arguments}
 
 	authorized, err := g.policy.Authorize(claims.Raw, req.MCP, req.Tool)
 	if err != nil {

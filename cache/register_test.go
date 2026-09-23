@@ -264,3 +264,30 @@ func TestRegister_NormalizesAnOmittedTransportToStdio(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, mcp.TransportStdio, stored.Transport)
 }
+
+// TestRegistry_Register_KeepsToolDescriptions pins the field the data-plane
+// MCP endpoint needs: an MCP client picks a tool by its description, so
+// discovery has to store it rather than drop it. See ADR-0021.
+func TestRegistry_Register_KeepsToolDescriptions(t *testing.T) {
+	fake := &fakeMCPClient{
+		tools: []mcp.ToolSchema{{
+			Name:        "get_user",
+			Description: "look up a user by id",
+			InputSchema: json.RawMessage(`{"type":"object"}`),
+		}},
+	}
+	withFakeNewMCPClient(t, func(context.Context, mcp.Config) (MCPClient, error) {
+		return fake, nil
+	})
+
+	r := NewRegistry()
+	require.NoError(t, r.Register(context.Background(), MCPRegistration{
+		Name:      "postgres-ro",
+		Transport: "stdio",
+		Connect:   ConnectConfig{Command: "mcp-server-postgres"},
+	}))
+
+	got, ok := r.Get("postgres-ro")
+	require.True(t, ok)
+	assert.Equal(t, "look up a user by id", got.Tools["get_user"].Description)
+}

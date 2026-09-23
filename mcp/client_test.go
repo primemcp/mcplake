@@ -220,3 +220,26 @@ func TestNewClient_DeclaredEnvOverridesTheBaseEnvironment(t *testing.T) {
 	require.True(t, got.Set)
 	assert.Equal(t, "/custom/only/path", got.Value)
 }
+
+func TestListTools_CarriesTheToolDescription(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := mcp.NewClient(ctx, fixtureConfig())
+	require.NoError(t, err)
+	defer client.Close()
+
+	tools, err := client.ListTools(ctx)
+	require.NoError(t, err)
+
+	var echo *mcp.ToolSchema
+	for i := range tools {
+		if tools[i].Name == "echo" {
+			echo = &tools[i]
+		}
+	}
+	require.NotNil(t, echo, "fixture server should list an echo tool")
+	// An MCP client picks a tool by its description, so discovery has to
+	// carry it rather than dropping it on the floor. See ADR-0021.
+	assert.Equal(t, "echoes the given message back", echo.Description)
+}

@@ -201,14 +201,7 @@ func (r *Registry) reconnect(ctx context.Context, reg MCPRegistration) error {
 		return fmt.Errorf("cache: rediscover tools for %q: %w", reg.Name, err)
 	}
 
-	toolMap := make(map[string]ToolSchema, len(tools))
-	for _, t := range tools {
-		toolMap[t.Name] = ToolSchema{
-			Name:         t.Name,
-			InputSchema:  t.InputSchema,
-			OutputSchema: t.OutputSchema,
-		}
-	}
+	toolMap := toolMapFrom(tools)
 
 	superseded, swapped := r.activate(reg, client, toolMap)
 	if !swapped {

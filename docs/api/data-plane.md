@@ -78,3 +78,112 @@ registry currently has anything registered under them.
 ### Current limitations (tracked, not bugs)
 
 - No request size limit or rate limiting is documented yet.
+
+## MCP endpoints: `/v1/mcp` and `/v1/sse`
+
+The gateway is itself an MCP server. Any MCP client — an agent, an MCP-enabled
+editor, MCP Inspector — can connect to it directly instead of hand-rolling
+`POST /v1/call`, and gets a tool catalogue filtered to what its token
+authorizes. See
+[ADR-0021](../architecture/decisions/0021-serve-mcp-on-the-data-plane.md).
+
+| Path | Transport | Methods |
+|------|-----------|---------|
+| `/v1/mcp` | MCP Streamable HTTP — the current standard | `POST`, `GET`, `DELETE` |
+| `/v1/sse` | HTTP+SSE — the older transport, for clients that speak only it | `GET` (opens the session), `POST` (messages) |
+
+Both are always enabled. There is no config key for them: they carry the same
+authentication as `POST /v1/call`, which is the only thing an opt-out would be
+protecting.
+
+### Connecting
+
+```jsonc
+// An MCP client's server entry
+{
+  "type": "http",
+  "url": "https://gateway.example.com/v1/mcp",
+  "headers": { "Authorization": "Bearer <jwt>" }
+}
+```
+
+`"type": "sse"` with `.../v1/sse` works the same way for a client that needs it.
+
+### `tools/list`
+
+Returns one tool per `(mcp, tool)` pair, named **`<mcp>__<tool>`** — the
+registered MCP's name, two underscores, the tool's own name. Every registered
+MCP's catalogue is flattened into one list, so the prefix is what keeps two
+downstreams that both advertise a `query` apart.
+
+A pair appears only when **all** of the following hold:
+
+- the MCP's registration is `active` (its downstream is reachable),
+- the MCP is not administratively disabled, and
+- the caller's access policy grants that `(mcp, tool)` pair.
+
+That last point is the difference from `POST /v1/call`: **the catalogue is the
+access policy, made visible.** Two callers with different claims see different
+tool lists, and a caller is never offered a tool whose only possible answer is
+`403`. An unauthorized caller sees an empty list rather than an error.
+
+The list is returned in a single page, sorted by MCP name then tool name. Input
+and output schemas, and each tool's description, are passed through from the
+downstream unchanged.
+
+### `tools/call`
+
+Runs the same pipeline as `POST /v1/call` — auth → authorize → route → call →
+filter — including every `drop_fields` path in the caller's filter policies. The
+two surfaces share one implementation, so a response filtered on one is filtered
+identically on the other.
+
+Failures split two ways, following the MCP spec's distinction between a call
+that could not be made and a call that failed:
+
+| Outcome | Conditions |
+|---------|------------|
+| **JSON-RPC error** | Unknown tool, no grant for the pair (`forbidden`), MCP disabled (`mcp_disabled`), MCP or tool not found. The call should not have been made. |
+| **Result with `isError: true`** | The downstream was reached and failed (`upstream_error`), timed out (`upstream_timeout`), is currently unreachable (`mcp_unavailable`), or answered something a filter policy could not be applied to (`filter_unenforceable`). The text content carries the same error code `POST /v1/call` would have returned. |
+
+### Authentication
+
+Every request to these paths that carries an `Authorization: Bearer <jwt>`
+header has it validated, and one is **required** to establish a session: the
+hanging `GET` for SSE, and the first request of a streamable session. A request
+without one is answered `401` with the same `{"error","message"}` body the rest
+of the data plane uses.
+
+Two properties are worth being precise about, because they are not the same:
+
+- **Authorization is re-evaluated on every request.** `tools/list` and
+  `tools/call` both consult the live policy engine, so revoking a grant or
+  disabling an MCP takes effect on the caller's next call — no reconnect needed.
+- **Identity is bound when the session is established.** The MCP Go SDK supplies
+  per-request HTTP headers only on the streamable transport, and its SSE client
+  does not resend `Authorization` on message `POST`s, so there is no mechanism
+  that would re-derive claims per message on both transports.
+
+The consequence, stated plainly: an **SSE** session whose message `POST`s carry
+no `Authorization` header stays usable past the token's expiry, until the stream
+drops. It is authorized by possession of the unguessable session id that was
+handed only to an authenticated `GET`. A **streamable** client resends the
+header on every request, so an expired token is rejected there on the next
+message. Deployments that need expiry enforced strictly should prefer
+`/v1/mcp`.
+
+### Session lifetime
+
+The gateway pings a connected client every 30s and closes the session when the
+ping fails, which is how a client that vanished without closing is reaped.
+Sessions are also closed when the gateway shuts down.
+
+### Not exposed
+
+- **MCP prompts and resources.** Tools only, matching the control plane's MCP
+  server ([ADR-0011](../architecture/decisions/0011-mcp-control-server.md)).
+- **`notifications/tools/list_changed`.** Schema freshness is handled by polling
+  ([ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.md)); a
+  client sees a changed catalogue on its next `tools/list`.
+- **The admin API.** That is the control plane's `/admin/mcp`, a separate
+  listener and a separate credential.
