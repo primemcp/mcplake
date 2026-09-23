@@ -7,6 +7,14 @@
     "playwright" :{
       "command": "npx",
       "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "codegraph": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@cartographai/mcp-server-codegraph",
+        "/app"
+      ]
     }
   }
 }
