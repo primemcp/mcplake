@@ -1,0 +1,75 @@
+# Turnkey demo stack for the mcplake gateway. `docker compose up --build` or
+# `podman compose up --build` brings up:
+#   - Keycloak, as the OIDC provider (a realm is pre-imported, so two demo
+#     users - alice/alice and bob/bob - can log in immediately)
+#   - the mcplake gateway itself, fronting a dummy MCP server (the official
+#     postgres reference server, run as a subprocess - see deploy/demo/config.toml)
+#   - Postgres, backing both the gateway's own control-plane persistence and
+#     the small dataset the dummy MCP server queries
+#
+# See docs/DEMO.md for the walkthrough (getting a token, calling /v1/call,
+# seeing alice's 200 vs bob's 403).
+name: mcplake-demo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ./deploy/demo/postgres:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Owns the network namespace the gateway joins (see the `gateway` service
+  # below), so this is also where the gateway's own ports get published.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # A fixed, explicit hostname (rather than the container's own name)
+      # keeps the issuer/JWKS URLs identical whether they're reached from the
+      # host, from a browser, or from the gateway container sharing this
+      # network namespace - see deploy/demo/config.toml's [oidc] comment.
+      KC_HOSTNAME: "http://localhost:8080"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./deploy/demo/keycloak/mcplake-realm.json:/opt/keycloak/data/import/mcplake-realm.json:ro
+    ports:
+      - "8080:8080" # Keycloak
+      - "9090:9090" # gateway data plane (POST /v1/call, GET /healthz)
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/demo/Dockerfile
+    # mcp.Client (mcp/client.go) only speaks stdio, so the dummy MCP server
+    # has to run inside this container. Sharing Keycloak's network namespace
+    # (rather than reaching it as "http://keycloak:8080") is what lets
+    # oidc.jwks_url stay a genuine loopback URL - config.validateSecureHTTPURL
+    # requires https everywhere else, and this setup is the documented
+    # exception, not a workaround of it.
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./deploy/demo/config.toml:/etc/mcplake/config.toml:ro
+    command: ["--config", "/etc/mcplake/config.toml"]
+    restart: on-failure
+
+volumes:
+  pgdata:

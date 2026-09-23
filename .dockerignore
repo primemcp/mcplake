@@ -1,0 +1,7 @@
+.git
+.devcontainer
+docs
+testdata
+**/node_modules
+gateway/internal/controlplane/webui/dist
+**/*.db

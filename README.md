@@ -59,6 +59,14 @@ See [docs/OVERVIEW.md](docs/OVERVIEW.md) for detailed architecture and design ra
 
 Configuration is a single TOML file ([ADR-0012](docs/architecture/decisions/0012-toml-configuration-format.md)), passed with `--config` (default `config.toml`). See [`config.example.toml`](config.example.toml) and [`docs/CONFIG.md`](docs/CONFIG.md) for all options.
 
+## Demo
+
+Want to see it running end to end before wiring up your own OIDC provider
+and MCP servers? `docker compose up --build` (or `podman compose up --build`)
+brings up Keycloak, a dummy MCP server, and Postgres, with two demo users
+that show a `200` vs a `403` under the same claims-based access control the
+gateway uses in production. See [`docs/DEMO.md`](docs/DEMO.md).
+
 ## Contributing
 
 This is an open-source project under Apache 2.0 license. Contributions are welcome.
