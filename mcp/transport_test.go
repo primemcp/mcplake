@@ -1,12 +1,17 @@
 package mcp_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/atsokha/mcplake/mcp"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -228,4 +233,57 @@ func TestClient_PingFailsAfterTheServerGoesAway(t *testing.T) {
 
 	assert.Error(t, client.Ping(t.Context()),
 		"a session whose server has gone must not report itself healthy")
+}
+
+// pingRejectingHandler serves a real MCP session over Streamable HTTP but
+// answers `ping` with JSON-RPC -32601. Plenty of deployed servers behave
+// this way, and the gateway's health loop must read it as "alive" rather
+// than rebuilding the session every tick. See #194.
+func newPingRejectingFixture(t *testing.T) string {
+	t.Helper()
+	inner := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return fixtureServer() }, nil)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(body))
+
+		var probe struct {
+			ID     json.RawMessage `json:"id"`
+			Method string          `json:"method"`
+		}
+		if json.Unmarshal(body, &probe) == nil && probe.Method == "ping" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,`+
+				`"error":{"code":%d,"message":"Method not found"}}`,
+				probe.ID, jsonrpc.CodeMethodNotFound)
+			return
+		}
+		r.ContentLength = int64(len(body))
+		inner.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+func TestClient_PingTreatsMethodNotFoundAsAlive(t *testing.T) {
+	client, err := mcp.NewClient(t.Context(), mcp.Config{
+		Transport: mcp.TransportHTTP,
+		URL:       newPingRejectingFixture(t),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = client.Close() })
+
+	// The server answered -- on this session, from its own method table.
+	// That is exactly what a liveness probe is asking, so it is not an error.
+	assert.NoError(t, client.Ping(t.Context()),
+		"a server that does not implement ping is still a live session")
+
+	// And the session really is usable, which is the point.
+	tools, err := client.ListTools(t.Context())
+	require.NoError(t, err)
+	assert.Len(t, tools, 1)
 }

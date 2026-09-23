@@ -86,6 +86,31 @@ buys not throwing away a working session, and not re-running `tools/list` to
 rebuild what was already there. Against a uvicorn MCP this turned roughly one
 spurious reconnect every three minutes into none.
 
+### "Method not found" is a healthy answer
+
+`ping` is in the spec and the official SDKs answer it, but plenty of deployed
+servers do not — they reply with a JSON-RPC `-32601 Method not found`. Read
+literally that is an error; read correctly it is the strongest liveness signal
+available, because the request reached the server, was decoded, was matched
+against its method table, and was answered *on this session*.
+
+The first version of this loop treated it as a dead session, which meant tearing
+down a working session and rebuilding it on every tick, forever — a full
+`initialize` + `tools/list` per affected MCP per interval, against a server that
+was fine. Worse, a slow downstream only has to fail one of those rebuilds to be
+demoted to `unreachable` and held there by the backoff, so the endpoint flaps
+for no reason an operator can see. See #194.
+
+So `mcp.Client.Ping` reports `-32601` as success. Only that code: any other
+JSON-RPC error to an empty ping is ambiguous, and every transport-level failure
+still means no answer came back. Nothing else is needed for these servers —
+"it answered" is the entire question a liveness probe asks, so an unimplemented
+`ping` is still a perfectly good probe.
+
+Keeping this in `mcp` rather than `cache` keeps JSON-RPC knowledge in the
+package that owns the protocol; `cache` goes on seeing a plain error/no-error
+answer.
+
 ### `ping`, not `tools/list`
 
 Liveness and schema freshness are separate questions with separate costs.
@@ -159,7 +184,8 @@ should retry rather than conclude the MCP does not exist.
   the request path would shrink that, at the cost of putting dialing under load
   in the hot path; see above.
 - One `ping` per registered MCP per interval, forever. Empty round trips, but not
-  free, and they show up in a downstream's access log.
+  free, and they show up in a downstream's access log — as a `-32601` for servers
+  that do not implement the method.
 - The stale-pooled-connection race is *absorbed* here, not fixed. A user's tool
   call can still pick the same dead connection out of the pool and get a
   `502 upstream_error`; only the health loop retries. Fixing that properly means
