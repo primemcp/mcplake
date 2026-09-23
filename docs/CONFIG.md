@@ -265,24 +265,61 @@ Defines all MCP servers the gateway connects to. Each server is one
 `[[mcps]]` block.
 
 ```toml
+# stdio: the gateway starts the server as a subprocess of itself.
 [[mcps]]
 name = "postgres-ro"
-type = "stdio"               # stdio, sse, etc.
+type = "stdio"
 command = "mcp-server-postgres"
 arguments = ["--connection-string", "postgresql://user@localhost/db", "--read-only"]
 
+# http: a server running somewhere else, reached over MCP Streamable HTTP.
 [[mcps]]
-name = "filesystem"
-type = "stdio"
-command = "mcp-server-filesystem"
-arguments = ["/data"]
+name = "hosted-crm"
+type = "http"
+url = "https://mcp.crm.example.com/mcp"
+
+# sse: the older HTTP+SSE transport, for servers that only speak it.
+[[mcps]]
+name = "legacy-analytics"
+type = "sse"
+url = "https://mcp.analytics.example.com/sse"
 ```
 
 **Fields:**
 - `name` — Unique identifier for this MCP instance (required)
-- `type` — Transport type (default: `"stdio"`)
-- `command` — Binary to execute (required)
-- `arguments` — Command-line arguments
+- `type` — Transport (default: `"stdio"`). One of:
+  - `"stdio"` — the gateway spawns `command` as a subprocess and speaks over
+    its stdin/stdout. The server's lifetime is the gateway's, and it inherits
+    the gateway's process environment and filesystem.
+  - `"http"` — MCP Streamable HTTP, for a server the gateway does not run.
+  - `"sse"` — the older HTTP+SSE transport.
+
+  See [ADR-0017](architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.md).
+- `command` — Binary to execute. **Required for `stdio`**, and rejected for
+  `http`/`sse` (the gateway does not start a remote MCP).
+- `arguments` — Command-line arguments, for `stdio`.
+- `url` — The server's endpoint. **Required for `http`/`sse`**, and rejected
+  for `stdio`.
+
+  It must be `https`, or `http` only when the host is loopback
+  (`127.0.0.1`, `::1`, `localhost`) — the same rule `oidc.jwks_url` carries,
+  and for a comparable reason. A tool call's arguments and its response are
+  exactly what `access_policies` and `filter_policies` exist to control; in
+  plaintext to a remote host, anyone on the path reads the fields you just
+  configured the gateway to strip. If the MCP is http-only, front it with TLS
+  or colocate it so the gateway can reach it over loopback — running it as a
+  sidecar sharing the gateway's network namespace is what
+  [the compose demo](DEMO.md) does.
+
+  The gateway cannot yet present credentials to a downstream MCP: there is no
+  bearer-token or OAuth support on the outbound side, so an endpoint that
+  requires authentication cannot be registered. Tracked in ADR-0017's
+  follow-ups.
+
+> Entries are validated at startup: a missing `command` on a `stdio` entry, a
+> missing or plaintext-remote `url` on an `http` entry, or an unknown `type`
+> all fail the gateway with an error naming the entry, rather than surfacing
+> later as an `unreachable` MCP you have to work backwards from.
 - `enabled` — operator on/off switch (optional, default `true`). When
   `false`, the MCP is still registered and (at startup) still connected, its
   tools stay cached, but the data plane rejects every `POST /v1/call` for it

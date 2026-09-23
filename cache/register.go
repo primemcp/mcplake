@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/atsokha/mcplake/mcp"
 )
@@ -30,19 +31,37 @@ var newMCPClient = func(ctx context.Context, cfg mcp.Config) (MCPClient, error) 
 // left completely untouched; only a name with no existing entry gets
 // recorded as StatusUnreachable, so operators can still see a first-attempt
 // failure for an MCP that was never up.
+//
+// reg.Transport selects how the MCP is reached: stdio spawns it as a
+// subprocess of this gateway, http and sse connect to one running elsewhere
+// (see ADR-0017). An empty Transport means stdio.
 func (r *Registry) Register(ctx context.Context, reg MCPRegistration) error {
 	if reg.Name == "" {
 		return fmt.Errorf("cache: registration name is required")
 	}
-	if reg.Transport != "stdio" {
-		err := fmt.Errorf("cache: unsupported transport %q for %q (only stdio is implemented)", reg.Transport, reg.Name)
+	if !mcp.TransportSupported(reg.Transport) {
+		err := fmt.Errorf("cache: unsupported transport %q for %q (supported: %s)",
+			reg.Transport, reg.Name, strings.Join(mcp.SupportedTransports(), ", "))
 		r.setIfAbsent(unreachable(reg))
 		return err
 	}
+	// An omitted transport means stdio. Settle that here, once, so the empty
+	// string never reaches the store or an admin API response -- every
+	// reader downstream sees a concrete transport name.
+	if reg.Transport == "" {
+		reg.Transport = mcp.TransportStdio
+	}
 
+	// mcp.NewClient owns the rest of the validation -- that Command is set
+	// for stdio, that URL is set and passes ValidateEndpointURL for http and
+	// sse. Doing it there rather than here keeps one answer for every write
+	// path: config seeding, POST /admin/mcps and the ADR-0011 control server
+	// all arrive at Register, and Register arrives here.
 	client, err := newMCPClient(ctx, mcp.Config{
+		Transport: reg.Transport,
 		Command:   reg.Connect.Command,
 		Arguments: reg.Connect.Arguments,
+		URL:       reg.Connect.URL,
 	})
 	if err != nil {
 		r.setIfAbsent(unreachable(reg))

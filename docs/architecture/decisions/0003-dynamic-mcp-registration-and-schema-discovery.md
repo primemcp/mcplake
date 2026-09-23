@@ -143,6 +143,12 @@ adds no external dependency, consistent with the project's deployment goals.
   [ADR-0013](0013-periodic-mcp-schema-refresh.md): an optional
   `mcp.schema_refresh_interval` re-runs `tools/list` on the live client on a
   timer and swaps the cached schema in, without reconnecting.
+- ~~Only the stdio transport is implemented, so every downstream MCP must be a
+  subprocess of the gateway.~~ Addressed by
+  [ADR-0017](0017-http-and-sse-transports-for-downstream-mcps.md): `http`
+  (Streamable HTTP) and `sse` join `stdio`, so an MCP can run in its own
+  container, pod or host. Registration, discovery and the make-before-break
+  swap described above are unchanged — only how the client is dialed differs.
 
 ## Validation
 

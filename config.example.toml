@@ -42,7 +42,13 @@ audience = "mcp-gateway"
 driver = "sqlite"     # sqlite (default) | postgres
 dsn = "gateway.db"    # SQLite file path, or a Postgres connection string
 
-# MCP servers the gateway connects to.
+# MCP servers the gateway connects to. `type` picks the transport (ADR-0017):
+# "stdio" runs the server as a subprocess of the gateway and takes `command`;
+# "http" (MCP Streamable HTTP) and "sse" reach a server running elsewhere and
+# take `url` instead. A url must be https, or http only on a loopback host --
+# a tool call's arguments and response are exactly what access_policies and
+# filter_policies exist to control, so they don't travel in the clear. There
+# is no outbound auth yet: an MCP requiring credentials can't be registered.
 [[mcps]]
 name = "postgres-ro"
 type = "stdio"
@@ -60,6 +66,12 @@ name = "filesystem"
 type = "stdio"
 command = "mcp-server-filesystem"
 arguments = ["/data"]
+
+# A server the gateway does not start, reached over the network.
+# [[mcps]]
+# name = "hosted-crm"
+# type = "http"                          # or "sse" for the older transport
+# url = "https://mcp.crm.example.com/mcp"
 # enabled = false   # optional, default true. A disabled MCP still connects and
 #                   # caches its tools, but the data plane rejects every call for
 #                   # it with 403 mcp_disabled. Toggle at runtime with

@@ -21,6 +21,16 @@ const (
 	StatusUnreachable = "unreachable"
 )
 
+// Transport names for a registration, re-exported from mcp so callers that
+// already depend on cache (config, the control plane) don't each need a
+// direct mcp import for a string constant. mcp owns them because mcp is
+// what dials them; see ADR-0017.
+const (
+	TransportStdio = mcp.TransportStdio
+	TransportHTTP  = mcp.TransportHTTP
+	TransportSSE   = mcp.TransportSSE
+)
+
 // ConnectConfig holds the transport-specific details needed to connect to an
 // MCP: Command/Arguments for the stdio transport, or URL for sse/http.
 type ConnectConfig struct {

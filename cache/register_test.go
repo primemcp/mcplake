@@ -164,3 +164,79 @@ func TestRegistry_Register_OneFailureDoesNotAffectOtherRegistrations(t *testing.
 	assert.Equal(t, StatusUnreachable, bad.Status)
 	assert.Equal(t, StatusActive, good.Status)
 }
+
+// ADR-0017: an MCP the gateway does not start. The Registry's own behaviour
+// must not vary by transport -- same Active status, same discovered tools,
+// same Connect round-trip -- so these assert the exact shape the stdio tests
+// above assert, with a URL in place of a command.
+func TestRegister_AcceptsHTTPAndSSETransports(t *testing.T) {
+	for _, transport := range []string{mcp.TransportHTTP, mcp.TransportSSE} {
+		t.Run(transport, func(t *testing.T) {
+			var got mcp.Config
+			withFakeNewMCPClient(t, func(_ context.Context, cfg mcp.Config) (MCPClient, error) {
+				got = cfg
+				return &fakeMCPClient{tools: []mcp.ToolSchema{{Name: "echo"}}}, nil
+			})
+
+			r := NewRegistry()
+			reg := MCPRegistration{
+				Name:      "remote",
+				Transport: transport,
+				Connect:   ConnectConfig{URL: "https://mcp.example.com/mcp"},
+				Enabled:   true,
+			}
+			require.NoError(t, r.Register(context.Background(), reg))
+
+			// The transport and URL must reach mcp.NewClient; before
+			// ADR-0017 Register built a Config with only Command/Arguments,
+			// so a URL would have been silently dropped.
+			assert.Equal(t, transport, got.Transport)
+			assert.Equal(t, "https://mcp.example.com/mcp", got.URL)
+
+			stored, ok := r.Get("remote")
+			require.True(t, ok)
+			assert.Equal(t, StatusActive, stored.Status)
+			assert.Equal(t, transport, stored.Transport)
+			assert.Equal(t, "https://mcp.example.com/mcp", stored.Connect.URL)
+			assert.Len(t, stored.Tools, 1)
+		})
+	}
+}
+
+func TestRegister_RejectsAnUnknownTransport(t *testing.T) {
+	r := NewRegistry()
+	err := r.Register(context.Background(), MCPRegistration{
+		Name:      "pigeon",
+		Transport: "carrier-pigeon",
+		Connect:   ConnectConfig{URL: "https://mcp.example.com/mcp"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `unsupported transport "carrier-pigeon"`)
+	assert.Contains(t, err.Error(), "stdio, http, sse", "the error should list what is supported")
+
+	// Still recorded, so an operator can see the failed registration rather
+	// than wondering where their entry went -- same as any other
+	// first-attempt failure.
+	stored, ok := r.Get("pigeon")
+	require.True(t, ok)
+	assert.Equal(t, StatusUnreachable, stored.Status)
+}
+
+// An omitted transport has always meant stdio. It must keep meaning that,
+// and must be settled to the concrete name before anything stores it, so no
+// API response or database row ever carries an empty transport.
+func TestRegister_NormalizesAnOmittedTransportToStdio(t *testing.T) {
+	withFakeNewMCPClient(t, func(context.Context, mcp.Config) (MCPClient, error) {
+		return &fakeMCPClient{}, nil
+	})
+
+	r := NewRegistry()
+	require.NoError(t, r.Register(context.Background(), MCPRegistration{
+		Name:    "legacy",
+		Connect: ConnectConfig{Command: "some-server"},
+	}))
+
+	stored, ok := r.Get("legacy")
+	require.True(t, ok)
+	assert.Equal(t, mcp.TransportStdio, stored.Transport)
+}

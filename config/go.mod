@@ -5,6 +5,7 @@ go 1.27.1
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/atsokha/mcplake/cache v0.0.0-00010101000000-000000000000
+	github.com/atsokha/mcplake/mcp v0.0.0-00010101000000-000000000000
 	github.com/atsokha/mcplake/persistence v0.0.0-00010101000000-000000000000
 	github.com/atsokha/mcplake/router v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.12.1
@@ -15,7 +16,6 @@ require (
 	github.com/MicahParks/jwkset v0.11.1 // indirect
 	github.com/MicahParks/keyfunc/v3 v3.8.1 // indirect
 	github.com/atsokha/mcplake/auth v0.0.0-00010101000000-000000000000 // indirect
-	github.com/atsokha/mcplake/mcp v0.0.0-00010101000000-000000000000 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/glebarez/sqlite v1.11.0 // indirect
