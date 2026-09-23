@@ -3,7 +3,7 @@ import { api, configureAuth } from "../api/client";
 import { AuthContext } from "./context";
 import type { AuthConfig, LoginConfig } from "../api/types";
 import { AuthBusyScreen, AuthUnavailableScreen, ForbiddenScreen, LoginScreen, LoginUnconfiguredScreen } from "./AuthScreens";
-import { currentHref, redirectTo, redirectUri, stripQuery } from "./browser";
+import { currentHref, redirectTo, redirectUri, restorePath, stripQuery } from "./browser";
 import { authorizeUrl, exchangeCode, loginConfigOf, readCallback, refreshWith, subjectOf } from "./oidc";
 import {
   clearPending,
@@ -121,7 +121,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: "redirecting", login, issuer });
     const verifier = newVerifier();
     const state = newState();
-    savePending({ verifier, state });
+    // Captured now, before the redirect: the provider always sends the
+    // browser back to this origin's bare "/" (redirectUri() is fixed, not
+    // taken from the current path -- ADR-0014), so this is the only chance
+    // to remember a deep link (e.g. a bookmarked /mcps/:name) for restorePath
+    // to put back once signed in.
+    savePending({ verifier, state, returnPath: window.location.pathname });
     redirectTo(await authorizeUrl(login, { verifier, state, redirectUri: redirectUri() }));
   }, []);
 
@@ -203,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           const session = sessionFrom(tokens, Date.now());
           applySession(session);
+          if (pending.returnPath) restorePath(pending.returnPath);
           setState({ status: "authenticated", subject: subjectOf(session.accessToken) });
         } catch (err) {
           setState({

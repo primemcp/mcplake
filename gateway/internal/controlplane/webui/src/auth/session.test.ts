@@ -98,4 +98,16 @@ describe("pending PKCE state", () => {
 
     expect(JSON.stringify(Object.values(localStorage))).not.toContain("\"v\"");
   });
+
+  it("round-trips an optional returnPath, so a deep link survives the redirect to the provider and back", () => {
+    savePending({ verifier: "v", state: "s", returnPath: "/mcps/postgres-demo" });
+
+    expect(readPending()).toEqual({ verifier: "v", state: "s", returnPath: "/mcps/postgres-demo" });
+  });
+
+  it("still accepts a record with no returnPath", () => {
+    savePending({ verifier: "v", state: "s" });
+
+    expect(readPending()).toEqual({ verifier: "v", state: "s" });
+  });
 });

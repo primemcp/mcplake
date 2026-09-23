@@ -27,3 +27,14 @@ export function redirectTo(url: string): void {
 export function stripQuery(): void {
   window.history.replaceState({}, "", window.location.pathname);
 }
+
+/** Puts the browser back on `path` after a successful sign-in. Since
+ * `redirectUri()` is fixed to this origin's "/", the provider always
+ * returns the browser to the root — this is what makes a deep link (e.g.
+ * a bookmarked /mcps/:name) survive the round trip instead of silently
+ * landing on the root once signed in. A no-op when there's nothing to
+ * restore (path already current, or the sign-in didn't start from a
+ * deep link). */
+export function restorePath(path: string): void {
+  if (path !== window.location.pathname) window.history.replaceState({}, "", path);
+}
