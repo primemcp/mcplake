@@ -28,10 +28,16 @@ end to end:
   `demo-reader` access policy → her calls succeed.
 - **bob** (`role=guest`) authenticates fine but matches no access policy →
   his calls get `403 forbidden`.
-- **admin** (`role=admin`) is granted access to every MCP by the `admin`
-  access policy, *and* is the only user `admin_auth.match` lets into
+- **mcplake-admin** (`role=admin`) is granted access to every MCP by the
+  `admin` access policy, *and* is the only user `admin_auth.match` lets into
   `/admin/*` and the admin web UI (ADR-0010/ADR-0014) → alice and bob can
-  both get a token from Keycloak, but only admin can sign into the UI.
+  both get a token from Keycloak, but only mcplake-admin can sign into the
+  UI.
+
+  This is a `mcplake` realm user, deliberately named to be unmistakable from
+  Keycloak's *own* bootstrap superuser (`KEYCLOAK_ADMIN=admin`, in the
+  `master` realm - that one logs into Keycloak's own admin console at
+  http://localhost:8080/admin, not the gateway).
 
 ## Prerequisites
 
@@ -119,7 +125,8 @@ whose `role` claim is `admin` gets past `/admin/*` (ADR-0010), and
 Code + PKCE flow against Keycloak (ADR-0014) - no manual token-pasting.
 
 1. Open http://localhost:9091/ - the UI redirects to Keycloak.
-2. Sign in as **admin** / **admin**.
+2. Sign in as **mcplake-admin** / **mcplake-admin** (not Keycloak's own
+   `admin`/`admin` console login - see the note above).
 3. Keycloak redirects back to the UI, now authenticated - try alice/alice or
    bob/bob instead and you'll land back on the UI signed in, but on the
    "signed in, but these claims aren't an admin" `403` screen ADR-0014

@@ -1,7 +1,9 @@
 # Turnkey demo stack for the mcplake gateway. `docker compose up --build` or
 # `podman compose up --build` brings up:
 #   - Keycloak, as the OIDC provider (a realm is pre-imported, so three demo
-#     users - alice/alice, bob/bob, admin/admin - can log in immediately)
+#     users - alice/alice, bob/bob, mcplake-admin/mcplake-admin - can log in
+#     immediately; mcplake-admin is a realm user, distinct from Keycloak's
+#     own KEYCLOAK_ADMIN bootstrap superuser below)
 #   - the mcplake gateway itself, fronting a dummy MCP server (the official
 #     postgres reference server, run as a subprocess - see deploy/demo/config.toml)
 #     and serving its embedded admin web UI, gated by admin_auth (ADR-0010/0014)

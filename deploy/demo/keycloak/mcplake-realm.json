@@ -76,7 +76,7 @@
       ]
     },
     {
-      "username": "admin",
+      "username": "mcplake-admin",
       "enabled": true,
       "emailVerified": true,
       "attributes": {
@@ -85,7 +85,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "admin",
+          "value": "mcplake-admin",
           "temporary": false
         }
       ]
