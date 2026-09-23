@@ -113,6 +113,17 @@ export function InstancesScreen() {
           ) : selected ? (
             <>
               <EndpointDetail
+                // Same reason ResponseFilterGroup below carries one, and
+                // the same bug when it was missing: without a key React
+                // re-renders this in place rather than remounting it, so
+                // every piece of its form state belongs to whichever
+                // endpoint was selected when it first mounted. Select an
+                // sse endpoint, open the editor, click a stdio one, and the
+                // header updates while the form still holds the *previous*
+                // endpoint's transport and URL -- with Save wired to the new
+                // endpoint's name. Saving that re-registered the stdio MCP
+                // as http against the other one's URL. See #193.
+                key={selected.name}
                 endpoint={selected}
                 onUpdate={(req) => register(req)}
                 onRemove={async (name) => {

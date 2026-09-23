@@ -23,6 +23,27 @@ const ENDPOINTS: MCPRegistration[] = [
   },
 ];
 
+// One URL-configured endpoint and one command-configured one, so a leak of
+// form state between them is visible as the wrong *kind* of field.
+const REMOTE_AND_LOCAL: MCPRegistration[] = [
+  {
+    name: "remote-sse",
+    transport: "sse",
+    connect: { url: "https://mcp.example.com/sse" },
+    status: "active",
+    enabled: true,
+    tools: {},
+  },
+  {
+    name: "local-stdio",
+    transport: "stdio",
+    connect: { command: "run-local" },
+    status: "active",
+    enabled: true,
+    tools: {},
+  },
+];
+
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 }
@@ -71,6 +92,52 @@ describe("InstancesScreen", () => {
     render(<InstancesScreen />);
 
     await waitFor(() => expect(screen.getByText("$.a_field")).toBeInTheDocument());
+  });
+
+  it("resets the edit form's state when switching to a different endpoint", async () => {
+    const user = userEvent.setup();
+    const registered: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (url === "/admin/mcps" && (!init || init.method === undefined)) {
+          return Promise.resolve(jsonResponse(REMOTE_AND_LOCAL));
+        }
+        if (url === "/admin/mcps" && init?.method === "POST") {
+          registered.push(JSON.parse(init.body as string));
+          return Promise.resolve(jsonResponse({}));
+        }
+        if (url === "/admin/filter-policies") return Promise.resolve(jsonResponse([]));
+        throw new Error(`unexpected fetch: ${url} ${init?.method}`);
+      }),
+    );
+
+    render(<InstancesScreen />);
+
+    // remote-sse is auto-selected: open its editor and switch transport.
+    await screen.findByRole("button", { name: /^remote-sse/ });
+    await user.click(await screen.findByRole("button", { name: "Edit endpoint" }));
+    expect(screen.getByRole("radio", { name: "sse" })).toBeChecked();
+    expect(screen.getByLabelText("URL")).toHaveValue("https://mcp.example.com/sse");
+    await user.click(screen.getByRole("radio", { name: "http" }));
+
+    // Switching endpoints must remount the detail panel. Without a `key` the
+    // header updated to local-stdio while the form kept remote-sse's
+    // transport and URL -- and Save was wired to local-stdio's name, so it
+    // re-registered the stdio MCP as http against the other one's URL.
+    await user.click(screen.getByRole("button", { name: /^local-stdio/ }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("radio", { name: "sse" })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByLabelText("URL")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save endpoint" })).not.toBeInTheDocument();
+
+    // Opening the newly-selected endpoint's editor shows *its* values.
+    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
+    expect(screen.getByRole("radio", { name: "stdio" })).toBeChecked();
+    expect(screen.getByLabelText("Command")).toHaveValue("run-local");
+    expect(registered).toHaveLength(0);
   });
 
   it("resets the response filter form's state when switching to a different endpoint", async () => {
