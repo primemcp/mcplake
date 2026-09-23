@@ -1,14 +1,15 @@
 # Turnkey demo stack for the mcplake gateway. `docker compose up --build` or
 # `podman compose up --build` brings up:
-#   - Keycloak, as the OIDC provider (a realm is pre-imported, so two demo
-#     users - alice/alice and bob/bob - can log in immediately)
+#   - Keycloak, as the OIDC provider (a realm is pre-imported, so three demo
+#     users - alice/alice, bob/bob, admin/admin - can log in immediately)
 #   - the mcplake gateway itself, fronting a dummy MCP server (the official
 #     postgres reference server, run as a subprocess - see deploy/demo/config.toml)
+#     and serving its embedded admin web UI, gated by admin_auth (ADR-0010/0014)
 #   - Postgres, backing both the gateway's own control-plane persistence and
 #     the small dataset the dummy MCP server queries
 #
-# See docs/DEMO.md for the walkthrough (getting a token, calling /v1/call,
-# seeing alice's 200 vs bob's 403).
+# See docs/DEMO.md for the walkthrough: getting a token, calling /v1/call
+# (alice's 200 vs bob's 403), and signing into the admin UI as admin.
 #
 # Every bind mount below carries a trailing ",Z": on an SELinux-enforcing
 # host (Fedora/RHEL and derivatives) a container is otherwise denied access
@@ -55,6 +56,7 @@ services:
     ports:
       - "8080:8080" # Keycloak
       - "9090:9090" # gateway data plane (POST /v1/call, GET /healthz)
+      - "9091:9091" # gateway control plane + embedded admin web UI
 
   gateway:
     build:

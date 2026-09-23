@@ -11,8 +11,8 @@ what a real deployment's config file looks like; this demo's own config is
 
 | Service    | Role                                                                                   |
 |------------|-----------------------------------------------------------------------------------------|
-| `keycloak` | OIDC provider. A realm (`mcplake`) is pre-imported with a client and two demo users.     |
-| `gateway`  | The mcplake gateway, built from this repo, fronting the dummy MCP below.                 |
+| `keycloak` | OIDC provider. A realm (`mcplake`) is pre-imported with a client and three demo users.   |
+| `gateway`  | The mcplake gateway, built from this repo: the data plane fronting the dummy MCP below, and the control plane serving the embedded admin web UI. |
 | `postgres` | Backs the gateway's own `[persistence]` (a `gateway` database) *and* the dummy MCP's data (a separate `demo` database). |
 
 The dummy MCP is the [official postgres reference server](https://github.com/modelcontextprotocol/servers-archived/tree/main/src/postgres),
@@ -21,13 +21,17 @@ run as a subprocess inside the gateway's own container - `mcp.Client`
 can't be a separate compose service the way Keycloak and Postgres are. It
 exposes one tool, `query`, and enforces read-only queries itself.
 
-Two demo users exercise claims-based access control (ADR-0002/ADR-0004)
+Three demo users exercise claims-based access control (ADR-0002/ADR-0004)
 end to end:
 
 - **alice** (`role=db-reader`) is granted access to `postgres-demo` by the
   `demo-reader` access policy → her calls succeed.
 - **bob** (`role=guest`) authenticates fine but matches no access policy →
   his calls get `403 forbidden`.
+- **admin** (`role=admin`) is granted access to every MCP by the `admin`
+  access policy, *and* is the only user `admin_auth.match` lets into
+  `/admin/*` and the admin web UI (ADR-0010/ADR-0014) → alice and bob can
+  both get a token from Keycloak, but only admin can sign into the UI.
 
 ## Prerequisites
 
@@ -103,18 +107,44 @@ This prints `403` - bob authenticated (Keycloak issued him a token) but no
 curl -s http://localhost:9090/healthz
 ```
 
+## Admin web UI
+
+The gateway serves its embedded admin UI from the same listener as
+`/admin/*` (`control_plane_addr`), so once the stack is up it's just a
+browser away at **http://localhost:9091/**.
+
+`deploy/demo/config.toml`'s `[admin_auth]` section gates it: only a token
+whose `role` claim is `admin` gets past `/admin/*` (ADR-0010), and
+`[admin_auth.login]` tells the UI itself how to run the Authorization
+Code + PKCE flow against Keycloak (ADR-0014) - no manual token-pasting.
+
+1. Open http://localhost:9091/ - the UI redirects to Keycloak.
+2. Sign in as **admin** / **admin**.
+3. Keycloak redirects back to the UI, now authenticated - try alice/alice or
+   bob/bob instead and you'll land back on the UI signed in, but on the
+   "signed in, but these claims aren't an admin" `403` screen ADR-0014
+   describes, since neither has `role=admin`.
+
+Unlike alice/bob (used above for the ROPC / `curl` flow, since they don't
+need a browser), this is the one flow in the demo that exercises Keycloak's
+real redirect-based login rather than a password grant - a closer match to
+how a human operator would actually sign in.
+
+Two things about this setup that are demo shortcuts, not what a real
+deployment should copy verbatim:
+
+- `control_plane_addr = ":9091"` binds every interface, not just loopback.
+  That's only safe here *because* `admin_auth` is on - see the comment in
+  `deploy/demo/config.toml` and
+  [ADR-0005](architecture/decisions/0005-use-gin-for-control-plane-api.md)
+  for why the project's own default is loopback-only until it is.
+- The Keycloak client's `redirectUris`/`webOrigins` are `["*"]` -
+  convenient for a demo that doesn't know its own host/port in advance, but
+  a real client registration should list the exact control-plane URL(s)
+  operators browse to.
+
 ## What's intentionally not in this demo
 
-- **The control-plane admin API isn't published to the host.**
-  `control_plane_addr = "127.0.0.1:9091"` in `deploy/demo/config.toml`
-  matches the project's own secure default (see `README.md` and
-  [ADR-0005](architecture/decisions/0005-use-gin-for-control-plane-api.md)) -
-  registering an MCP means starting a process on that host, so it stays on
-  loopback until an operator explicitly configures `admin_auth` and widens
-  it. Reach it from inside the shared network namespace if you need it:
-  `docker compose exec keycloak curl http://localhost:9091/healthz` (the
-  gateway container shares Keycloak's network namespace - see the note
-  below).
 - **No `filter_policies` example.** The postgres MCP server returns query
   results as a JSON-encoded string inside `content[].text`, not structured
   JSON - there's no per-field shape for a JSONPath-based filter
@@ -130,13 +160,13 @@ curl -s http://localhost:9090/healthz
 `config.validateSecureHTTPURL` (`config/config.go`) requires `oidc.jwks_url`
 to be `https`, or plain `http` only on a loopback host - JWKS is the root of
 trust for every token the gateway accepts, so this is deliberate, not
-something to route around. `deploy/demo/compose.yaml`'s gateway service uses
+something to route around. The root `compose.yaml`'s gateway service uses
 `network_mode: "service:keycloak"` so the gateway genuinely reaches Keycloak
 over loopback (`http://localhost:8080/...`) rather than a bridge-network
 hostname - it's the supported loopback shape, not a bypass of the check.
 One side effect: the gateway can't publish its own ports, so the root
-`compose.yaml` publishes `9090` (the gateway's data plane) from the
-`keycloak` service instead.
+`compose.yaml` publishes `9090` (data plane) and `9091` (control plane /
+admin UI) from the `keycloak` service instead.
 
 ## Tearing down
 

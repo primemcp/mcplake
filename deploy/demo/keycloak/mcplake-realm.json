@@ -74,6 +74,21 @@
           "temporary": false
         }
       ]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "role": ["admin"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ]
     }
   ]
 }

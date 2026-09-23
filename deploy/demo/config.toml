@@ -6,7 +6,11 @@
 # namespace (see compose.yaml), so these must not collide with it or with
 # each other.
 data_plane_addr = ":9090"
-control_plane_addr = "127.0.0.1:9091"
+# Bound to all interfaces (not the usual loopback-only default) and published
+# in compose.yaml so the admin web UI is reachable from the host browser.
+# README.md's "widen it only once admin_auth is configured" caveat is why
+# that's paired with the [admin_auth] section below rather than left open.
+control_plane_addr = ":9091"
 
 [oidc]
 # Reached over loopback because the gateway container shares Keycloak's
@@ -41,3 +45,25 @@ pattern = "^db-reader$"
 [[access_policies.grants]]
 mcp = "postgres-demo"
 tools = ["*"]
+
+[[access_policies]]
+name = "admin"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^admin$"
+[[access_policies.grants]]
+mcp = "*"
+tools = ["*"]
+
+# Gates /admin/* (the JSON API and the embedded web UI's calls to it) and
+# tells the UI how to sign in - ADR-0010 and ADR-0014. Only "admin"
+# (role=admin) is let in; alice and bob authenticate fine at Keycloak but get
+# 403 here, same as they would against a real deployment's admin API.
+[[admin_auth.match]]
+path = "$.role"
+pattern = "^admin$"
+
+[admin_auth.login]
+client_id = "mcplake-demo"
+authorization_endpoint = "http://localhost:8080/realms/mcplake/protocol/openid-connect/auth"
+token_endpoint = "http://localhost:8080/realms/mcplake/protocol/openid-connect/token"
