@@ -77,7 +77,11 @@ describe("EndpointList", () => {
     await user.type(screen.getByLabelText("Command"), "mcp-server-new");
     await user.click(screen.getByRole("button", { name: "Add endpoint" }));
 
-    expect(onCreate).toHaveBeenCalledWith("new-mcp", "mcp-server-new", []);
+    expect(onCreate).toHaveBeenCalledWith({
+      name: "new-mcp",
+      transport: "stdio",
+      connect: { command: "mcp-server-new", arguments: undefined },
+    });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

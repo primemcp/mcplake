@@ -3,7 +3,8 @@ import { ErrorNotice } from "../primitives/ErrorNotice";
 import { Modal } from "../primitives/Modal";
 import { SearchInput } from "../primitives/SearchInput";
 import { statusFromString, statusTextColor } from "../primitives/StatusDot";
-import type { MCPRegistration } from "../../api/types";
+import type { MCPRegistration, RegisterMCPRequest } from "../../api/types";
+import { endpointTarget } from "../../lib/transport";
 import { AddEndpointForm } from "./AddEndpointForm";
 
 const dotColor: Record<string, string> = {
@@ -20,7 +21,7 @@ export type EndpointListProps = {
   onRetry: () => void;
   selectedName: string | null;
   onSelect: (name: string) => void;
-  onCreate: (name: string, command: string, args: string[]) => Promise<void>;
+  onCreate: (req: RegisterMCPRequest) => Promise<void>;
 };
 
 export function EndpointList({
@@ -91,7 +92,7 @@ export function EndpointList({
                   <div
                     className={`text-[10.5px] font-mono truncate ${selected ? "text-subtle" : "text-muted"}`}
                   >
-                    {e.connect.command || "—"}
+                    {endpointTarget(e) || "—"}
                   </div>
                   <div className={`text-[10.5px] font-medium ${e.enabled ? statusTextColor[status] : "text-danger"}`}>
                     {e.enabled ? e.status : "disabled"}
@@ -123,8 +124,8 @@ export function EndpointList({
       <Modal open={adding} onClose={() => setAdding(false)} title="Add MCP endpoint">
         <AddEndpointForm
           onCancel={() => setAdding(false)}
-          onCreate={async (name, command, args) => {
-            await onCreate(name, command, args);
+          onCreate={async (req) => {
+            await onCreate(req);
             setAdding(false);
           }}
         />

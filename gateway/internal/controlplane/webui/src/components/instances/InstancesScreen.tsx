@@ -96,13 +96,12 @@ export function InstancesScreen() {
           onRetry={retry}
           selectedName={selectedName}
           onSelect={selectEndpoint}
-          onCreate={async (name, command, args) => {
-            await register({
-              name,
-              transport: "stdio",
-              connect: { command, arguments: args.length > 0 ? args : undefined },
-            });
-            selectEndpoint(name);
+          // The form builds the whole request: since ADR-0017 an endpoint is
+          // described by a command or by a URL depending on its transport,
+          // and the form is the only place that knows which was picked.
+          onCreate={async (req) => {
+            await register(req);
+            selectEndpoint(req.name);
           }}
         />
 

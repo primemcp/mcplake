@@ -73,11 +73,13 @@ describe("EndpointDetail", () => {
 
     await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
 
-    expect(screen.getByPlaceholderText("command")).toHaveValue("bunx");
-    expect(screen.getByPlaceholderText("arguments (space-separated)")).toHaveValue("-y server-filesystem");
+    expect(screen.getByLabelText("Command")).toHaveValue("bunx");
+    expect(screen.getByLabelText("Arguments (optional, space-separated)")).toHaveValue(
+      "-y server-filesystem",
+    );
   });
 
-  it("saves with transport fixed to stdio and the endpoint's current enabled flag carried through", async () => {
+  it("saves with the endpoint's own transport and its current enabled flag carried through", async () => {
     const user = userEvent.setup();
     const props = baseProps();
     render(<EndpointDetail endpoint={ENDPOINT} {...props} />);
@@ -135,5 +137,104 @@ describe("EndpointDetail", () => {
 
     expect(screen.getByRole("button", { name: "Delete endpoint" })).toBeInTheDocument();
     expect(props.onRemove).not.toHaveBeenCalled();
+  });
+
+  // ADR-0017. Before it, this panel pinned transport to "stdio" on save and
+  // had no URL field at all, because the backend rejected anything else.
+  const REMOTE: MCPRegistration = {
+    name: "hosted-crm",
+    transport: "http",
+    connect: { url: "https://mcp.crm.example.com/mcp" },
+    status: "active",
+    enabled: true,
+    tools: {},
+  };
+
+  it("shows a remote endpoint's URL where a stdio one shows its command line", () => {
+    const { unmount } = render(<EndpointDetail endpoint={ENDPOINT} {...baseProps()} />);
+    expect(screen.getByText("bunx -y server-filesystem")).toBeInTheDocument();
+    unmount();
+
+    render(<EndpointDetail endpoint={REMOTE} {...baseProps()} />);
+    expect(screen.getByText("https://mcp.crm.example.com/mcp")).toBeInTheDocument();
+  });
+
+  it("reports the endpoint's real transport, not a hardcoded 'stdio'", () => {
+    render(<EndpointDetail endpoint={REMOTE} {...baseProps()} />);
+
+    expect(screen.getByText("http")).toBeInTheDocument();
+    expect(screen.queryByText("stdio")).not.toBeInTheDocument();
+  });
+
+  it("opens the edit panel on a remote endpoint with its URL, and no command field", async () => {
+    const user = userEvent.setup();
+    render(<EndpointDetail endpoint={REMOTE} {...baseProps()} />);
+
+    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
+
+    expect(screen.getByLabelText("URL")).toHaveValue("https://mcp.crm.example.com/mcp");
+    expect(screen.queryByLabelText("Command")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "http" })).toBeChecked();
+  });
+
+  it("saves a remote endpoint with its url and without a stale command", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    render(<EndpointDetail endpoint={REMOTE} {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
+    await user.clear(screen.getByLabelText("URL"));
+    await user.type(screen.getByLabelText("URL"), "https://mcp.crm.example.com/v2/mcp");
+    await user.click(screen.getByRole("button", { name: "Save endpoint" }));
+
+    expect(props.onUpdate).toHaveBeenCalledWith({
+      name: "hosted-crm",
+      transport: "http",
+      connect: { url: "https://mcp.crm.example.com/v2/mcp" },
+      enabled: true,
+    });
+  });
+
+  it("converts a stdio endpoint to a remote one, dropping the command it no longer uses", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    render(<EndpointDetail endpoint={ENDPOINT} {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
+    await user.click(screen.getByRole("radio", { name: "sse" }));
+    await user.type(screen.getByLabelText("URL"), "https://mcp.example.com/sse");
+    await user.click(screen.getByRole("button", { name: "Save endpoint" }));
+
+    expect(props.onUpdate).toHaveBeenCalledWith({
+      name: "local-fs",
+      transport: "sse",
+      connect: { url: "https://mcp.example.com/sse" },
+      enabled: true,
+    });
+  });
+
+  it("will not save a remote endpoint with an empty URL", async () => {
+    const user = userEvent.setup();
+    render(<EndpointDetail endpoint={ENDPOINT} {...baseProps()} />);
+
+    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
+    await user.click(screen.getByRole("radio", { name: "http" }));
+
+    expect(screen.getByRole("button", { name: "Save endpoint" })).toBeDisabled();
+  });
+
+  it("shows a rejected URL against the URL field", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    props.onUpdate.mockRejectedValueOnce(
+      new Error('mcp: Config.URL: must use https (got "http://mcp.example.com/mcp")'),
+    );
+    render(<EndpointDetail endpoint={REMOTE} {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
+    await user.click(screen.getByRole("button", { name: "Save endpoint" }));
+
+    expect(await screen.findByText(/must use https/)).toBeInTheDocument();
+    expect(screen.getByLabelText("URL")).toHaveAttribute("aria-invalid", "true");
   });
 });
