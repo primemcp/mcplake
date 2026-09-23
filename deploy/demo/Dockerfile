@@ -36,18 +36,18 @@ COPY --from=webui-build /src/gateway/internal/controlplane/webui/dist ./gateway/
 RUN CGO_ENABLED=0 go build -o /out/mcp-gateway ./cmd/gateway
 
 # ---- runtime ----
-# node:*-slim (not a Go-only distroless image) because the dummy MCP server
-# is an npm package the gateway execs as a subprocess.
-FROM node:22-bookworm-slim
+# python:*-slim (not a Go-only distroless image) because the dummy MCP
+# server is a FastMCP script the gateway execs as a subprocess.
+FROM python:3.12-slim-bookworm
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
-# Installed at build time, not npx'd at run time: this project's whole
-# premise is air-gapped operation (README), so the demo shouldn't need
-# network access to the npm registry every time the container starts. This
-# also gives the "mcp-server-postgres" binary name config.example.toml
-# already assumes is directly on PATH.
-RUN npm install -g @modelcontextprotocol/server-postgres
+# Installed at build time: this project's whole premise is air-gapped
+# operation (README), so the demo shouldn't need network access every time
+# the container starts.
+COPY deploy/demo/mcp-servers/requirements.txt /opt/mcplake/demo-mcp/requirements.txt
+RUN pip install --no-cache-dir -r /opt/mcplake/demo-mcp/requirements.txt
+COPY deploy/demo/mcp-servers/employee_directory.py /opt/mcplake/demo-mcp/employee_directory.py
 COPY --from=build /out/mcp-gateway /usr/local/bin/mcp-gateway
 COPY deploy/demo/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

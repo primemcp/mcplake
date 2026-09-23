@@ -37,3 +37,7 @@ config.local.toml
 # SQLite databases
 *.db
 *.sqlite
+
+# Python (deploy/demo/mcp-servers/)
+__pycache__/
+*.pyc

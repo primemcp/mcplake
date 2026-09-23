@@ -13,25 +13,42 @@ what a real deployment's config file looks like; this demo's own config is
 |------------|-----------------------------------------------------------------------------------------|
 | `keycloak` | OIDC provider. A realm (`mcplake`) is pre-imported with a client and three demo users.   |
 | `gateway`  | The mcplake gateway, built from this repo: the data plane fronting the dummy MCP below, and the control plane serving the embedded admin web UI. |
-| `postgres` | Backs the gateway's own `[persistence]` (a `gateway` database) *and* the dummy MCP's data (a separate `demo` database). |
+| `postgres` | Backs the gateway's own `[persistence]` (a `gateway` database). Nothing else in this demo touches it. |
 
-The dummy MCP is the [official postgres reference server](https://github.com/modelcontextprotocol/servers-archived/tree/main/src/postgres),
-run as a subprocess inside the gateway's own container - `mcp.Client`
-(`mcp/client.go`) only speaks stdio today (ADR-0003), so a downstream MCP
-can't be a separate compose service the way Keycloak and Postgres are. It
-exposes one tool, `query`, and enforces read-only queries itself.
+The dummy MCP is `deploy/demo/mcp-servers/employee_directory.py`, a small
+[FastMCP](https://gofastmcp.com) server over an in-memory, fictional employee
+directory, run as a subprocess inside the gateway's own container -
+`mcp.Client` (`mcp/client.go`) only speaks stdio today (ADR-0003), so a
+downstream MCP can't be a separate compose service the way Keycloak and
+Postgres are. Three tools:
+
+- `list_employees` / `get_employee` return structured records with two
+  sensitive fields (`salary_usd`, `ssn_last4`) - see **Field-level
+  filtering** below.
+- `list_departments` returns plain department names - nothing sensitive,
+  nothing to filter, included on purpose for contrast: not every tool needs
+  a filter_policy.
+
+(An earlier version of this demo used the official postgres reference
+server instead. It was replaced: one tool, and a response shape - a
+JSON-encoded string, not structured JSON - that couldn't demonstrate
+`filter_policies` at all. See "Field-level filtering" below for what that
+unlocked.)
 
 Three demo users exercise claims-based access control (ADR-0002/ADR-0004)
 end to end:
 
-- **alice** (`role=db-reader`) is granted access to `postgres-demo` by the
-  `demo-reader` access policy → her calls succeed.
+- **alice** (`role=db-reader`) is granted access to `employee-directory` by
+  the `demo-reader` access policy → her calls succeed, with `salary_usd`
+  and `ssn_last4` stripped by `filter_policies`.
 - **bob** (`role=guest`) authenticates fine but matches no access policy →
   his calls get `403 forbidden`.
 - **mcplake-admin** (`role=admin`) is granted access to every MCP by the
-  `admin` access policy, *and* is the only user `admin_auth.match` lets into
-  `/admin/*` and the admin web UI (ADR-0010/ADR-0014) → alice and bob can
-  both get a token from Keycloak, but only mcplake-admin can sign into the
+  `admin` access policy, and calls it *unfiltered* - both `filter_policies`
+  entries below only match `role=db-reader`, so `role=admin` never triggers
+  them. Also the only user `admin_auth.match` lets into `/admin/*` and the
+  admin web UI (ADR-0010/ADR-0014) → alice and bob can both get a token
+  from Keycloak, but only mcplake-admin can sign into the
   UI.
 
   This is a `mcplake` realm user, deliberately named to be unmistakable from
@@ -81,11 +98,13 @@ Call the dummy MCP through the gateway's data plane:
 curl -s -X POST http://localhost:9090/v1/call \
   -H "Authorization: Bearer $ALICE_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"mcp":"postgres-demo","tool":"query","arguments":{"sql":"select * from widgets"}}' | jq
+  -d '{"mcp":"employee-directory","tool":"get_employee","arguments":{"employee_id":2}}' | jq
 ```
 
-This returns `200` with the seeded `widgets` rows
-(`deploy/demo/postgres/02-demo-seed.sql`).
+This returns `200` with Marcus Webb's record — **minus `salary_usd` and
+`ssn_last4`**, stripped by the `hide-sensitive-fields-get-employee` filter
+policy. See **Field-level filtering** below for the side-by-side against
+mcplake-admin, who sees them.
 
 Now the same thing for **bob** (`role=guest`):
 
@@ -100,18 +119,79 @@ BOB_TOKEN=$(curl -s -X POST http://localhost:8080/realms/mcplake/protocol/openid
 curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:9090/v1/call \
   -H "Authorization: Bearer $BOB_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"mcp":"postgres-demo","tool":"query","arguments":{"sql":"select * from widgets"}}'
+  -d '{"mcp":"employee-directory","tool":"get_employee","arguments":{"employee_id":2}}'
 ```
 
 This prints `403` - bob authenticated (Keycloak issued him a token) but no
 `[[access_policies]]` entry grants his `role=guest` claim access to
-`postgres-demo`.
+`employee-directory`.
 
 `GET /healthz` on the data plane needs no token:
 
 ```bash
 curl -s http://localhost:9090/healthz
 ```
+
+## Field-level filtering
+
+Two `[[filter_policies]]` entries in `deploy/demo/config.toml` strip
+`salary_usd`/`ssn_last4` from `employee-directory`'s two tools whenever the
+caller's `role` is `db-reader` — alice's calls above already show this, but
+seeing it side-by-side against an unfiltered call makes the point clearer.
+Get a token for mcplake-admin the same way as before:
+
+```bash
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:8080/realms/mcplake/protocol/openid-connect/token \
+  -d grant_type=password \
+  -d client_id=mcplake-demo \
+  -d username=mcplake-admin \
+  -d password=mcplake-admin \
+  -d scope=openid | jq -r .access_token)
+
+curl -s -X POST http://localhost:9090/v1/call \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mcp":"employee-directory","tool":"get_employee","arguments":{"employee_id":2}}' | jq
+```
+
+Same tool, same employee, `200` both times — but mcplake-admin's response
+carries `salary_usd` and `ssn_last4`, alice's doesn't. Neither
+`filter_policies.match` rule matches `role=admin`, so admin's call is never
+touched.
+
+`list_employees` strips the same two fields from every row
+(`$.employees[*].salary_usd`), worth trying too:
+
+```bash
+curl -s -X POST http://localhost:9090/v1/call \
+  -H "Authorization: Bearer $ALICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mcp":"employee-directory","tool":"list_employees","arguments":{}}' | jq
+```
+
+`list_departments` has no filter_policies entry at all — nothing sensitive
+in its response, so there's nothing to strip:
+
+```bash
+curl -s -X POST http://localhost:9090/v1/call \
+  -H "Authorization: Bearer $ALICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mcp":"employee-directory","tool":"list_departments","arguments":{}}' | jq
+```
+
+**Why `list_employees`'s filter path is `$.employees[*].salary_usd`, not
+`$.result[*].salary_usd`:** FastMCP wraps a bare `list[Model]` return as
+`{"result": [...]}` in `structuredContent`, but leaves the human-readable
+`content[].text` copy of the same result as a bare array — two different
+shapes for one tool. A path written against the wrapped shape would
+silently miss the unwrapped copy and leak the field through it (`filter.Strip`
+treats a path matching nothing as a no-op, not an error — there's no crash
+to notice). `employee_directory.py`'s `list_employees` returns an explicit
+`EmployeeList { employees: [...] }` model instead of a bare list specifically
+to avoid this — both copies end up identically shaped, so one path reaches
+both. This was caught by literally running the real filter package against
+real FastMCP output while building this demo, not assumed from the docs —
+worth knowing if you add your own list-returning tool with a filter on it.
 
 ## Admin web UI
 
@@ -152,15 +232,10 @@ deployment should copy verbatim:
 
 ## What's intentionally not in this demo
 
-- **No `filter_policies` example.** The postgres MCP server returns query
-  results as a JSON-encoded string inside `content[].text`, not structured
-  JSON - there's no per-field shape for a JSONPath-based filter
-  (`filter.Strip`) to reach into, so a filter-policy demo here would just be
-  misleading. See [ADR-0015](architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.md)
-  for what filtering actually targets.
-- **No writable MCP.** The reference postgres server only ever runs
-  read-only queries; there's no upstream `postgres-rw` counterpart to demo
-  (unlike the illustrative, non-literal example in `config.example.toml`).
+- **No writable tool.** Every `employee_directory.py` tool is read-only -
+  kept simple on purpose, not a limitation of the mechanism (a real MCP can
+  freely expose a mutating tool; `access_policies`/`filter_policies` apply
+  to it exactly the same way).
 
 ## Why the gateway shares Keycloak's network namespace
 
@@ -182,8 +257,11 @@ docker compose down -v
 # or: podman compose down -v
 ```
 
-`-v` also drops the `pgdata` volume, so the next `up` starts from the seeded
-data again rather than whatever got written during the demo.
+`-v` also drops the `pgdata` volume, so the next `up` starts from an empty
+`gateway` database again rather than whatever the control plane wrote
+during the demo (registrations, policies). The MCP's own employee data is
+in-memory (`employee_directory.py`) and always resets with the container
+regardless.
 
 ## Troubleshooting
 
