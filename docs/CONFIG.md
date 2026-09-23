@@ -252,9 +252,20 @@ parallel state store.
   deleting a policy, tightening a `drop_fields` list — therefore survives a
   restart. It did not before; a restart used to re-apply this file over it.
 - The corollary: **editing an already-seeded entry here has no effect.** Use
-  the admin API, or delete the stored entry first. The gateway logs each
-  entry it skips at `DEBUG` (`config entry already seeded; the stored record
-  wins`).
+  the admin API, or delete the stored entry first. The gateway tells you when
+  this happens:
+  - if the stored record still says exactly what this file says — the usual
+    case on every boot after the first — the skip is logged at `DEBUG`
+    (`config entry already seeded; the stored record wins`) and is not worth
+    your attention;
+  - if the two **disagree**, the skip is logged at `WARN`, naming the entry
+    and the fields that differ (`config entry already seeded and DIFFERS from
+    the stored record; the stored record is in force and this part of the
+    config file has no effect`). That is the line to look for when an edit
+    here does not seem to have taken.
+
+  Only field *names* are logged, never values: an MCP's `arguments` commonly
+  carry a connection string with a password in it.
 - Upgrading an existing deployment: the first boot after the upgrade has no
   seed markers yet, so it seeds every entry in this file one last time.
   Re-apply any runtime changes that disagree with the file after that boot.
