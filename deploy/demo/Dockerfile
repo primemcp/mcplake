@@ -1,8 +1,10 @@
 # Builds the demo image for the mcplake gateway: the admin UI, the Go
-# binary, and the dummy MCP server it execs as a subprocess (mcp.Client only
-# speaks stdio - ADR-0003 - so the MCP server has to live in this image, not
-# in its own compose service). Build context is the repo root; see
-# compose.yaml.
+# binary, and the employee-directory MCP server it execs as a subprocess.
+# That one ships inside this image because it is a *stdio* MCP and stdio
+# means a subprocess - not because the gateway cannot reach an MCP
+# elsewhere. Since ADR-0017 it can, and the demo's other MCP
+# (postgres-mcp in compose.yaml) is its own container with its own image.
+# Build context is the repo root; see compose.yaml.
 
 # ---- frontend: build the admin UI (make ui-build's own steps) ----
 FROM oven/bun:1 AS webui-build

@@ -37,8 +37,30 @@ type = "stdio"
 command = "python3"
 arguments = ["/opt/mcplake/demo-mcp/employee_directory.py"]
 
-# Only "alice" (role=db-reader) can call the demo MCP; "bob" (role=guest)
-# authenticates fine but gets 403 forbidden on /v1/call - see docs/DEMO.md.
+# The second MCP, and the contrast: a real server (crystaldba/postgres-mcp)
+# in its own container, reached over the network instead of being a
+# subprocess of the gateway. ADR-0017.
+#
+# The URL is loopback because compose puts that container in the same
+# network namespace as this one, so mcp.ValidateEndpointURL's "https, or
+# http only on a loopback host" rule is satisfied honestly rather than
+# waived. Point this at a hostname and the gateway will refuse to start,
+# which is the intended answer: put TLS in front of it.
+#
+# It exposes SQL tools (list_schemas, list_objects, execute_sql, ...) over
+# the demo database. Nothing here filters its responses -- see
+# docs/DEMO.md on why that is a property of the server's response shape,
+# not of the filter engine.
+[[mcps]]
+name = "demo-postgres"
+type = "sse"
+url = "http://localhost:8000/sse"
+
+# "alice" (role=db-reader) is granted employee-directory and ONLY
+# employee-directory. She gets 403 on demo-postgres, which mcplake-admin's
+# wildcard grant below does reach - two MCPs with different policies, which
+# is what a per-MCP grant is for. "bob" (role=guest) matches no policy at
+# all and gets 403 on both. See docs/DEMO.md.
 [[access_policies]]
 name = "demo-reader"
 [[access_policies.match]]
@@ -99,6 +121,17 @@ tools = ["*"]
 [[admin_auth.match]]
 path = "$.role"
 pattern = "^admin$"
+
+# The same admin operations as /admin/*, exposed as MCP tools on the control
+# plane (ADR-0011). Off by default everywhere else; on here so the demo's MCP
+# Inspector container has something to connect to, and so administering the
+# gateway over MCP is something you can actually try rather than read about.
+#
+# It mounts at /admin/mcp, which puts it behind the admin_auth gate above -
+# a caller needs mcplake-admin's token, exactly like the REST API. Do not
+# enable this on a control plane that is reachable more widely than yours.
+[admin_mcp]
+enabled = true
 
 [admin_auth.login]
 client_id = "mcplake-demo"
