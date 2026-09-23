@@ -24,6 +24,18 @@ type fakeMCPClient struct {
 	// by the refresh tests to simulate a registration swap racing the
 	// discovery call.
 	onListTools func()
+	// pingErr is what Ping returns; nil means a healthy session. The health
+	// tests set it to simulate a downstream that went away underneath a
+	// live registration.
+	pingErr error
+	// pingFailures, when > 0, makes only that many leading Ping calls fail
+	// (with pingErr, or a generic error) and the rest succeed — the shape of
+	// a stale pooled connection, where the socket is dead but the session
+	// behind it is not.
+	pingFailures int
+	// pings counts Ping calls, so a test can assert a health check probed
+	// (or deliberately did not probe) a given client.
+	pings int
 }
 
 func (f *fakeMCPClient) ListTools(context.Context) ([]mcp.ToolSchema, error) {
@@ -38,6 +50,18 @@ func (f *fakeMCPClient) ListTools(context.Context) ([]mcp.ToolSchema, error) {
 
 func (f *fakeMCPClient) CallTool(context.Context, string, map[string]any) (*mcp.ToolResponse, error) {
 	return nil, errors.New("not used in these tests")
+}
+
+func (f *fakeMCPClient) Ping(context.Context) error {
+	f.pings++
+	if f.pingFailures > 0 {
+		f.pingFailures--
+		if f.pingErr != nil {
+			return f.pingErr
+		}
+		return errors.New("transient ping failure")
+	}
+	return f.pingErr
 }
 
 func (f *fakeMCPClient) Close() error {

@@ -118,6 +118,18 @@ described in [`data.md`](data.md).
   client on that interval and atomically swaps in the fresh schema — no
   reconnect. A `tools/list` failure is logged and leaves the previous schema
   and `status` in place. Off by default.
+- **Health check and reconnection**
+  ([ADR-0019](decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md)):
+  a `cache.HealthChecker` loop (also run from `app.Run`) pings every
+  registration on `mcp.health_check_interval` and *reconnects* the ones that
+  have stopped answering — rebuilding the client and re-discovering tools
+  make-before-break, so an MCP whose session dies stays `active` if the
+  reconnect succeeds. It also retries registrations that are `unreachable`, on
+  a capped doubling backoff, which is how one that failed at startup heals
+  itself. A reconnect that fails demotes the registration to `unreachable` and
+  closes the dead client, keeping the cached schemas. **On by default** (30s),
+  unlike schema refresh: a downstream reached over `http`/`sse` restarts as a
+  matter of course, and without this the first restart broke it permanently.
 - Supports registration both from static config at startup and from the
   Control-Plane API at runtime, through the same internal `Register()` path — there
   is no separate "static" vs. "dynamic" code path; both end up as a row in the same

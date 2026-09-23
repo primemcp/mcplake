@@ -233,6 +233,13 @@ plaintext to a remote host. Tool payloads qualify.
   field. The endpoint rule is shown there as a hint rather than re-implemented
   in TypeScript — a third copy of it would be a third thing to drift.
 - Per-MCP timeout/retry configuration, if the shared defaults prove wrong.
+- ~~A session built at registration is held forever, so a downstream that
+  restarts leaves the gateway holding a dead one.~~ Addressed by
+  [ADR-0019](0019-reconnect-downstream-mcps-on-a-health-check-loop.md). This
+  turned out to be the difference between these transports working in a test
+  and working in a deployment: a stdio downstream is the gateway's own child
+  and never restarts underneath it, so nothing here needed a reconnect path
+  until an MCP could live somewhere else.
 
 ## Validation
 
@@ -266,4 +273,6 @@ plaintext to a remote host. Tool payloads qualify.
   makes the standalone SSE stream unnecessary.
 - [ADR-0015](0015-filter-the-tool-payload-not-the-transport-envelope.md) — what
   is in the payload the URL rule protects.
+- [ADR-0019](0019-reconnect-downstream-mcps-on-a-health-check-loop.md) — the
+  session lifecycle these transports turned out to need.
 - [CONFIG.md](../../CONFIG.md) — the operator-facing `[[mcps]]` reference.

@@ -31,6 +31,15 @@ type MCPGlobalConfig struct {
 	// (no reconnect). Zero/absent disables periodic refresh — schemas are
 	// then fetched only at registration. See ADR-0013.
 	SchemaRefreshInterval Duration `toml:"schema_refresh_interval"`
+	// HealthCheckInterval is how often every registered MCP is pinged and,
+	// if it has stopped answering, reconnected — and how often a
+	// registration that is currently unreachable is retried. See ADR-0019.
+	//
+	// It is a pointer because an omitted key and an explicit "0" mean
+	// different things here, unlike SchemaRefreshInterval: omitted means
+	// cache.DefaultHealthCheckInterval, "0" disables the loop. See
+	// Config.HealthCheckInterval.
+	HealthCheckInterval *Duration `toml:"health_check_interval"`
 }
 
 // DefaultAdminMCPPath is where the MCP control server mounts when
@@ -299,6 +308,9 @@ func (c *Config) Validate() error {
 
 	if c.MCP.SchemaRefreshInterval.Duration < 0 {
 		return fmt.Errorf("config: mcp.schema_refresh_interval must not be negative (got %s)", c.MCP.SchemaRefreshInterval.Duration)
+	}
+	if c.MCP.HealthCheckInterval != nil && c.MCP.HealthCheckInterval.Duration < 0 {
+		return fmt.Errorf("config: mcp.health_check_interval must not be negative (got %s)", c.MCP.HealthCheckInterval.Duration)
 	}
 
 	for i, m := range c.MCPs {

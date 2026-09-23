@@ -135,9 +135,14 @@ adds no external dependency, consistent with the project's deployment goals.
 - Define admin API authentication/authorization (likely: a separate, more privileged
   claim rule / policy, reusing ADR-0002's engine, gated on a dedicated
   "gateway-admin" claim) before exposing `/admin/mcps` outside a trusted network.
-- Decide whether unreachable MCPs are retried automatically (e.g. periodic
+- ~~Decide whether unreachable MCPs are retried automatically (e.g. periodic
   reconnect) or require an explicit re-`Register` call — deferred until the failure
-  mode is observed in practice.
+  mode is observed in practice.~~ Observed, and answered by
+  [ADR-0019](0019-reconnect-downstream-mcps-on-a-health-check-loop.md): they are
+  retried automatically, on a health-check loop that also rebuilds an *active*
+  registration whose session has died. The failure mode only became common once
+  [ADR-0017](0017-http-and-sse-transports-for-downstream-mcps.md) let an MCP run
+  outside the gateway's process.
 - ~~The one-time-at-registration schema fetch goes stale if a running MCP adds or
   removes a tool.~~ Addressed by
   [ADR-0013](0013-periodic-mcp-schema-refresh.md): an optional

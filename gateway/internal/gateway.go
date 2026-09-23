@@ -55,6 +55,11 @@ type MCPResolver interface {
 	// operator (see #95). A disabled MCP stays connected with its tools
 	// cached; the pipeline rejects calls to it without a downstream call.
 	Disabled(mcp string) bool
+	// Registered reports whether mcp is known to the registry at all,
+	// whatever its status. It is what separates "no such MCP" (404) from
+	// "registered, currently unreachable, being reconnected" (503) once
+	// Resolve has declined to hand over a client — see ADR-0019.
+	Registered(mcp string) bool
 }
 
 // Config configures the data-plane Gateway.

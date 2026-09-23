@@ -41,3 +41,6 @@ config.local.toml
 # Python (deploy/demo/mcp-servers/)
 __pycache__/
 *.pyc
+
+# Playwright MCP scratch output (page snapshots, screenshots)
+.playwright-mcp/

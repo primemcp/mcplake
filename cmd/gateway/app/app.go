@@ -32,6 +32,11 @@ type App struct {
 	// refresher periodically re-discovers MCP tool schemas. Nil when
 	// mcp.schema_refresh_interval is unset/zero (ADR-0013).
 	refresher *cache.SchemaRefresher
+	// healthChecker periodically pings every registered MCP and reconnects
+	// the ones that have stopped answering. Nil only when an operator set
+	// mcp.health_check_interval to 0 — unlike the refresher it is on by
+	// default (ADR-0019).
+	healthChecker *cache.HealthChecker
 }
 
 // New builds an App from cfg:
@@ -136,7 +141,21 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 		slog.Debug("periodic MCP schema refresh disabled (mcp.schema_refresh_interval unset)")
 	}
 
-	return &App{Gateway: gateway, ControlPlane: controlPlane, refresher: refresher}, nil
+	var healthChecker *cache.HealthChecker
+	if interval := cfg.HealthCheckInterval(); interval > 0 {
+		healthChecker = cache.NewHealthChecker(registry, interval)
+		slog.Info("MCP health check enabled", "interval", interval)
+	} else {
+		slog.Warn("MCP health check is DISABLED (mcp.health_check_interval = 0) — " +
+			"a downstream MCP that restarts will stay broken until this gateway is restarted (ADR-0019)")
+	}
+
+	return &App{
+		Gateway:       gateway,
+		ControlPlane:  controlPlane,
+		refresher:     refresher,
+		healthChecker: healthChecker,
+	}, nil
 }
 
 // Run starts both HTTP surfaces and blocks until ctx is done, then
@@ -147,6 +166,7 @@ func (a *App) Run(ctx context.Context) error {
 	dataPlaneErr := make(chan error, 1)
 	controlPlaneErr := make(chan error, 1)
 	refresherErr := make(chan error, 1)
+	healthErr := make(chan error, 1)
 
 	go func() { dataPlaneErr <- a.Gateway.Start(ctx) }()
 	go func() { controlPlaneErr <- a.ControlPlane.Start(ctx) }()
@@ -155,13 +175,18 @@ func (a *App) Run(ctx context.Context) error {
 	} else {
 		refresherErr <- nil
 	}
+	if a.healthChecker != nil {
+		go func() { healthErr <- a.healthChecker.Run(ctx) }()
+	} else {
+		healthErr <- nil
+	}
 
 	select {
 	case <-a.Gateway.Ready():
 	case err := <-dataPlaneErr:
 		return fmt.Errorf("app: data plane failed to start: %w", err)
 	case <-ctx.Done():
-		return a.shutdown(dataPlaneErr, controlPlaneErr, refresherErr)
+		return a.shutdown(dataPlaneErr, controlPlaneErr, refresherErr, healthErr)
 	}
 
 	select {
@@ -169,18 +194,18 @@ func (a *App) Run(ctx context.Context) error {
 	case err := <-controlPlaneErr:
 		return fmt.Errorf("app: control plane failed to start: %w", err)
 	case <-ctx.Done():
-		return a.shutdown(dataPlaneErr, controlPlaneErr, refresherErr)
+		return a.shutdown(dataPlaneErr, controlPlaneErr, refresherErr, healthErr)
 	}
 
 	<-ctx.Done()
-	return a.shutdown(dataPlaneErr, controlPlaneErr, refresherErr)
+	return a.shutdown(dataPlaneErr, controlPlaneErr, refresherErr, healthErr)
 }
 
 // shutdown gracefully stops both surfaces and waits for their Start calls
-// (and the schema refresher loop) to return, joining any errors encountered.
-// The refresher stops on its own once ctx is done — the same trigger — so
+// (and the two background loops) to return, joining any errors encountered.
+// Both loops stop on their own once ctx is done — the same trigger — so
 // there is nothing to Stop explicitly.
-func (a *App) shutdown(dataPlaneErr, controlPlaneErr, refresherErr <-chan error) error {
+func (a *App) shutdown(dataPlaneErr, controlPlaneErr, refresherErr, healthErr <-chan error) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
@@ -198,6 +223,9 @@ func (a *App) shutdown(dataPlaneErr, controlPlaneErr, refresherErr <-chan error)
 		errs = append(errs, err)
 	}
 	if err := <-refresherErr; err != nil {
+		errs = append(errs, err)
+	}
+	if err := <-healthErr; err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
