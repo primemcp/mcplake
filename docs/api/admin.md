@@ -95,6 +95,13 @@ changing a handler's annotations with `make swagger` (requires the `swag` CLI:
 `go install github.com/swaggo/swag/cmd/swag@latest`); `make swagger-check` fails
 if the committed spec is stale.
 
+## Names in the path
+
+Every `:name` below is a single, percent-encoded path segment. A name may
+contain `/`; send it as `%2F` (`DELETE /admin/mcps/org%2Ftool` for an MCP
+named `org/tool`), which is what the admin web UI does. The control plane
+routes on the escaped path, so the whole name reaches the handler.
+
 ## MCP Registrations
 
 ### `POST /admin/mcps`
