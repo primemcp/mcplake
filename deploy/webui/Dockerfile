@@ -30,15 +30,17 @@ RUN cd gateway/internal/controlplane/webui && bun run build
 # ---- server: the static file server + admin API proxy ----
 FROM golang:1.27 AS server-build
 WORKDIR /src
-# cmd/webui is its own module in the workspace and depends on nothing outside
-# the standard library, so only the workspace file and that module are needed
-# here -- copying the whole repo would invalidate this layer on every backend
-# change.
-COPY go.work go.work.sum ./
+# cmd/webui is its own module and depends on nothing outside the standard
+# library, so it is the only thing this stage copies -- copying the whole repo
+# would invalidate this layer on every backend change.
+#
+# It is built standalone, with GOWORK=off, and go.work is deliberately not
+# copied. The workspace lists every module in the repo, and this stage has only
+# one of them, so a workspace build fails on the missing ones. GOFLAGS=-mod=mod
+# is not a substitute: in workspace mode -mod may only be readonly or vendor,
+# and the build refuses it outright.
 COPY cmd/webui ./cmd/webui
-# The workspace lists modules this stage deliberately does not copy, so build
-# the module on its own rather than through go.work.
-RUN cd cmd/webui && CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/webui-server .
+RUN cd cmd/webui && CGO_ENABLED=0 GOWORK=off go build -o /out/webui-server .
 
 # ---- runtime ----
 # gcr.io/distroless/static: no shell, no package manager, no libc. This

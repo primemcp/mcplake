@@ -16,12 +16,9 @@ function AuthShell({ title, children }: { title: string; children: ReactNode }) 
       <Card className="w-[380px] max-w-full p-6 flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-ink grid place-items-center text-white font-mono text-[13px] font-medium">
-            g
+            M
           </div>
-          <div className="flex flex-col leading-tight">
-            <div className="text-[13.5px] font-semibold">Gateway</div>
-            <div className="text-[11px] text-muted">MCP · Phase 1</div>
-          </div>
+          <div className="text-[13.5px] font-semibold">McpLake</div>
         </div>
         <h1 className="m-0 text-[17px] font-semibold tracking-tight">{title}</h1>
         {children}

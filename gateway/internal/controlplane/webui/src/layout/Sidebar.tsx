@@ -36,12 +36,9 @@ export function Sidebar({
     <aside className="w-[232px] shrink-0 bg-surface border-r border-border flex flex-col p-3.5 gap-0.5">
       <div className="flex items-center gap-2.5 px-1.5 pb-4">
         <div className="w-7 h-7 rounded-lg bg-ink grid place-items-center text-white font-mono text-[13px] font-medium">
-          g
+          M
         </div>
-        <div className="flex flex-col leading-tight">
-          <div className="text-[13.5px] font-semibold">Gateway</div>
-          <div className="text-[11px] text-muted">MCP · Phase 1</div>
-        </div>
+        <div className="text-[13.5px] font-semibold">McpLake</div>
       </div>
 
       <nav className="flex flex-col gap-0.5">
