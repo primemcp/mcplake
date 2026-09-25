@@ -49,6 +49,11 @@ func RegisterUIRoutes(engine *gin.Engine, assets fs.FS) {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+		// The shell must not be cached: its whole job is to name the current
+		// build's hashed asset files, and a cached copy keeps loading a
+		// previous build's UI after an upgrade (#202). cmd/webui does the
+		// same. The hashed assets themselves are immutable and cache normally.
+		c.Header("Cache-Control", "no-cache")
 		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
 	}
 
