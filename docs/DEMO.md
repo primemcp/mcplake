@@ -556,6 +556,14 @@ container regardless.
 
 ## Troubleshooting
 
+- **`Permission denied` reading a mounted file, or SELinux AVC denials
+  (`ausearch -m avc -ts recent`), on Fedora/RHEL.** Every bind mount in
+  `compose.yaml` carries a relabel option. A mount only one service uses
+  has `:Z` (private). `deploy/demo/mcp-servers` is mounted by the gateway,
+  `project-tracker-mcp` and `inventory-mcp`, so it has `:z` (shared). With
+  `:Z` there, each container that starts takes the label for itself and
+  locks the others out. If you add a service that mounts an existing path,
+  switch that path to `:z` everywhere it appears.
 - **`demo-postgres` is unreachable, or the gateway waits forever on
   "waiting for the demo-postgres MCP".** Look at that container first:
 

@@ -24,11 +24,18 @@
 # (alice's 200 vs bob's 403), field-level filtering, the admin UI, and
 # Inspector.
 #
-# Every bind mount below carries a trailing ",Z": on an SELinux-enforcing
-# host (Fedora/RHEL and derivatives) a container is otherwise denied access
-# to bind-mounted host files regardless of Unix permissions - Z has Podman
-# (and Docker, on a host where SELinux is enabled) relabel the path for this
-# container's exclusive use. It's a no-op wherever SELinux isn't enforcing.
+# Every bind mount below carries an SELinux relabel option: on an
+# SELinux-enforcing host (Fedora/RHEL and derivatives) a container is
+# otherwise denied access to bind-mounted host files regardless of Unix
+# permissions. Both are no-ops wherever SELinux isn't enforcing.
+#
+#   ",Z" relabels the path for ONE container's exclusive use. Right for a
+#        mount only one service has.
+#   ",z" relabels it as shared between containers. Required when several
+#        services mount the same path: with Z, each container that starts
+#        takes the label for itself and the others get "Permission denied"
+#        (deploy/demo/mcp-servers, mounted by three services, is the case
+#        here - see #207).
 name: mcplake-demo
 
 services:
@@ -116,7 +123,7 @@ services:
       # is a mount too. The image still carries its own copy (see
       # deploy/demo/Dockerfile), so it remains runnable on its own; this
       # mount just wins when compose is what starts it.
-      - ./deploy/demo/mcp-servers:/opt/mcplake/demo-mcp:ro,Z
+      - ./deploy/demo/mcp-servers:/opt/mcplake/demo-mcp:ro,z
     command: ["--config", "/etc/mcplake/config.toml"]
     restart: on-failure
 
@@ -161,7 +168,7 @@ services:
       keycloak:
         condition: service_started
     volumes:
-      - ./deploy/demo/mcp-servers:/srv/mcp:ro,Z
+      - ./deploy/demo/mcp-servers:/srv/mcp:ro,z
     command: ["uvicorn", "project_tracker:app", "--host", "127.0.0.1", "--port", "8001"]
     restart: on-failure
 
@@ -173,7 +180,7 @@ services:
       keycloak:
         condition: service_started
     volumes:
-      - ./deploy/demo/mcp-servers:/srv/mcp:ro,Z
+      - ./deploy/demo/mcp-servers:/srv/mcp:ro,z
     command: ["uvicorn", "inventory:app", "--host", "127.0.0.1", "--port", "8002"]
     restart: on-failure
 
