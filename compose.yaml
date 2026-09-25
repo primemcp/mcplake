@@ -4,13 +4,16 @@
 #     users - alice/alice, bob/bob, mcplake-admin/mcplake-admin - can log in
 #     immediately; mcplake-admin is a realm user, distinct from Keycloak's
 #     own KEYCLOAK_ADMIN bootstrap superuser below)
-#   - the mcplake gateway itself, fronting TWO downstream MCPs and serving
+#   - the mcplake gateway itself, fronting FOUR downstream MCPs and serving
 #     its embedded admin web UI, gated by admin_auth (ADR-0010/0014)
 #   - employee-directory: a small FastMCP script the gateway runs as a
 #     subprocess over stdio (deploy/demo/mcp-servers/). The filtering demo.
 #   - postgres-mcp: a real MCP server in its OWN container, reached over
 #     the sse transport (ADR-0017). The "an MCP need not live inside the
 #     gateway" demo, and the reason the two have different access policies.
+#   - project-tracker-mcp and inventory-mcp: small FastMCP servers served by
+#     uvicorn in their own containers, over Streamable HTTP and sse
+#     respectively - so the demo has an MCP on every transport.
 #   - MCP Inspector, for poking at the gateway's own MCP control server
 #     (ADR-0011) without installing anything - see docs/DEMO.md, and note
 #     the security caveats there before pointing it at anything real
@@ -100,6 +103,10 @@ services:
         condition: service_healthy
       postgres-mcp:
         condition: service_started
+      project-tracker-mcp:
+        condition: service_started
+      inventory-mcp:
+        condition: service_started
     volumes:
       - ./deploy/demo/config.toml:/etc/mcplake/config.toml:ro,Z
       # Mounted, not only baked in, for two reasons. It keeps the demo MCP
@@ -134,6 +141,40 @@ services:
     environment:
       DATABASE_URI: "postgresql://demo_reader:demo_reader@postgres:5432/demo"
     command: ["--access-mode=restricted", "--transport=sse"]
+    restart: on-failure
+
+  # The demo's own remote MCPs: two small FastMCP servers from
+  # deploy/demo/mcp-servers/, each an ASGI app served by uvicorn in its own
+  # container. project-tracker is the demo's Streamable HTTP endpoint (it
+  # has no other), inventory a second sse one alongside postgres-mcp. Both
+  # join Keycloak's namespace and bind loopback for the same reason
+  # postgres-mcp does: the gateway reaches them at http://localhost:800x,
+  # which satisfies mcp.ValidateEndpointURL honestly.
+  #
+  # The scripts are bind-mounted over the image's copies, like the gateway's
+  # employee_directory.py, so edits need a restart, not a rebuild.
+  project-tracker-mcp:
+    build:
+      context: ./deploy/demo/mcp-servers
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+    volumes:
+      - ./deploy/demo/mcp-servers:/srv/mcp:ro,Z
+    command: ["uvicorn", "project_tracker:app", "--host", "127.0.0.1", "--port", "8001"]
+    restart: on-failure
+
+  inventory-mcp:
+    build:
+      context: ./deploy/demo/mcp-servers
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+    volumes:
+      - ./deploy/demo/mcp-servers:/srv/mcp:ro,Z
+    command: ["uvicorn", "inventory:app", "--host", "127.0.0.1", "--port", "8002"]
     restart: on-failure
 
   # The admin web UI as its own prebuilt image (ADR-0020): the SPA is compiled

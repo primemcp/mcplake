@@ -1,7 +1,7 @@
 # Demo: Compose Stack
 
 A turnkey stack that brings up the gateway end to end - Keycloak as the OIDC
-provider, two MCP servers, Postgres, and MCP Inspector - with one command
+provider, four MCP servers (one on each transport the gateway speaks), Postgres, and MCP Inspector - with one command
 and no manual setup. See [`compose.yaml`](../compose.yaml) for the services and
 [`config.example.toml`](../config.example.toml)/[`CONFIG.md`](CONFIG.md) for
 what a real deployment's config file looks like; this demo's own config is
@@ -12,13 +12,15 @@ what a real deployment's config file looks like; this demo's own config is
 | Service        | Role                                                                                 |
 |----------------|--------------------------------------------------------------------------------------|
 | `keycloak`     | OIDC provider. A realm (`mcplake`) is pre-imported with a client and three demo users. |
-| `gateway`      | The mcplake gateway, built from this repo: the data plane fronting both MCPs below, and the control plane serving the embedded admin web UI. |
+| `gateway`      | The mcplake gateway, built from this repo: the data plane fronting the four MCPs below, and the control plane serving the embedded admin web UI. |
 | `postgres-mcp` | An MCP server in its **own container**, reached over the `sse` transport. |
+| `project-tracker-mcp` | A small FastMCP server served by uvicorn in its own container, reached over **Streamable HTTP** (`http`). |
+| `inventory-mcp` | The same kind of server, reached over **`sse`**. |
 | `postgres`     | Backs the gateway's own `[persistence]` (a `gateway` database) *and* the `demo` database `postgres-mcp` reads. The two are deliberately separate. |
 | `webui`        | The admin web UI as its own prebuilt image (`gcr.io/distroless/static`), serving the SPA and reverse-proxying `/admin/*` to the gateway. See [ADR-0020](architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.md). |
 | `inspector`    | [MCP Inspector](https://modelcontextprotocol.io/docs/2026-07-28/tools/inspector), for driving the gateway's own MCP control server from a browser. |
 
-### The two MCPs, and why there are two
+### The MCPs, and why there are several
 
 **`employee-directory`** is `deploy/demo/mcp-servers/employee_directory.py`, a
 small [FastMCP](https://gofastmcp.com) server over an in-memory, fictional
@@ -68,6 +70,30 @@ authorization, filtering, the admin API, the UI - does not vary by transport.
 > (This is also why an earlier revision of the demo *replaced* its postgres
 > MCP with the FastMCP one: as the only MCP it could not demonstrate
 > filtering. As the second of two, it demonstrates something else.)
+
+**`project-tracker`** and **`inventory`** are two more small FastMCP servers
+from this repo (`deploy/demo/mcp-servers/project_tracker.py` and
+`inventory.py`). Each is an ASGI app (`mcp.http_app(...)`) served by
+**uvicorn** in its own container, the way you would deploy a real one:
+
+| MCP               | Transport              | URL (from the gateway)        | Tools                                          |
+|-------------------|------------------------|-------------------------------|------------------------------------------------|
+| `project-tracker` | `http` (Streamable HTTP) | `http://localhost:8001/mcp` | `list_projects`, `get_project`, `tasks_by_status` |
+| `inventory`       | `sse`                  | `http://localhost:8002/sse`   | `list_items`, `get_item`, `out_of_stock`       |
+
+Together with the two above, the admin UI shows an endpoint on every
+transport: `stdio`, `http` and `sse`. They share the gateway's network
+namespace like `postgres-mcp`, so their `localhost` URLs are genuinely
+loopback. Only `mcplake-admin`'s wildcard grant reaches them; alice gets
+`403`. The scripts are bind-mounted, so an edit needs
+`compose restart project-tracker-mcp inventory-mcp`, not a rebuild.
+
+> **Adding your own MCP from the admin UI.** Inside the demo, `localhost`
+> means the shared network namespace above, **not your machine**. An MCP
+> running on your host at `http://localhost:3000/mcp` is unreachable from
+> the gateway, and a plain-`http` URL to any other host is rejected. Either
+> add it as a service in `compose.yaml` the way these two are, or put it
+> behind `https`.
 
 Three demo users exercise claims-based access control (ADR-0002/ADR-0004)
 end to end:
@@ -531,7 +557,7 @@ container regardless.
 ## Troubleshooting
 
 - **`demo-postgres` is unreachable, or the gateway waits forever on
-  "waiting for the Postgres MCP".** Look at that container first:
+  "waiting for the demo-postgres MCP".** Look at that container first:
 
   ```bash
   docker compose logs postgres-mcp
@@ -543,6 +569,14 @@ container regardless.
   `demo_reader` role. See
   [Upgrading or resetting the demo](#upgrading-or-resetting-the-demo);
   `down -v` fixes it.
+- **`project-tracker` or `inventory` is missing from the admin UI, or the
+  gateway waits forever on "waiting for the project-tracker MCP" /
+  "inventory MCP".** Check `docker compose logs project-tracker-mcp
+  inventory-mcp`. If those containers do not exist at all, compose is
+  running a stack from before they were added: `up -d --build`. New
+  `[[mcps]]` names are seeded even on an old volume (seeding is per name,
+  ADR-0016), so a missing entry is not a volume problem - unless it was
+  deleted through the admin API, which is permanent until `down -v`.
 - **The gateway refuses to start with `config: mcps[...]: url: must use
   https`.** Something changed `demo-postgres`'s URL away from a loopback
   host. That check is deliberate
