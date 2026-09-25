@@ -278,3 +278,31 @@ var _ = func() {
 		List() []cache.MCPRegistration
 	} = (*cache.Registry)(nil)
 }
+
+// A name containing "/" is accepted by POST, so it has to be reachable by the
+// per-name routes too. The UI sends it percent-encoded (org%2Ftool); routing
+// on the decoded path turned that into two segments and every PATCH/DELETE
+// 404'd, leaving an endpoint the admin UI could show but never remove. See
+// #205. This goes through NewServer's own engine, which is where the fix is.
+func TestNewServer_PerNameRoutesAcceptAnEncodedSlashInTheName(t *testing.T) {
+	registry := newFakeMCPRegistry()
+	repo := newFakeMCPRepository()
+	s := controlplane.NewServer(controlplane.Config{ControlPlaneAddr: "127.0.0.1:0"})
+	controlplane.RegisterMCPRoutes(s.Admin(), adminservice.NewMCPService(context.Background(), registry, repo))
+	engine := s.Engine()
+
+	require.Equal(t, http.StatusCreated, doJSON(t, engine, http.MethodPost, "/admin/mcps", map[string]any{
+		"name": "org/tool", "connect": map[string]any{"command": "mcp-server-postgres"},
+	}).Code)
+
+	rec := doJSON(t, engine, http.MethodPatch, "/admin/mcps/org%2Ftool", map[string]any{"enabled": false})
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	reg, ok := registry.Get("org/tool")
+	require.True(t, ok)
+	assert.False(t, reg.Enabled)
+
+	rec = doJSON(t, engine, http.MethodDelete, "/admin/mcps/org%2Ftool", nil)
+	assert.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+	_, ok = registry.Get("org/tool")
+	assert.False(t, ok)
+}

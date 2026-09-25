@@ -68,6 +68,13 @@ type Server struct {
 func NewServer(cfg Config) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
+	// Route on the escaped path, so a name containing "/" -- which POST
+	// accepts -- still fits one :name segment when sent as %2F, and is
+	// decoded into the parameter (UnescapePathValues is on by default).
+	// Routing on the decoded path split it in two and every per-name
+	// PATCH/PUT/DELETE 404'd, so such an entry could be created but never
+	// removed. See #205.
+	engine.UseRawPath = true
 	engine.Use(gin.Recovery())
 
 	admin := engine.Group("/admin")
