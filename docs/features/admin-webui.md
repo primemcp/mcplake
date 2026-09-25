@@ -109,9 +109,11 @@ selected endpoint.
   immediately in the endpoint list (a neutral gray dot, "disabled" instead
   of the real connection status) and in the detail panel's status line.
   **Delete endpoint** is the separate, unrecoverable action (drops the
-  registration, its schema cache, and every filter/grant on it) — it lives
-  inside the edit panel with a two-step "Delete endpoint" → "Confirm
-  delete" confirmation, not on the toggle.
+  registration, its schema cache, and every filter/grant on it). It is a
+  button in the detail panel's header, next to "Edit endpoint" and the
+  toggle, with a two-step "Delete endpoint" → "Confirm delete"
+  confirmation. A failed delete shows the server's message there rather
+  than silently resetting.
 - **Response filters** are built from the endpoint's discovered tool schemas
   (`GET /admin/mcps` already returns each tool's `output_schema` — no
   separate schema-discovery call). The field picker merges every tool's

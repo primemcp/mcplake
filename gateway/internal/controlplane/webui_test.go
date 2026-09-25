@@ -70,6 +70,18 @@ func TestRegisterUIRoutes_RootServesIndexHTML(t *testing.T) {
 	assert.Contains(t, string(body), "root")
 }
 
+func TestRegisterUIRoutes_IndexHTMLIsNotCached(t *testing.T) {
+	addr, cleanup := startUITestServer(t, fixtureAssets())
+	defer cleanup()
+
+	for _, p := range []string{"/", "/index.html", "/mcps/some-mcp"} {
+		resp, err := http.Get(fmt.Sprintf("http://%s%s", addr, p))
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		assert.Equal(t, "no-cache", resp.Header.Get("Cache-Control"), p)
+	}
+}
+
 func TestRegisterUIRoutes_KnownAssetServedDirectly(t *testing.T) {
 	addr, cleanup := startUITestServer(t, fixtureAssets())
 	defer cleanup()

@@ -121,36 +121,43 @@ describe("EndpointDetail", () => {
     expect(props.onUpdate).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
   });
 
-  it("deleting lives in the edit panel now, two-step confirm, and calls onRemove only after confirming", async () => {
+  it("deleting is in the header -- no need to open the edit panel -- and confirms before calling onRemove", async () => {
     const user = userEvent.setup();
     const props = baseProps();
     render(<EndpointDetail endpoint={ENDPOINT} {...props} />);
 
-    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
     await user.click(screen.getByRole("button", { name: "Delete endpoint" }));
 
     expect(props.onRemove).not.toHaveBeenCalled();
-    expect(
-      screen.getByText("Deleting removes this endpoint, its filters and every grant on it — for all users."),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/removes the endpoint, its filters and every grant on it/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     expect(props.onRemove).toHaveBeenCalledWith("local-fs");
   });
 
-  it("canceling the edit panel resets the delete confirmation", async () => {
+  it("canceling the delete confirmation deletes nothing", async () => {
     const user = userEvent.setup();
     const props = baseProps();
     render(<EndpointDetail endpoint={ENDPOINT} {...props} />);
 
-    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
     await user.click(screen.getByRole("button", { name: "Delete endpoint" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    await user.click(screen.getByRole("button", { name: "Edit endpoint" }));
 
-    expect(screen.getByRole("button", { name: "Delete endpoint" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
     expect(props.onRemove).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a failed delete instead of silently resetting the button (#202)", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    props.onRemove.mockRejectedValueOnce(new Error("mcp \"local-fs\" is not registered"));
+    render(<EndpointDetail endpoint={ENDPOINT} {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "Delete endpoint" }));
+    await user.click(screen.getByRole("button", { name: "Confirm delete" }));
+
+    expect(await screen.findByText('mcp "local-fs" is not registered')).toBeInTheDocument();
   });
 
   // ADR-0017. Before it, this panel pinned transport to "stdio" on save and

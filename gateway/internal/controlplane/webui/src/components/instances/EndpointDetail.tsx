@@ -30,11 +30,13 @@ export type EndpointDetailProps = {
  * The Enabled/Disabled toggle now wires to the real
  * `PATCH /admin/mcps/:name` (#153) -- a reversible soft-disable, distinct
  * from "Delete endpoint" (DELETE, unrecoverable: drops the registration
- * and its schema cache along with every filter/grant on it). Colors,
- * layout and copy for both match the mockup exactly (DesignSync), which
- * also moves delete out of the toggle and into the edit panel's own
- * two-step confirm -- it was only ever bolted onto the toggle here because
- * there was no real disable to wire it to yet.
+ * and its schema cache along with every filter/grant on it).
+ *
+ * Delete sits in the header beside Edit and the toggle, with its own
+ * two-step confirm (#202). It used to live at the bottom of the collapsed
+ * edit panel, where operators reported they could not find it at all -- and
+ * a failed delete there reset the button without a word, so the two read
+ * the same. Its failures now land in the same error slot as the toggle's.
  *
  * Transport is editable since ADR-0017 implemented http and sse; it used to
  * be pinned to "stdio" on save because the backend rejected anything else.
@@ -96,13 +98,12 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
   };
 
   const requestDelete = async () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     setRemoving(true);
+    setError(null);
     try {
       await onRemove(endpoint.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete.");
     } finally {
       setRemoving(false);
       setConfirmDelete(false);
@@ -141,6 +142,17 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
             </button>
             <button
               type="button"
+              onClick={() => {
+                setConfirmDelete(true);
+                setEditing(false);
+              }}
+              disabled={removing || confirmDelete}
+              className="flex items-center gap-1.5 px-[11px] py-[6px] border border-border rounded-[9px] bg-surface cursor-pointer text-xs font-medium text-body hover:border-danger hover:text-danger disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Delete endpoint
+            </button>
+            <button
+              type="button"
               role="switch"
               aria-checked={endpoint.enabled}
               aria-label={`${endpoint.enabled ? "Disable" : "Enable"} ${endpoint.name}`}
@@ -166,6 +178,21 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
 
         {error && field === null && <p className="text-[10.5px] text-danger px-4 pt-2.5">{error}</p>}
 
+        {confirmDelete && (
+          <div className="p-[12px_16px] border-b border-border-soft bg-danger-bg flex flex-wrap items-center gap-2">
+            <p className="flex-[1_1_240px] m-0 text-[11.5px] text-body">
+              Delete <span className="font-mono font-semibold">{endpoint.name}</span>? This removes the
+              endpoint, its filters and every grant on it — for all users.
+            </p>
+            <Button variant="danger" onClick={requestDelete} disabled={removing}>
+              Confirm delete
+            </Button>
+            <Button variant="secondary" onClick={() => setConfirmDelete(false)} disabled={removing}>
+              Cancel
+            </Button>
+          </div>
+        )}
+
         {editing && (
           <div className="p-[14px_16px] border-b border-border-soft bg-form-soft flex flex-col gap-2">
             <ConnectFieldsEditor
@@ -181,25 +208,10 @@ export function EndpointDetail({ endpoint, onUpdate, onRemove, onSetEnabled }: E
               <Button onClick={save} disabled={saving || !connectFieldsComplete(transport, fields)}>
                 Save endpoint
               </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setEditing(false);
-                  setConfirmDelete(false);
-                }}
-              >
+              <Button variant="secondary" onClick={() => setEditing(false)}>
                 Cancel
               </Button>
-              <span className="flex-1" />
-              <Button variant="danger" onClick={requestDelete} disabled={removing}>
-                {confirmDelete ? "Confirm delete" : "Delete endpoint"}
-              </Button>
             </div>
-            {confirmDelete && (
-              <p className="text-[10.5px] text-muted">
-                Deleting removes this endpoint, its filters and every grant on it — for all users.
-              </p>
-            )}
           </div>
         )}
 
