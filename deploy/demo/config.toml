@@ -56,8 +56,25 @@ name = "demo-postgres"
 type = "sse"
 url = "http://localhost:8000/sse"
 
+# Two more remote MCPs, both small FastMCP servers this repo owns
+# (deploy/demo/mcp-servers/), each served as an ASGI app by uvicorn in its own
+# container - see compose.yaml. One per network transport, so the demo has an
+# endpoint on every transport the gateway speaks: stdio above, Streamable
+# HTTP here, and sse twice (this one, and postgres-mcp as a third-party
+# server). Loopback for the same reason as demo-postgres above.
+[[mcps]]
+name = "project-tracker"
+type = "http"
+url = "http://localhost:8001/mcp"
+
+[[mcps]]
+name = "inventory"
+type = "sse"
+url = "http://localhost:8002/sse"
+
 # "alice" (role=db-reader) is granted employee-directory and ONLY
-# employee-directory. She gets 403 on demo-postgres, which mcplake-admin's
+# employee-directory. She gets 403 on demo-postgres (and on project-tracker
+# and inventory), which mcplake-admin's
 # wildcard grant below does reach - two MCPs with different policies, which
 # is what a per-MCP grant is for. "bob" (role=guest) matches no policy at
 # all and gets 403 on both. See docs/DEMO.md.

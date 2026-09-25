@@ -14,8 +14,6 @@ set -eu
 jwks_url="${GATEWAY_JWKS_URL:-http://localhost:8080/realms/mcplake/protocol/openid-connect/certs}"
 pg_host="${GATEWAY_PG_HOST:-postgres}"
 pg_port="${GATEWAY_PG_PORT:-5432}"
-pg_mcp_host="${GATEWAY_PG_MCP_HOST:-localhost}"
-pg_mcp_port="${GATEWAY_PG_MCP_PORT:-8000}"
 
 echo "entrypoint: waiting for Keycloak realm ($jwks_url)..."
 until curl --fail --silent --output /dev/null "$jwks_url"; do
@@ -67,28 +65,37 @@ python3 -c 'import fastmcp' >/dev/null 2>&1 ||
          "compose.yaml mounts deploy/demo/mcp-servers there - check that mount."
 echo "entrypoint: demo MCP server is present and its dependencies import"
 
-# And the same again for the sse MCP in its own container -- though since
-# ADR-0019 this one is a convenience rather than a correctness requirement.
+# And the same again for the remote MCPs in their own containers -- though
+# since ADR-0019 this is a convenience rather than a correctness requirement.
 #
 # The gateway now pings every registered MCP on mcp.health_check_interval and
 # reconnects the ones that are not answering, so an MCP that is merely slow to
 # start is picked up within half a minute on its own. What this wait buys is
 # that the demo is fully working the moment compose reports it up, instead of
-# spending its first half-minute with one of its two MCPs showing
-# "unreachable" and no tools -- which reads like the #180 failure even though
-# it would resolve itself.
+# spending its first half-minute with some of its MCPs showing "unreachable"
+# and no tools -- which reads like the #180 failure even though it would
+# resolve itself.
 #
-# A TCP connect rather than an HTTP request: the endpoint is an SSE stream
-# that stays open once accepted, so curl would hang rather than return, and
+# A TCP connect rather than an HTTP request: an sse endpoint is a stream that
+# stays open once accepted, so curl would hang rather than return, and
 # "something is listening" is all this needs to know.
-echo "entrypoint: waiting for the Postgres MCP ($pg_mcp_host:$pg_mcp_port)..."
-until python3 - "$pg_mcp_host" "$pg_mcp_port" <<'PY' 2>/dev/null
+#
+# name=host:port pairs, one per remote [[mcps]] entry in config.toml.
+remote_mcps="${GATEWAY_REMOTE_MCPS:-demo-postgres=localhost:8000 project-tracker=localhost:8001 inventory=localhost:8002}"
+for entry in $remote_mcps; do
+    name="${entry%%=*}"
+    addr="${entry#*=}"
+    host="${addr%:*}"
+    port="${addr##*:}"
+    echo "entrypoint: waiting for the $name MCP ($host:$port)..."
+    until python3 - "$host" "$port" <<'PY' 2>/dev/null
 import socket, sys
 socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=2).close()
 PY
-do
-    sleep 2
+    do
+        sleep 2
+    done
+    echo "entrypoint: the $name MCP is accepting connections"
 done
-echo "entrypoint: the Postgres MCP is accepting connections"
 
 exec mcp-gateway "$@"
