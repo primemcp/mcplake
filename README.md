@@ -75,8 +75,8 @@ stdio subprocess, one a real server in its own container reached over `sse` —
 with demo users that show a `200` vs a `403` under the same claims-based
 access control the gateway uses in production, a live field-level filtering
 example, and a per-MCP grant that lets one user reach one server and not the
-other. See [`docs/DEMO.md`](docs/DEMO.md),
-including [Upgrading or resetting the demo](docs/DEMO.md#upgrading-or-resetting-the-demo)
+other. See [`docs/getting-started/demo.rst`](docs/getting-started/demo.rst),
+including [Upgrading or resetting the demo](docs/getting-started/demo.rst#upgrading-or-resetting-the-demo)
 if you are coming back to it after pulling a newer revision.
 
 ## Contributing

@@ -15,12 +15,12 @@
 #     uvicorn in their own containers, over Streamable HTTP and sse
 #     respectively - so the demo has an MCP on every transport.
 #   - MCP Inspector, for poking at the gateway's own MCP control server
-#     (ADR-0011) without installing anything - see docs/DEMO.md, and note
+#     (ADR-0011) without installing anything - see docs/getting-started/demo.rst, and note
 #     the security caveats there before pointing it at anything real
 #   - Postgres, backing both the gateway's own control-plane persistence
 #     and the demo database postgres-mcp reads
 #
-# See docs/DEMO.md for the walkthrough: getting a token, calling /v1/call
+# See docs/getting-started/demo.rst for the walkthrough: getting a token, calling /v1/call
 # (alice's 200 vs bob's 403), field-level filtering, the admin UI, and
 # Inspector.
 #
@@ -75,7 +75,7 @@ services:
       - ./deploy/demo/keycloak/mcplake-realm.json:/opt/keycloak/data/import/mcplake-realm.json:ro,Z
     ports:
       - "8080:8080" # Keycloak
-      - "9090:9090" # gateway data plane (POST /v1/call, GET /healthz)
+      - "9090:9090" # gateway data plane (MCP at /v1/mcp and /v1/sse, POST /v1/call, GET /healthz)
       - "9091:9091" # gateway control plane + embedded admin web UI
       # The two below are bound to 127.0.0.1 rather than every interface,
       # unlike the three above. Both are developer tooling rather than the
@@ -219,7 +219,7 @@ services:
   # so http://localhost:9091/admin/mcp and http://localhost:8000/sse both
   # resolve from inside it.
   #
-  # Read docs/DEMO.md's Inspector section before reusing any of this: the
+  # Read docs/getting-started/demo.rst's Inspector section before reusing any of this: the
   # session token is pinned to a value committed to this repo, which is only
   # acceptable because the port above is bound to 127.0.0.1. Authentication
   # is deliberately left ON (no DANGEROUSLY_OMIT_AUTH) - Inspector's backend

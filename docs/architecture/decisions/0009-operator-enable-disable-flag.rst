@@ -93,7 +93,7 @@ Negative
   everywhere and by boundary ``*bool``\ s; a ``Disabled`` field would not have this
   property.
 - Three semantics to learn rather than one. Documented in
-  :repo:`features/enable-disable.md <docs/features/enable-disable.md>`, the pipeline
+  :doc:`/features/enable-disable`, the pipeline
   diagram, and :ref:`architecture-data-enabledisable-gates`.
 
 Follow-up
@@ -124,7 +124,7 @@ Validation
 References
 ----------
 
-- :repo:`features/enable-disable.md <docs/features/enable-disable.md>`
+- :doc:`/features/enable-disable`
 - :doc:`/reference/configuration` — the ``enabled`` key.
 - :doc:`/reference/admin-api` — ``enabled`` field and ``PATCH /admin/mcps/:name``.
 - :doc:`ADR-0004 </architecture/decisions/0004-unified-policy-engine-for-access-and-filtering>` — the two

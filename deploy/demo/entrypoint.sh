@@ -48,7 +48,7 @@ fail() {
     echo "entrypoint: $1" >&2
     echo "entrypoint: $2" >&2
     echo "entrypoint: refusing to start - the gateway would come up with an" >&2
-    echo "entrypoint: unreachable MCP and no tools. See docs/DEMO.md." >&2
+    echo "entrypoint: unreachable MCP and no tools. See docs/getting-started/demo.rst." >&2
     exit 1
 }
 

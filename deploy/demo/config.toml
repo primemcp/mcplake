@@ -1,5 +1,5 @@
 # mcplake Gateway - compose demo configuration. See config.example.toml for
-# the full annotated reference and docs/DEMO.md for how this file is used.
+# the full annotated reference and docs/getting-started/demo.rst for how this file is used.
 
 [server]
 # 8080 is Keycloak's port: the gateway container shares Keycloak's network
@@ -49,7 +49,7 @@ arguments = ["/opt/mcplake/demo-mcp/employee_directory.py"]
 #
 # It exposes SQL tools (list_schemas, list_objects, execute_sql, ...) over
 # the demo database. Nothing here filters its responses -- see
-# docs/DEMO.md on why that is a property of the server's response shape,
+# docs/getting-started/demo.rst on why that is a property of the server's response shape,
 # not of the filter engine.
 [[mcps]]
 name = "demo-postgres"
@@ -77,7 +77,7 @@ url = "http://localhost:8002/sse"
 # and inventory), which mcplake-admin's
 # wildcard grant below does reach - two MCPs with different policies, which
 # is what a per-MCP grant is for. "bob" (role=guest) matches no policy at
-# all and gets 403 on both. See docs/DEMO.md.
+# all and gets 403 on both. See docs/getting-started/demo.rst.
 [[access_policies]]
 name = "demo-reader"
 [[access_policies.match]]
@@ -90,7 +90,7 @@ tools = ["*"]
 # Field-level filtering (ADR-0015): alice (role=db-reader) can call these
 # tools but never sees salary/SSN; admin's wildcard grant above isn't
 # subject to either filter, so mcplake-admin sees the same calls
-# unfiltered - see docs/DEMO.md for the side-by-side.
+# unfiltered - see docs/getting-started/demo.rst for the side-by-side.
 #
 # get_employee returns its record unwrapped, so the paths are bare; the
 # FastMCP result-wrapping rules take a different shape:

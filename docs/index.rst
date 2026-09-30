@@ -7,11 +7,17 @@ MCP servers they use, authenticates every caller with OIDC, decides from the
 caller's JWT claims which MCPs and tools they may reach, and strips fields from
 tool responses the caller is not allowed to see.
 
-.. note::
+.. toctree::
+   :caption: Getting Started
+   :maxdepth: 2
 
-   This site is being assembled. The existing Markdown documentation is moving
-   here section by section; until then it is still available in the
-   ``docs/`` directory of the repository.
+   getting-started/index
+
+.. toctree::
+   :caption: Features
+   :maxdepth: 2
+
+   features/index
 
 .. toctree::
    :caption: Reference

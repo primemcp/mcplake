@@ -12,7 +12,7 @@
 --
 -- Note: docker-entrypoint-initdb.d only runs on an EMPTY data directory.
 -- On a volume that survived an earlier `up`, none of this happens -- see
--- docs/DEMO.md, "Upgrading or resetting the demo".
+-- docs/getting-started/demo.rst, "Upgrading or resetting the demo".
 CREATE ROLE demo_reader WITH LOGIN PASSWORD 'demo_reader';
 CREATE DATABASE demo OWNER postgres;
 

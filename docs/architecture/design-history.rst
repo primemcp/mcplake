@@ -119,7 +119,7 @@ Component Responsibilities
 - Allows MCPs to be registered/unregistered
 - Displays audit logs (Phase 3)
 - MCP connections screen (endpoint registration, response filters) is implemented — see
-  :repo:`features/admin-webui.md <docs/features/admin-webui.md>`. Users & access is not yet built.
+  :doc:`/features/admin-webui`. Users & access is not yet built.
 
 .. _architecture-design-history-request-flow:
 

@@ -25,7 +25,7 @@ func TestDemoConfig_LoadsAndValidates(t *testing.T) {
 	}
 
 	// The demo's whole point since ADR-0017 is that it runs one MCP each
-	// way. If either of these changes shape, the DEMO.md walkthrough built
+	// way. If either of these changes shape, the demo walkthrough (docs/getting-started/demo.rst) built
 	// on them is wrong too.
 	stdio, ok := byName["employee-directory"]
 	require.True(t, ok, "the stdio MCP should still be there")
