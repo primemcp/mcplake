@@ -48,13 +48,13 @@ filtered to exactly what its token authorizes, with every tool named
 `<mcp>__<tool>`. `POST /v1/call` remains available for plain REST callers; both
 run the same pipeline. See [docs/api/data-plane.md](docs/api/data-plane.md).
 
-See [docs/OVERVIEW.md](docs/OVERVIEW.md) for detailed architecture and design rationale.
+See [docs/architecture/overview.rst](docs/architecture/overview.rst) for the architecture, and the [decision records](docs/architecture/decisions/) for design rationale.
 
 ## Phase 1 Roadmap
 
 - [x] Project scaffolding and architecture design
 - [x] fasthttp data-plane gateway (OIDC/JWT validation, claims-based authorization, tool-call proxy)
-- [x] MCP endpoints on the data plane — connect any MCP client to the gateway over Streamable HTTP (`/v1/mcp`) or SSE (`/v1/sse`), with `tools/list` filtered per caller ([ADR-0021](docs/architecture/decisions/0021-serve-mcp-on-the-data-plane.md))
+- [x] MCP endpoints on the data plane — connect any MCP client to the gateway over Streamable HTTP (`/v1/mcp`) or SSE (`/v1/sse`), with `tools/list` filtered per caller ([ADR-0021](docs/architecture/decisions/0021-serve-mcp-on-the-data-plane.rst))
 - [x] Dynamic MCP registration and schema discovery
 - [x] Unified JSONPath+regexp claim-rule engine (access policies and response filtering)
 - [x] GORM persistence (SQLite default, PostgreSQL-ready)
@@ -64,7 +64,7 @@ See [docs/OVERVIEW.md](docs/OVERVIEW.md) for detailed architecture and design ra
 
 ## Configuration
 
-Configuration is a single TOML file ([ADR-0012](docs/architecture/decisions/0012-toml-configuration-format.md)), passed with `--config` (default `config.toml`). See [`config.example.toml`](config.example.toml) and [`docs/CONFIG.md`](docs/CONFIG.md) for all options.
+Configuration is a single TOML file ([ADR-0012](docs/architecture/decisions/0012-toml-configuration-format.rst)), passed with `--config` (default `config.toml`). See [`config.example.toml`](config.example.toml) and [`docs/CONFIG.md`](docs/CONFIG.md) for all options.
 
 ## Demo
 

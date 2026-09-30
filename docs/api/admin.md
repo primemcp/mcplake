@@ -1,7 +1,7 @@
 # Control-Plane Admin API
 
 The control-plane is the Gin-based HTTP surface described in
-[ADR-0005](../architecture/decisions/0005-use-gin-for-control-plane-api.md). It
+[ADR-0005](../architecture/decisions/0005-use-gin-for-control-plane-api.rst). It
 listens on `server.control_plane_addr` (see [`docs/CONFIG.md`](../CONFIG.md)) and is
 a separate surface from the data plane — agents never talk to it. Bind it to a
 trusted network/interface regardless of authentication.
@@ -10,7 +10,7 @@ trusted network/interface regardless of authentication.
 
 Every endpoint below except `GET /admin/healthz` requires an
 `Authorization: Bearer <jwt>` header when `admin_auth` is configured (see
-[ADR-0010](../architecture/decisions/0010-control-plane-admin-authentication.md)
+[ADR-0010](../architecture/decisions/0010-control-plane-admin-authentication.rst)
 and [`CONFIG.md`](../CONFIG.md#admin-authentication)). The token is verified the
 same way data-plane tokens are — signature against the `oidc:` JWKS, plus
 `exp`/`iss`/`aud` — and its claims must then satisfy the `admin_auth.match`
@@ -18,7 +18,7 @@ rules.
 
 | Status | `error` code            | When                                                        |
 |--------|-------------------------|-------------------------------------------------------------|
-| 415    | `unsupported_media_type` | A `POST`/`PUT`/`PATCH` whose `Content-Type` is not `application/json`. Checked before authentication — see [security.md](../architecture/security.md#the-browser-is-inside-the-network-perimeter). |
+| 415    | `unsupported_media_type` | A `POST`/`PUT`/`PATCH` whose `Content-Type` is not `application/json`. Checked before authentication — see [security.md](../architecture/security.rst#the-browser-is-inside-the-network-perimeter). |
 | 401    | `missing_authorization` | No `Authorization` header.                                  |
 | 401    | `invalid_authorization` | Header present but not a non-empty `Bearer` token.          |
 | 401    | `unauthorized`          | Token fails signature / `exp` / `iss` / `aud` validation.   |
@@ -31,7 +31,7 @@ gate.
 
 The embedded web UI obtains its own token through an OIDC Authorization Code +
 PKCE flow; see [`CONFIG.md`](../CONFIG.md#admin-ui-sign-in) and
-[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.md).
+[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.rst).
 
 If `admin_auth` is not configured, the admin API is unauthenticated and the
 gateway logs a startup warning — bind `control_plane_addr` to a trusted
@@ -54,7 +54,7 @@ How a client should authenticate. **No authentication required** — a browser
 that has no token yet has to be able to read it, which is the whole point;
 gating it would be circular. It is one of exactly two open routes (the other
 is `healthz`). See
-[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.md).
+[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.rst).
 
 With `admin_auth` configured and `[admin_auth.login]` set:
 
@@ -88,7 +88,7 @@ The embedded web UI calls this on load; a scripted client doesn't need it
 The full OpenAPI (Swagger 2.0) spec for this API is generated from the `@`
 doc-comment annotations above each handler in `gateway/internal/controlplane`
 via `swaggo/swag` (see
-[ADR-0007](../architecture/decisions/0007-swaggo-for-control-plane-api-docs.md)),
+[ADR-0007](../architecture/decisions/0007-swaggo-for-control-plane-api-docs.rst)),
 and served interactively at `GET /admin/swagger/index.html` on the control-plane
 port — same trust boundary as the rest of `/admin/*`. Regenerate it after
 changing a handler's annotations with `make swagger` (requires the `swag` CLI:
@@ -108,7 +108,7 @@ routes on the escaped path, so the whole name reaches the handler.
 
 Registers a downstream MCP: connects, discovers its tools (`tools/list`), and makes
 it immediately callable via the data plane. See
-[ADR-0003](../architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.md).
+[ADR-0003](../architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.rst).
 
 ```
 POST /admin/mcps
@@ -205,7 +205,7 @@ persisted row. In-flight calls to it are allowed to finish; new calls are reject
 
 Every write here persists via GORM and then refreshes the shared `router.PolicyStore`
 engine (both access and filter policies together, since one engine covers both — see
-[ADR-0004](../architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.md)),
+[ADR-0004](../architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.rst)),
 so the change is immediately visible to the data plane's `Authorize` calls.
 
 ### `POST /admin/access-policies`
@@ -223,7 +223,7 @@ Content-Type: application/json
 
 `match` uses the same `{path, pattern}` JSONPath+regexp rule syntax as
 `config.toml`'s `access_policies` (see [`docs/CONFIG.md`](../CONFIG.md#5-access-policies)
-and [ADR-0002](../architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)).
+and [ADR-0002](../architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.rst)).
 
 An optional `enabled` field (bool, default `true`) is accepted here and echoed in
 every response. A disabled access policy is skipped during authorization — it grants

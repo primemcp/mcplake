@@ -20,7 +20,7 @@ const (
 const defaultDriver = DriverSQLite
 
 // Config selects and configures the persistence backend. See
-// docs/architecture/decisions/0006-gorm-sqlite-postgres-persistence.md.
+// docs/architecture/decisions/0006-gorm-sqlite-postgres-persistence.rst.
 type Config struct {
 	// Driver is "sqlite" (default) or "postgres".
 	Driver string

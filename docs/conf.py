@@ -19,7 +19,6 @@ release = version
 docs_branch = os.environ.get("DOCS_BRANCH", "develop")
 
 extensions = [
-    "sphinx.ext.autosectionlabel",
     "sphinx.ext.extlinks",
     "sphinx.ext.todo",
     "sphinx_copybutton",
@@ -37,11 +36,6 @@ exclude_patterns = [
     "README.rst",
     "superpowers",
 ]
-
-# Section labels are "<page>:<title>", so identical headings on different
-# pages ("Context", "Decision") do not collide.
-autosectionlabel_prefix_document = True
-autosectionlabel_maxdepth = 3
 
 nitpicky = False
 todo_include_todos = False

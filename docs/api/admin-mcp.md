@@ -5,7 +5,7 @@ operation as an **MCP tool**, so an MCP-speaking client (an agent, an
 MCP-enabled editor) can administer a running gateway the same way it calls any
 other tool. It is a thin adapter over the same application layer the REST
 handlers use, so the two surfaces always behave identically. See
-[ADR-0011](../architecture/decisions/0011-mcp-control-server.md).
+[ADR-0011](../architecture/decisions/0011-mcp-control-server.rst).
 
 It is **off by default**. Enable it in `config.toml`:
 
@@ -127,4 +127,4 @@ The registration is now live on the data plane — a `POST /v1/call` for
 
 - [Control-Plane Admin API](admin.md) — the REST surface these tools mirror.
 - [CONFIG.md](../CONFIG.md#admin-mcp) — the `admin_mcp` config keys.
-- [ADR-0011](../architecture/decisions/0011-mcp-control-server.md) — the design.
+- [ADR-0011](../architecture/decisions/0011-mcp-control-server.rst) — the design.

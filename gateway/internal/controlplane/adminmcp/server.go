@@ -3,7 +3,7 @@
 // any other tool. It is a thin adapter over
 // gateway/internal/controlplane/adminservice — the same application layer
 // the Gin REST handlers use, so the two surfaces cannot drift. See
-// docs/architecture/decisions/0011-mcp-control-server.md.
+// docs/architecture/decisions/0011-mcp-control-server.rst.
 package adminmcp
 
 import (

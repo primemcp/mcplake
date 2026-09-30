@@ -1,6 +1,6 @@
 // Package auth verifies caller JWTs against an OIDC provider's JWKS before
 // any policy evaluation runs. See
-// docs/architecture/components.md#auth-validator-auth for this package's role
+// docs/architecture/components.rst#auth-validator-auth for this package's role
 // in the request pipeline, and ADR-0002 for why Claims carries the full
 // decoded claim document rather than a flattened map.
 package auth

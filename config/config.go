@@ -45,7 +45,7 @@ type MCPGlobalConfig struct {
 // DefaultAdminMCPPath is where the MCP control server mounts when
 // admin_mcp.path is omitted. It is under /admin/ so the admin-auth
 // middleware covers it. See
-// docs/architecture/decisions/0011-mcp-control-server.md.
+// docs/architecture/decisions/0011-mcp-control-server.rst.
 const DefaultAdminMCPPath = "/admin/mcp"
 
 // AdminMCPConfig configures the in-process MCP control server: the
@@ -74,7 +74,7 @@ func (a AdminMCPConfig) path() string {
 
 // AdminAuthConfig configures authentication/authorization for the
 // control-plane admin API (`/admin/*`). See
-// docs/architecture/decisions/0010-control-plane-admin-authentication.md.
+// docs/architecture/decisions/0010-control-plane-admin-authentication.rst.
 //
 // A caller's JWT is verified with the same auth.Validator the data plane
 // uses (the oidc: section above); Match then decides whether the verified
@@ -223,7 +223,7 @@ type GrantConfig struct {
 }
 
 // AccessPolicyConfig is the config shape of a router.AccessPolicy. See
-// ADR-0004 and docs/architecture/data.md#access-policy.
+// ADR-0004 and docs/architecture/data.rst#access-policy.
 type AccessPolicyConfig struct {
 	Name   string            `toml:"name"`
 	Match  []ClaimRuleConfig `toml:"match"`
@@ -235,7 +235,7 @@ type AccessPolicyConfig struct {
 }
 
 // FilterPolicyConfig is the config shape of a router.FilterPolicy. See
-// ADR-0004 and docs/architecture/data.md#filter-policy.
+// ADR-0004 and docs/architecture/data.rst#filter-policy.
 type FilterPolicyConfig struct {
 	Name       string            `toml:"name"`
 	Match      []ClaimRuleConfig `toml:"match"`

@@ -1,12 +1,12 @@
 # Periodic MCP Schema Refresh
 
 The gateway discovers a downstream MCP's tools once, when the MCP is
-registered ([ADR-0003](../architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.md)).
+registered ([ADR-0003](../architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.rst)).
 On a long-running gateway that view can drift: a tool added to an MCP stays
 invisible, and a tool removed from an MCP still looks callable (the call then
 fails at the MCP). Periodic schema refresh closes that gap on a timer.
 
-See [ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.md)
+See [ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.rst)
 for the design and the alternatives considered.
 
 ## Enabling it
@@ -67,4 +67,4 @@ dead session is
   check is **on by default** and this one is not.
 - [CONFIG.md](../CONFIG.md#mcp-global) — the `[mcp]` table.
 - [enable-disable.md](enable-disable.md) — why a disabled MCP is still refreshed.
-- [ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.md).
+- [ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.rst).

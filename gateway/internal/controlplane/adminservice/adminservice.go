@@ -6,7 +6,7 @@
 // The Gin HTTP handlers in package controlplane and the MCP control server
 // in package adminmcp are both thin adapters over these services, so the two
 // surfaces cannot drift. See
-// docs/architecture/decisions/0011-mcp-control-server.md.
+// docs/architecture/decisions/0011-mcp-control-server.rst.
 package adminservice
 
 import (

@@ -7,7 +7,7 @@ delete: the record stays, and for an MCP its discovered tool schemas and live
 connection stay too, so re-enabling is instant.
 
 Disabling means a different thing for each kind, because each sits at a
-different point in the [request pipeline](../architecture/overview.md#pipeline-per-request):
+different point in the [request pipeline](../architecture/overview.rst#pipeline-per-request):
 
 | Object disabled | Effect | Where |
 |---|---|---|
@@ -45,7 +45,7 @@ enabled = false
 **Admin API** ([admin.md](../api/admin.md)) — the database is the source of
 truth once the gateway is running, and stays so across restarts: config is
 seeded once per entry and never re-applied over a runtime change
-([ADR-0016](../architecture/decisions/0016-config-seeding-happens-once-per-entry.md)):
+([ADR-0016](../architecture/decisions/0016-config-seeding-happens-once-per-entry.rst)):
 
 - Policies: `enabled` is a field on `POST` / `PUT /admin/access-policies` and
   `/admin/filter-policies`, and is echoed in every response. `PUT` is a full

@@ -19,7 +19,7 @@ gateway binary serves it directly — nothing to run separately.
 final layer is `gcr.io/distroless/static` — the SPA is compiled during the
 image build and the running container only serves it. The compose demo brings
 it up as the `webui` service on port 8082. See
-[ADR-0020](../architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.md).
+[ADR-0020](../architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.rst).
 
 That container is also the browser's single origin: it serves the assets **and**
 reverse-proxies `/admin/*` to the gateway's control plane, because the UI calls
@@ -78,7 +78,7 @@ selected endpoint.
   re-enable it.
 - **Transport is a real choice.** All three of `stdio`, `http` and `sse`
   are selectable and all three work
-  ([ADR-0017](../architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.md));
+  ([ADR-0017](../architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.rst));
   the picker used to render `sse`/`http` as permanently disabled buttons
   captioned "Not implemented by the gateway yet", which was accurate until
   the backend implemented them.
@@ -120,7 +120,7 @@ selected endpoint.
   fields into one searchable, toggleable list; a field can be toggled
   regardless of which tool it belongs to, and **one filter can span several
   tools** even though the backend's `FilterPolicy` is always single-tool —
-  see [ADR-0008](../architecture/decisions/0008-frontend-only-multi-tool-filter-grouping.md)
+  see [ADR-0008](../architecture/decisions/0008-frontend-only-multi-tool-filter-grouping.rst)
   for how that's reconciled into real per-tool records without any backend
   change. Filter names may not contain `::` (reserved for that grouping
   convention — enforced in the UI, not just documented).
@@ -138,7 +138,7 @@ User list (left column) + a detail panel with three tabs for the selected
 user. A "user" here is UI composition, not a backend entity: it is an
 `AccessPolicy` plus every `FilterPolicy` whose name is grouped under that
 policy's name (`<user>::<label>::<tool>`, the same `::` convention as
-[ADR-0008](../architecture/decisions/0008-frontend-only-multi-tool-filter-grouping.md)).
+[ADR-0008](../architecture/decisions/0008-frontend-only-multi-tool-filter-grouping.rst)).
 Listing users means `GET /admin/access-policies` joined with
 `GET /admin/filter-policies` by name; deleting one deletes all of those
 records.
@@ -201,7 +201,7 @@ records.
   two direct leaf children reads `[2]`, the same as a row with one child
   that itself has one child.
 - **Multi-tool filter grouping** (`lib/filterGroups.ts`): see
-  [ADR-0008](../architecture/decisions/0008-frontend-only-multi-tool-filter-grouping.md).
+  [ADR-0008](../architecture/decisions/0008-frontend-only-multi-tool-filter-grouping.rst).
 
 ## Security
 
@@ -214,19 +214,19 @@ issues, both now covered by regression tests:
 - The field picker's internal `(tool, path)` composite key was
   delimiter-joined with a plain space, which a tool name containing a space
   (nothing validates tool-name charset anywhere on the backend — see
-  [ADR-0003](../architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.md))
+  [ADR-0003](../architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.rst))
   would silently misparse, saving a filter against a tool that doesn't
   exist — fixed by JSON-encoding the pair instead of delimiter-joining it.
 
 ### Signing in
 
 When the gateway enforces admin auth (`admin_auth.match` — see
-[ADR-0010](../architecture/decisions/0010-control-plane-admin-authentication.md)),
+[ADR-0010](../architecture/decisions/0010-control-plane-admin-authentication.rst)),
 the UI obtains its own token through an OIDC **Authorization Code + PKCE**
 flow run in the browser, against the same provider `[oidc]` already verifies
 tokens from. Configure it with
 [`[admin_auth.login]`](../CONFIG.md#admin-ui-sign-in);
-[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.md) records
+[ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.rst) records
 why this shape.
 
 - On load the UI reads `GET /admin/auth/config` (the one open admin route

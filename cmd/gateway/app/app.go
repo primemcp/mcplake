@@ -1,7 +1,7 @@
 // Package app assembles every component built across Epics #1-#5 into one
 // running gateway: config, persistence, the MCP Registry, the Policy Engine,
 // the auth Validator, and both HTTP surfaces (data plane and control plane).
-// See docs/architecture/overview.md.
+// See docs/architecture/overview.rst.
 package app
 
 import (

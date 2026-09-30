@@ -15,6 +15,6 @@ tool responses the caller is not allowed to see.
 
 .. toctree::
    :caption: Architecture
-   :maxdepth: 1
+   :maxdepth: 2
 
-   architecture/decisions/0022-sphinx-and-restructuredtext-for-project-documentation
+   architecture/index

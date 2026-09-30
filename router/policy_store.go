@@ -9,7 +9,7 @@ import (
 // admin API (Epic #4) can swap in a freshly-loaded policy set after every
 // write, without the data plane ever querying the database or observing a
 // partially-updated policy set. See
-// docs/architecture/components.md#control-plane-api-gin.
+// docs/architecture/components.rst#control-plane-api-gin.
 //
 // PolicyStore satisfies the same (Authorize, FieldsToRemove) shape as
 // *Engine, so it is a drop-in replacement wherever *Engine is used today

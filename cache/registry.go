@@ -1,6 +1,6 @@
 // Package cache implements the MCP Registry: the gateway's in-memory record
 // of every registered downstream MCP and the tools it advertises. See
-// docs/architecture/components.md#mcp-registry-cache-extended and ADR-0003.
+// docs/architecture/components.rst#mcp-registry-cache-extended and ADR-0003.
 package cache
 
 import (

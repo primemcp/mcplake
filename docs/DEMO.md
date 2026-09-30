@@ -17,7 +17,7 @@ what a real deployment's config file looks like; this demo's own config is
 | `project-tracker-mcp` | A small FastMCP server served by uvicorn in its own container, reached over **Streamable HTTP** (`http`). |
 | `inventory-mcp` | The same kind of server, reached over **`sse`**. |
 | `postgres`     | Backs the gateway's own `[persistence]` (a `gateway` database) *and* the `demo` database `postgres-mcp` reads. The two are deliberately separate. |
-| `webui`        | The admin web UI as its own prebuilt image (`gcr.io/distroless/static`), serving the SPA and reverse-proxying `/admin/*` to the gateway. See [ADR-0020](architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.md). |
+| `webui`        | The admin web UI as its own prebuilt image (`gcr.io/distroless/static`), serving the SPA and reverse-proxying `/admin/*` to the gateway. See [ADR-0020](architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.rst). |
 | `inspector`    | [MCP Inspector](https://modelcontextprotocol.io/docs/2026-07-28/tools/inspector), for driving the gateway's own MCP control server from a browser. |
 
 ### The MCPs, and why there are several
@@ -42,7 +42,7 @@ lifecycle, reached over the **`sse`** transport at
 `list_objects`, `get_object_details`, `execute_sql`, `explain_query`, …)
 over a small fictional customers/tickets database.
 
-Until [ADR-0017](architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.md)
+Until [ADR-0017](architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.rst)
 this second shape was impossible: stdio was the only transport, so *every*
 downstream MCP had to be a child process of the gateway. It now isn't, and
 having one of each is the clearest way to show that the gateway's behaviour -
@@ -60,7 +60,7 @@ authorization, filtering, the admin API, the UI - does not vary by transport.
 
 > **`demo-postgres` has no `filter_policies`, and that is the interesting
 > part.** `filter_policies` strip fields out of *structured* JSON
-> ([ADR-0015](architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.md));
+> ([ADR-0015](architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.rst));
 > a SQL tool that returns a rendered result set has no stable field to
 > address, so there is nothing for a `drop_fields` path to match. The lever
 > that does work on this MCP is **access control** - who may call it at all,
@@ -166,7 +166,7 @@ Neither flag is optional, and each covers a different half of the stack:
 - **`-v` (the volume).** Two reasons, both real.
 
   Config seeding happens **once per named entry, ever**
-  ([ADR-0016](architecture/decisions/0016-config-seeding-happens-once-per-entry.md)):
+  ([ADR-0016](architecture/decisions/0016-config-seeding-happens-once-per-entry.rst)):
   the database is the source of truth, and `config.toml` only ever seeds a
   name the store has not seen. So an entry that changed *without* changing
   its name is ignored on an upgrade. When the demo replaced its
@@ -301,7 +301,7 @@ container, and the admin UI shows the endpoint as `unreachable`. Wait half a
 minute and call again: it answers, with nobody having touched the gateway.
 
 That is the health-check loop
-([ADR-0019](architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md)),
+([ADR-0019](architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.rst)),
 which pings every registered MCP on `mcp.health_check_interval` (30s by
 default) and rebuilds the ones that have stopped answering. Before it existed,
 this exact `restart` left the demo permanently broken until the gateway itself
@@ -412,7 +412,7 @@ deployment should copy verbatim:
 - `control_plane_addr = ":9091"` binds every interface, not just loopback.
   That's only safe here *because* `admin_auth` is on - see the comment in
   `deploy/demo/config.toml` and
-  [ADR-0005](architecture/decisions/0005-use-gin-for-control-plane-api.md)
+  [ADR-0005](architecture/decisions/0005-use-gin-for-control-plane-api.rst)
   for why the project's own default is loopback-only until it is.
 - The Keycloak client's `redirectUris`/`webOrigins` are `["*"]` -
   convenient for a demo that doesn't know its own host/port in advance, but
@@ -436,7 +436,7 @@ out of the logs.
 **The gateway's own MCP control server.** `deploy/demo/config.toml` enables
 `[admin_mcp]`, which mounts the control-plane admin operations as MCP tools
 at `/admin/mcp`
-([ADR-0011](architecture/decisions/0011-mcp-control-server.md)). In
+([ADR-0011](architecture/decisions/0011-mcp-control-server.rst)). In
 Inspector:
 
 - Transport: **Streamable HTTP**
@@ -588,7 +588,7 @@ container regardless.
 - **The gateway refuses to start with `config: mcps[...]: url: must use
   https`.** Something changed `demo-postgres`'s URL away from a loopback
   host. That check is deliberate
-  ([ADR-0017](architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.md)):
+  ([ADR-0017](architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.rst)):
   the demo gets to use plaintext only because `compose.yaml` puts that
   container in the gateway's own network namespace, which makes
   `localhost:8000` genuinely loopback. Either keep it loopback or put TLS in
