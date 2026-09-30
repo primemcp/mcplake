@@ -247,7 +247,7 @@ Enable/disable gates
 ~~~~~~~~~~~~~~~~~~~~
 
 Each of the three runtime-managed objects carries an operator ``Enabled`` flag
-(default true; see :repo:`CONFIG.md <docs/CONFIG.md>` and #95). Disabling one is a
+(default true; see :doc:`/reference/configuration` and #95). Disabling one is a
 reversible kill switch, not a delete, and each acts at a different point above:
 
 - **MCP registration disabled** — after ``Authorize`` succeeds, the gateway

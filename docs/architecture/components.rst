@@ -64,7 +64,7 @@ MCP Control Server (``gateway/internal/controlplane/adminmcp``)
 - Mounted as a streamable-HTTP handler on the control-plane listener under
   ``/admin/`` (default ``/admin/mcp``), so it inherits the ``admin_auth`` gate. Off by
   default; enabled with ``admin_mcp.enabled``.
-- Full tool catalog and usage: :repo:`api/admin-mcp.md <docs/api/admin-mcp.md>`.
+- Full tool catalog and usage: :doc:`/reference/admin-mcp`.
 
 .. _architecture-components-persistence-layer-persistence:
 
@@ -177,7 +177,7 @@ Admin Web UI (``gateway/internal/controlplane/webui``)
   :repo:`features/admin-webui.md <docs/features/admin-webui.md>` for what it does and how
   to run it.
 - Talks to the real ``/admin/*`` API documented in
-  :repo:`api/admin.md <docs/api/admin.md>` — no separate backend or mock layer; every
+  :doc:`/reference/admin-api` — no separate backend or mock layer; every
   screen reflects live Registry/Policy Engine state.
 - One place where the UI's data model doesn't map 1:1 onto the backend's: a
   response filter can span several tools from the operator's point of view, even

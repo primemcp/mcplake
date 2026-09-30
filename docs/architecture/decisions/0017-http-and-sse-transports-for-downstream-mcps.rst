@@ -87,7 +87,7 @@ an error naming the offending entry rather than a warning buried in the boot log
 
 To be explicit about what this does *not* change: it is not a new privilege
 boundary. An admin who can register a stdio MCP can already start an arbitrary
-process on the gateway host, which ``docs/CONFIG.md`` states plainly. This is a
+process on the gateway host, which ``docs/reference/configuration.rst`` states plainly. This is a
 confidentiality guardrail on a new outbound surface.
 
 The standalone SSE stream is disabled
@@ -242,7 +242,7 @@ Risks
   cannot be registered yet. This is a known gap, not an oversight — see Follow-up.
 - The URL is operator-supplied and the gateway dials it, which is SSRF-shaped.
   It is not an escalation (control-plane access is already host-level access, per
-  ``docs/CONFIG.md``), but an operator who treats the admin API as less sensitive
+  ``docs/reference/configuration.rst``), but an operator who treats the admin API as less sensitive
   than shell access is mistaken in a new way as well as the existing one.
 
 Follow-up
@@ -303,4 +303,4 @@ References
   is in the payload the URL rule protects.
 - :doc:`ADR-0019 </architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop>` — the
   session lifecycle these transports turned out to need.
-- :repo:`CONFIG.md <docs/CONFIG.md>` — the operator-facing ``[[mcps]]`` reference.
+- :doc:`/reference/configuration` — the operator-facing ``[[mcps]]`` reference.

@@ -310,5 +310,5 @@ References
 - `RFC 9700 <https://datatracker.ietf.org/doc/html/rfc9700>`__ — OAuth 2.0 Security
   Best Current Practice: authorization code + PKCE for browser apps, implicit
   flow removed.
-- :repo:`CONFIG.md <docs/CONFIG.md>` — the ``admin_auth.login`` keys.
-- :repo:`api/admin.md <docs/api/admin.md>` — ``GET /admin/auth/config``.
+- :doc:`/reference/configuration` — the ``admin_auth.login`` keys.
+- :doc:`/reference/admin-api` — ``GET /admin/auth/config``.

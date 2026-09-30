@@ -9,7 +9,7 @@ import (
 )
 
 // defaultMCPTransport matches the documented default for MCPConfig.Type in
-// docs/CONFIG.md.
+// docs/reference/configuration.rst.
 const defaultMCPTransport = cache.TransportStdio
 
 // MCPRegistrations converts every MCPs entry into a cache.MCPRegistration,

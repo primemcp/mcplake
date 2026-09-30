@@ -161,7 +161,7 @@ Follow-up
   Gin middleware reusing ``auth.Validator`` for JWT verification plus an
   ``admin_auth.match`` claim-rule list (ADR-0002 syntax) from ``config.toml``.
 - Document the two-port topology (data-plane port, control-plane port) in
-  ``config.example.toml`` and ``docs/CONFIG.md`` once implemented.
+  ``config.example.toml`` and ``docs/reference/configuration.rst`` once implemented.
 
 Validation
 ----------

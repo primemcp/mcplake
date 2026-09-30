@@ -65,6 +65,6 @@ dead session is
 - [mcp-health-check.md](mcp-health-check.md) — the other `[mcp]` timer. Schema
   freshness and connection health are separate questions; note that the health
   check is **on by default** and this one is not.
-- [CONFIG.md](../CONFIG.md#mcp-global) — the `[mcp]` table.
+- [CONFIG.md](../reference/configuration.rst#mcp-global) — the `[mcp]` table.
 - [enable-disable.md](enable-disable.md) — why a disabled MCP is still refreshed.
 - [ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.rst).

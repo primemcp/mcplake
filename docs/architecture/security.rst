@@ -59,6 +59,8 @@ The subprocess does not, however, inherit the gateway's own process
 environment — only a minimal documented base set plus whatever the MCP's own
 ``env`` declares; see :doc:`ADR-0018 </architecture/decisions/0018-stdio-mcp-subprocesses-get-a-minimal-base-environment>`.
 
+.. _architecture-security-the-browser-is-inside-the-network-perimeter:
+
 The browser is inside the network perimeter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -92,7 +94,7 @@ Data-plane authentication & authorization
 -----------------------------------------
 
 Per request to ``POST /v1/call``
-(:repo:`data-plane API <docs/api/data-plane.md>`, :ref:`data lifecycle <architecture-data-request-lifecycle>`):
+(:doc:`data-plane API </reference/data-plane-api>`, :ref:`data lifecycle <architecture-data-request-lifecycle>`):
 
 1. **Authentication** — ``auth.Validator`` verifies the ``Bearer`` JWT's signature
    against the OIDC provider's JWKS (cached, background-refreshed) and checks
@@ -112,7 +114,7 @@ Control-plane authentication & authorization
 --------------------------------------------
 
 Per request to ``/admin/*`` except ``GET /admin/healthz``
-(:repo:`admin API <docs/api/admin.md#authentication>`,
+(:ref:`admin API <reference-admin-api-authentication>`,
 :doc:`ADR-0010 </architecture/decisions/0010-control-plane-admin-authentication>`):
 
 1. **Authentication** — the *same* ``auth.Validator`` and OIDC configuration as
@@ -146,6 +148,8 @@ Until then, network isolation of ``control_plane_addr`` is the only *authenticat
 control — and, per "The browser is inside the network perimeter" above, it is
 not by itself enough. ``config.example.toml`` binds loopback for this reason.
 
+.. _architecture-security-known-gaps-tracked-not-defects:
+
 Known gaps (tracked, not defects)
 ---------------------------------
 
@@ -154,9 +158,9 @@ Known gaps (tracked, not defects)
 - No per-operation RBAC on the control plane — ``admin_auth`` is a single
   "is an admin" gate.
 - No rate limiting or request-size limits on either surface
-  (:repo:`data-plane API <docs/api/data-plane.md#current-limitations-tracked-not-bugs>`).
+  (:ref:`data-plane API <reference-data-plane-api-current-limitations-tracked-not-bugs>`).
 - TLS termination for both listeners is still a ``// TODO`` in
-  ``config.ServerConfig``; run behind a TLS-terminating proxy. ``CONFIG.md``
+  ``config.ServerConfig``; run behind a TLS-terminating proxy. The :doc:`configuration reference </reference/configuration>`
   used to show commented-out ``tls.cert_file`` / ``tls.key_file`` keys that the
   loader ignored, so an operator could believe they had enabled TLS when
   they had not; those are gone. The URLs the gateway and the admin UI fetch

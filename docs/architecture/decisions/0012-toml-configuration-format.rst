@@ -182,7 +182,7 @@ Negative
 
 - Breaking change: every existing ``config.yaml`` must be rewritten as
   ``config.toml``. Mitigated by the pre-1.0 status, a rewritten
-  ``config.example.toml``, and a ``docs/CONFIG.md`` rewrite; called out in the
+  ``config.example.toml``, and a ``docs/reference/configuration.rst`` rewrite; called out in the
   changelog / release notes.
 - Deeply nested inline structures (a ``match`` rule list inside a policy inside
   the policies array) are more verbose in TOML's ``[[a.b.c]]`` form than in
@@ -200,7 +200,7 @@ Risks
 Follow-up
 ~~~~~~~~~
 
-- Update ``docs/CONFIG.md``, ``README.md``, ``docs/api/*``, and the config snippets
+- Update ``docs/reference/configuration.rst``, ``README.md``, ``docs/api/*``, and the config snippets
   in ADRs 0002/0004/0005/0006/0009/0010/0011 (historical decision text stays;
   only the illustrative snippet changes).
 - :doc:`ADR-0013 </architecture/decisions/0013-periodic-mcp-schema-refresh>` authors its new key in TOML.
@@ -222,4 +222,4 @@ References
 - :doc:`ADR-0003 </architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery>` — the
   ``mcps`` seed list this file carries.
 - :doc:`ADR-0013 </architecture/decisions/0013-periodic-mcp-schema-refresh>` — adds ``mcp.schema_refresh_interval``.
-- :repo:`CONFIG.md <docs/CONFIG.md>` — the configuration reference (rewritten for TOML).
+- :doc:`/reference/configuration` — the configuration reference (rewritten for TOML).

@@ -199,7 +199,7 @@ type MCPConfig struct {
 	// Env is additional environment for the stdio subprocess. It does not
 	// otherwise inherit the gateway's own environment -- only a minimal,
 	// documented base set (PATH, HOME, LANG, LC_ALL, TZ, TMPDIR) plus
-	// whatever is declared here. See docs/CONFIG.md.
+	// whatever is declared here. See docs/reference/configuration.rst.
 	Env map[string]string `toml:"env"`
 	// URL is the server's endpoint, for http and sse. It must be https, or
 	// http on a loopback host.
@@ -440,7 +440,7 @@ func isLoopbackHost(host string) bool {
 
 // enabledOrDefault resolves a config `enabled` pointer to a concrete bool:
 // an omitted key (nil) means enabled, matching the documented default in
-// docs/CONFIG.md. An explicit `enabled: false` disables the entry.
+// docs/reference/configuration.rst. An explicit `enabled: false` disables the entry.
 func enabledOrDefault(enabled *bool) bool {
 	return enabled == nil || *enabled
 }

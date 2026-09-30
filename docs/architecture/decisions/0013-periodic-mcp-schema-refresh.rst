@@ -227,4 +227,4 @@ References
 - :doc:`ADR-0009 </architecture/decisions/0009-operator-enable-disable-flag>` — why a disabled MCP is still
   ``StatusActive`` and therefore still refreshed.
 - :doc:`ADR-0012 </architecture/decisions/0012-toml-configuration-format>` — the ``[mcp]`` table's format.
-- :repo:`CONFIG.md <docs/CONFIG.md>` — the ``mcp.schema_refresh_interval`` key.
+- :doc:`/reference/configuration` — the ``mcp.schema_refresh_interval`` key.

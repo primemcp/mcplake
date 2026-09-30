@@ -21,7 +21,7 @@ configuration the documentation tells operators to write:
   ``ToolResponse.Raw``, i.e. the whole JSON-RPC envelope, and the data plane
   handed exactly that to ``filter.Strip``.
 - Every ``drop_fields`` example in the repository is authored against the tool's
-  own record — ``docs/CONFIG.md``, ``config.example.toml`` and ``docs/architecture/data.md``
+  own record — ``docs/reference/configuration.rst``, ``config.example.toml`` and ``docs/architecture/data.md``
   all show ``["$.hashed_password", "$.api_key", "$.internal_id"]``.
 - Those paths resolve to nothing inside an envelope, and a non-resolving path is
   a deliberate no-op rather than an error, so the gateway returned the complete
@@ -251,8 +251,8 @@ References
   engine whose ``DropFields`` this ADR gives a precise meaning to.
 - :doc:`ADR-0003 </architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery>` — the cached
   ``OutputSchema`` the follow-up would validate against.
-- :repo:`CONFIG.md <docs/CONFIG.md>` — ``drop_fields`` operator documentation.
-- :repo:`api/data-plane.md <docs/api/data-plane.md>` — the ``filter_unenforceable``
+- :doc:`/reference/configuration` — ``drop_fields`` operator documentation.
+- :doc:`/reference/data-plane-api` — the ``filter_unenforceable``
   response.
 - MCP specification, "Structured content":
   https://modelcontextprotocol.io/specification/2025-06-18/server/tools#structured-content

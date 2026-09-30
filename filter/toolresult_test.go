@@ -54,7 +54,7 @@ func TestStripToolResult_NoFieldsIsNoOp(t *testing.T) {
 }
 
 // The whole point: drop_fields stay authored against the tool's own record
-// (what docs/CONFIG.md and config.example.toml show), not against the
+// (what docs/reference/configuration.rst and config.example.toml show), not against the
 // envelope the transport happens to wrap it in.
 func TestStripToolResult_RecordRelativePathStripsBothCopies(t *testing.T) {
 	in := envelope(t, `{"id":1,"email":"a@example.com","hashed_password":"xyz"}`)

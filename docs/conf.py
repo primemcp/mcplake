@@ -24,6 +24,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinxcontrib.mermaid",
+    "sphinxcontrib.openapi",
 ]
 
 # Only .rst is part of the site. Markdown files still under docs/ are either

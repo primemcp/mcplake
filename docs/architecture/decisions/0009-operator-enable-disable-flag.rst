@@ -125,7 +125,7 @@ References
 ----------
 
 - :repo:`features/enable-disable.md <docs/features/enable-disable.md>`
-- :repo:`CONFIG.md <docs/CONFIG.md>` — the ``enabled`` key.
-- :repo:`api/admin.md <docs/api/admin.md>` — ``enabled`` field and ``PATCH /admin/mcps/:name``.
+- :doc:`/reference/configuration` — the ``enabled`` key.
+- :doc:`/reference/admin-api` — ``enabled`` field and ``PATCH /admin/mcps/:name``.
 - :doc:`ADR-0004 </architecture/decisions/0004-unified-policy-engine-for-access-and-filtering>` — the two
   policy lists this flag gates.

@@ -112,7 +112,7 @@ Disadvantages:
   purely client-local mapping would only be visible to whoever created it, on the
   machine/browser they created it from, and would be lost on a cache clear. Rejected
   outright during the same design discussion that produced this ADR, for the same
-  reason ``docs/CONFIG.md`` requires the admin API itself to be the source of truth.
+  reason ``docs/reference/configuration.rst`` requires the admin API itself to be the source of truth.
 
 Decision Criteria
 -----------------
@@ -128,7 +128,7 @@ Rationale
 Alternative B is the only option that ships within the webui task's actual scope,
 keeps the backend's already-deliberate single-tool ``FilterPolicy`` model untouched,
 and keeps the admin API itself (not browser storage) as the single source of truth —
-consistent with ``docs/CONFIG.md``'s framing of the admin API as the trusted surface.
+consistent with ``docs/reference/configuration.rst``'s framing of the admin API as the trusted surface.
 Alternative A is very plausibly the *right* long-term design if multi-tool filters
 turn out to be a common real need, but it's a backend/data-model decision that
 deserves its own ADR and isn't required to unblock the current task.
@@ -207,6 +207,6 @@ References
 - :doc:`/architecture/data` — ``FilterPolicy`` shape.
 - :doc:`ADR-0004 </architecture/decisions/0004-unified-policy-engine-for-access-and-filtering>` — why
   ``FilterPolicy`` is single-tool, exact-match, in the first place.
-- :repo:`api/admin.md <docs/api/admin.md#filter-policies>` — the real API every generated
+- :ref:`reference-admin-api-filter-policies` — the real API every generated
   record is an ordinary instance of.
 - ``gateway/internal/controlplane/webui/src/lib/filterGroups.ts`` — implementation.

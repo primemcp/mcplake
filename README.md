@@ -46,7 +46,7 @@ The gateway speaks MCP on the way in as well as on the way out: point an MCP
 client at `/v1/mcp` (Streamable HTTP) or `/v1/sse` and it sees a tool catalogue
 filtered to exactly what its token authorizes, with every tool named
 `<mcp>__<tool>`. `POST /v1/call` remains available for plain REST callers; both
-run the same pipeline. See [docs/api/data-plane.md](docs/api/data-plane.md).
+run the same pipeline. See [docs/reference/data-plane-api.rst](docs/reference/data-plane-api.rst).
 
 See [docs/architecture/overview.rst](docs/architecture/overview.rst) for the architecture, and the [decision records](docs/architecture/decisions/) for design rationale.
 
@@ -64,7 +64,7 @@ See [docs/architecture/overview.rst](docs/architecture/overview.rst) for the arc
 
 ## Configuration
 
-Configuration is a single TOML file ([ADR-0012](docs/architecture/decisions/0012-toml-configuration-format.rst)), passed with `--config` (default `config.toml`). See [`config.example.toml`](config.example.toml) and [`docs/CONFIG.md`](docs/CONFIG.md) for all options.
+Configuration is a single TOML file ([ADR-0012](docs/architecture/decisions/0012-toml-configuration-format.rst)), passed with `--config` (default `config.toml`). See [`config.example.toml`](config.example.toml) and [`docs/reference/configuration.rst`](docs/reference/configuration.rst) for all options.
 
 ## Demo
 
