@@ -81,6 +81,8 @@ Where to start
   deployment and more.
 - **Understand the model:** :doc:`concepts/how-it-works`, then
   :doc:`concepts/claim-rules`.
+- **Operate it:** the :doc:`how-to guides <how-to/index>` — identity provider
+  setup, securing the control plane, production deployment, troubleshooting.
 - **Look something up:** the :doc:`configuration reference
   <reference/configuration>` and the :doc:`APIs <reference/index>`.
 
@@ -106,6 +108,13 @@ Where to start
    use-cases/index
 
 .. toctree::
+   :caption: How-To Guides
+   :maxdepth: 2
+   :hidden:
+
+   how-to/index
+
+.. toctree::
    :caption: Features
    :maxdepth: 2
    :hidden:
@@ -125,3 +134,10 @@ Where to start
    :hidden:
 
    architecture/index
+
+.. toctree::
+   :caption: Development
+   :maxdepth: 2
+   :hidden:
+
+   development/index

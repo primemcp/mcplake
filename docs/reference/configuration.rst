@@ -600,4 +600,4 @@ Startup fails with "config: parse ...: ..."
 - The file is not valid TOML. A common cause is pasting an old YAML snippet;
   rewrite it in TOML (see the examples above and ``config.example.toml``).
 
-See ``docs/DEBUG.md`` for advanced debugging guidance.
+See :doc:`/how-to/troubleshooting` for more, organized by symptom.
