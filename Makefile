@@ -1,4 +1,4 @@
-.PHONY: help build test test-race clean lint fmt vet tidy check sync swagger swagger-check ui-dev ui-build ui-test
+.PHONY: help build test test-race clean lint fmt vet tidy check sync swagger swagger-check ui-dev ui-build ui-test docs docs-serve docs-check
 
 WEBUI_DIR := gateway/internal/controlplane/webui
 
@@ -20,6 +20,9 @@ help:
 	@echo "  make ui-dev         - Run the admin UI's Vite dev server (proxies /admin to a locally running gateway)"
 	@echo "  make ui-build       - Build the admin UI (produces webui/dist, embedded by webui.go)"
 	@echo "  make ui-test        - Run the admin UI's Vitest suite"
+	@echo "  make docs           - Build the documentation site into docs/_build/html (requires uv)"
+	@echo "  make docs-serve     - Live-reloading docs preview on http://127.0.0.1:8000"
+	@echo "  make docs-check     - Strict docs build (warnings are errors) plus link check, as CI runs it"
 	@echo "  make clean          - Remove build artifacts"
 	@echo ""
 	@echo "Multi-module workspace managed by go.work"
@@ -93,6 +96,17 @@ swagger-check: swagger
 		(echo "✗ swagger docs are stale — run 'make swagger' and commit the result" && exit 1)
 	@echo "✓ Swagger docs are up to date"
 
+# docs-* targets delegate to docs/Makefile. docs/ is a Python (uv) project,
+# not a Go module: the site is built with Sphinx (ADR-0022).
+docs:
+	$(MAKE) -C docs html
+
+docs-serve:
+	$(MAKE) -C docs serve
+
+docs-check:
+	$(MAKE) -C docs check
+
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -f ./cmd/gateway/mcp-gateway
@@ -100,4 +114,4 @@ clean:
 	go clean
 	@echo "✓ Clean complete"
 
-.PHONY: help build test test-race clean lint fmt vet tidy check sync swagger swagger-check ui-dev ui-build ui-test
+.PHONY: help build test test-race clean lint fmt vet tidy check sync swagger swagger-check ui-dev ui-build ui-test docs docs-serve docs-check

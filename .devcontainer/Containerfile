@@ -30,5 +30,8 @@ RUN go install github.com/josharian/impl@v1.4.0 && \
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 
+# uv runs the Sphinx documentation build in docs/ (ADR-0022).
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
 RUN curl -fsSL https://claude.ai/install.sh | bash
 ENV PATH="/root/.local/bin:${PATH}"
