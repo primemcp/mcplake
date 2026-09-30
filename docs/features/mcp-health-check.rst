@@ -27,10 +27,10 @@ The loop is **on by default**. It is configured in the ``[mcp]`` table of
    health_check_interval = "30s"
 
 - The value is a Go duration string (``"10s"``, ``"30s"``, ``"2m"``).
-- **Omitted means ``"30s"``** — unlike
+- Omitted means ``"30s"`` — unlike
   :doc:`schema_refresh_interval </features/mcp-schema-refresh>`, which is off unless you
   ask for it.
-- **``"0"`` disables it.** The gateway logs a ``WARN`` at startup saying so, because
+- ``"0"`` disables it. The gateway logs a ``WARN`` at startup saying so, because
   with the loop off a downstream MCP that restarts stays broken until the
   gateway is restarted.
 - A negative value is rejected at startup.
@@ -159,8 +159,8 @@ server answering, say, ``-32603`` to an empty request is not obviously well.
 Failure modes this does *not* cover
 -----------------------------------
 
-- **A downstream that accepts connections and answers ``ping`` but fails real
-  calls.** Health is liveness, not correctness.
+- A downstream that accepts connections and answers ``ping`` but fails real
+  calls. Health is liveness, not correctness.
 - **A tool set that changed while the session stayed alive.** That is
   :doc:`periodic schema refresh </features/mcp-schema-refresh>`'s job, on its own interval.
   A *reconnect* does re-discover tools, but only because it has to build the

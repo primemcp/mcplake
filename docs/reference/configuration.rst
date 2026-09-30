@@ -49,6 +49,8 @@ separate.
   browser on a trusted host: see
   :ref:`architecture-security-the-browser-is-inside-the-network-perimeter`.
 
+.. _reference-configuration-2-oidc-configuration:
+
 2. OIDC Configuration
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -367,7 +369,7 @@ Defines all MCP servers the gateway connects to. Each server is one
 
   See :doc:`ADR-0017 </architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps>`.
 
-- ``command`` — Binary to execute. **Required for ``stdio``**, and rejected for
+- ``command`` — Binary to execute. Required for ``stdio``, and rejected for
   ``http``/``sse`` (the gateway does not start a remote MCP).
 
 - ``arguments`` — Command-line arguments, for ``stdio``.
@@ -389,7 +391,7 @@ Defines all MCP servers the gateway connects to. Each server is one
   proxy setting, anything outside the base set above), it will stop
   seeing that value. Add it to ``env`` explicitly.
 
-- ``url`` — The server's endpoint. **Required for ``http``/``sse``**, and rejected
+- ``url`` — The server's endpoint. Required for ``http``/``sse``, and rejected
   for ``stdio``.
 
   It must be ``https``, or ``http`` only when the host is loopback

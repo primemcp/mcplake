@@ -48,7 +48,7 @@ Decision
 --------
 
 Adopt **TOML** as the configuration file format, parsed with
-**``github.com/BurntSushi/toml``**.
+``github.com/BurntSushi/toml``.
 
 - ``--config`` default becomes ``config.toml``; ``config.example.yaml`` becomes
   ``config.example.toml``.
@@ -150,7 +150,7 @@ Decision Criteria
 - **Dependency conservatism** — the smallest, most static library that does the
   job.
 - **Comment support** — operators annotate the file.
-- **Simplicity of the ``config`` module** — fewer bespoke decoding hooks.
+- Simplicity of the ``config`` module — fewer bespoke decoding hooks.
 - **Contributor familiarity.**
 
 Rationale

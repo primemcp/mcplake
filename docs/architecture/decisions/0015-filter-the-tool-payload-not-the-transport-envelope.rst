@@ -51,9 +51,9 @@ Constraints on the fix:
 Decision
 --------
 
-**``drop_fields`` are evaluated against the tool's payload. The gateway unwraps
+``drop_fields`` are evaluated against the tool's payload. The gateway unwraps
 the transport envelope and applies them to every representation of that payload
-it contains.**
+it contains.
 
 A new ``filter.StripToolResult(response, fields) (filtered, removed, error)``
 replaces ``filter.Strip`` in the data-plane pipeline:

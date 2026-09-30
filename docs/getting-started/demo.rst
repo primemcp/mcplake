@@ -26,7 +26,7 @@ What it stands up
    * - ``project-tracker-mcp``
      - A small FastMCP server served by uvicorn in its own container, reached over **Streamable HTTP** (``http``).
    * - ``inventory-mcp``
-     - The same kind of server, reached over **``sse``**.
+     - The same kind of server, reached over ``sse``.
    * - ``postgres``
      - Backs the gateway's own ``[persistence]`` (a ``gateway`` database) *and* the ``demo`` database ``postgres-mcp`` reads.
        The two are deliberately separate.
@@ -41,7 +41,7 @@ What it stands up
 The MCPs, and why there are several
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**``employee-directory``** is ``deploy/demo/mcp-servers/employee_directory.py``, a
+``employee-directory`` is ``deploy/demo/mcp-servers/employee_directory.py``, a
 small `FastMCP <https://gofastmcp.com>`__ server over an in-memory, fictional
 employee directory. It runs as a subprocess inside the gateway's own
 container, because it is a **stdio** MCP and stdio means a subprocess. Three
@@ -54,9 +54,9 @@ tools:
   nothing to filter, included on purpose for contrast: not every tool needs
   a filter_policy.
 
-**``demo-postgres``** is `crystaldba/postgres-mcp <https://github.com/crystaldba/postgres-mcp>`__,
+``demo-postgres`` is `crystaldba/postgres-mcp <https://github.com/crystaldba/postgres-mcp>`__,
 a real MCP server with its own image, its own container and its own
-lifecycle, reached over the **``sse``** transport at
+lifecycle, reached over the ``sse`` transport at
 ``http://localhost:8000/sse``. It exposes SQL tools (``list_schemas``,
 ``list_objects``, ``get_object_details``, ``execute_sql``, ``explain_query``, …)
 over a small fictional customers/tickets database.
@@ -69,7 +69,7 @@ authorization, filtering, the admin API, the UI - does not vary by transport.
 
 .. note::
 
-   **Why is the container's URL ``localhost``?** ``mcp.ValidateEndpointURL``
+   Why is the container's URL ``localhost``? ``mcp.ValidateEndpointURL``
    requires ``https``, or ``http`` only on a loopback host, because a tool call's
    arguments and response are exactly what ``access_policies`` and
    ``filter_policies`` exist to control. ``compose.yaml`` puts ``postgres-mcp`` in
@@ -81,8 +81,8 @@ authorization, filtering, the admin API, the UI - does not vary by transport.
 
 .. note::
 
-   **``demo-postgres`` has no ``filter_policies``, and that is the interesting
-   part.** ``filter_policies`` strip fields out of *structured* JSON
+   ``demo-postgres`` has no ``filter_policies``, and that is the interesting
+   part. ``filter_policies`` strip fields out of *structured* JSON
    (:doc:`ADR-0015 </architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope>`);
    a SQL tool that returns a rendered result set has no stable field to
    address, so there is nothing for a ``drop_fields`` path to match. The lever
@@ -94,7 +94,7 @@ authorization, filtering, the admin API, the UI - does not vary by transport.
    MCP with the FastMCP one: as the only MCP it could not demonstrate
    filtering. As the second of two, it demonstrates something else.)
 
-**``project-tracker``** and **``inventory``** are two more small FastMCP servers
+``project-tracker`` and ``inventory`` are two more small FastMCP servers
 from this repo (``deploy/demo/mcp-servers/project_tracker.py`` and
 ``inventory.py``). Each is an ASGI app (``mcp.http_app(...)``) served by
 **uvicorn** in its own container, the way you would deploy a real one:
@@ -195,7 +195,7 @@ Leave it running in that terminal, or add ``-d`` to run detached.
 Upgrading or resetting the demo
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**After pulling a new revision of this repo, use both ``--build`` and ``-v``:**
+After pulling a new revision of this repo, use both ``--build`` and ``-v``:
 
 .. code-block:: bash
 
@@ -204,7 +204,7 @@ Upgrading or resetting the demo
 
 Neither flag is optional, and each covers a different half of the stack:
 
-- **``--build`` (the image).** ``deploy/demo/config.toml`` and
+- ``--build`` (the image). ``deploy/demo/config.toml`` and
   ``deploy/demo/mcp-servers/`` are bind mounts, so a ``git pull`` changes them
   immediately. The Python interpreter and ``fastmcp`` are baked into the image
   and only change on a rebuild. Skip ``--build`` after pulling a revision that
@@ -213,7 +213,7 @@ Neither flag is optional, and each covers a different half of the stack:
   fix, rather than letting the gateway come up with an MCP it can never
   reach.
 
-- **``-v`` (the volume).** Two reasons, both real.
+- ``-v`` (the volume). Two reasons, both real.
 
   Config seeding happens **once per named entry, ever**
   (:doc:`ADR-0016 </architecture/decisions/0016-config-seeding-happens-once-per-entry>`):
@@ -265,8 +265,8 @@ Call the dummy MCP through the gateway's data plane:
      -H "Content-Type: application/json" \
      -d '{"mcp":"employee-directory","tool":"get_employee","arguments":{"employee_id":2}}' | jq
 
-This returns ``200`` with Marcus Webb's record — **minus ``salary_usd`` and
-``ssn_last4``**, stripped by the ``hide-sensitive-fields-get-employee`` filter
+This returns ``200`` with Marcus Webb's record — minus ``salary_usd`` and
+``ssn_last4``, stripped by the ``hide-sensitive-fields-get-employee`` filter
 policy. See **Field-level filtering** below for the side-by-side against
 mcplake-admin, who sees them.
 
@@ -410,8 +410,8 @@ in its response, so there's nothing to strip:
      -H "Content-Type: application/json" \
      -d '{"mcp":"employee-directory","tool":"list_departments","arguments":{}}' | jq
 
-**Why ``list_employees``'s filter path is ``$.employees[*].salary_usd``, not
-``$.result[*].salary_usd``:** FastMCP wraps a bare ``list[Model]`` return as
+Why ``list_employees``'s filter path is ``$.employees[*].salary_usd``, not
+``$.result[*].salary_usd``: FastMCP wraps a bare ``list[Model]`` return as
 ``{"result": [...]}`` in ``structuredContent``, but leaves the human-readable
 ``content[].text`` copy of the same result as a bare array — two different
 shapes for one tool. A path written against the wrapped shape would
@@ -552,7 +552,7 @@ has been a critical RCE before
 (`CVE-2025-49596 <https://nvd.nist.gov/vuln/detail/CVE-2025-49596>`__). So, in
 this compose file:
 
-- Its port is published on **``127.0.0.1`` only**, not every interface like
+- Its port is published on ``127.0.0.1`` only, not every interface like
   Keycloak's and the gateway's are.
 - Authentication is **left on**. ``DANGEROUSLY_OMIT_AUTH`` is not set and
   should not be.
@@ -597,13 +597,13 @@ Why four services share one network namespace
 reach each other over ``localhost``. This is doing three jobs at once, all the
 same job really:
 
-1. **``oidc.jwks_url``.** ``config.validateSecureHTTPURL`` (``config/config.go``)
+1. ``oidc.jwks_url``. ``config.validateSecureHTTPURL`` (``config/config.go``)
    requires it to be ``https``, or plain ``http`` only on a loopback host - JWKS
    is the root of trust for every token the gateway accepts, so this is
    deliberate, not something to route around. Sharing the namespace means
    the gateway genuinely reaches Keycloak over loopback
    (``http://localhost:8080/...``) rather than a bridge-network hostname.
-2. **``demo-postgres``'s URL.** ``mcp.ValidateEndpointURL`` applies the same rule
+2. ``demo-postgres``'s URL. ``mcp.ValidateEndpointURL`` applies the same rule
    to a downstream MCP endpoint (ADR-0017), for the payload's sake rather
    than the key's. ``http://localhost:8000/sse`` satisfies it honestly.
 3. **Inspector.** It needs to reach ``localhost:9091/admin/mcp`` and
@@ -637,8 +637,8 @@ container regardless.
 Troubleshooting
 ---------------
 
-- **``Permission denied`` reading a mounted file, or SELinux AVC denials
-  (``ausearch -m avc -ts recent``), on Fedora/RHEL.** Every bind mount in
+- ``Permission denied`` reading a mounted file, or SELinux AVC denials
+  (``ausearch -m avc -ts recent``), on Fedora/RHEL. Every bind mount in
   ``compose.yaml`` carries a relabel option. A mount only one service uses
   has ``:Z`` (private). ``deploy/demo/mcp-servers`` is mounted by the gateway,
   ``project-tracker-mcp`` and ``inventory-mcp``, so it has ``:z`` (shared). With
@@ -646,8 +646,8 @@ Troubleshooting
   locks the others out. If you add a service that mounts an existing path,
   switch that path to ``:z`` everywhere it appears.
 
-- **``demo-postgres`` is unreachable, or the gateway waits forever on
-  "waiting for the demo-postgres MCP".** Look at that container first:
+- ``demo-postgres`` is unreachable, or the gateway waits forever on
+  "waiting for the demo-postgres MCP". Look at that container first:
 
   .. code-block:: bash
 
@@ -660,15 +660,15 @@ Troubleshooting
   :ref:`Upgrading or resetting the demo <getting-started-demo-upgrading-or-resetting-the-demo>`;
   ``down -v`` fixes it.
 
-- **``project-tracker`` or ``inventory`` is missing from the admin UI, or the
+- ``project-tracker`` or ``inventory`` is missing from the admin UI, or the
   gateway waits forever on "waiting for the project-tracker MCP" /
-  "inventory MCP".** Check ``docker compose logs project-tracker-mcp inventory-mcp``. If those containers do not exist at all, compose is
+  "inventory MCP". Check ``docker compose logs project-tracker-mcp inventory-mcp``. If those containers do not exist at all, compose is
   running a stack from before they were added: ``up -d --build``. New
   ``[[mcps]]`` names are seeded even on an old volume (seeding is per name,
   ADR-0016), so a missing entry is not a volume problem - unless it was
   deleted through the admin API, which is permanent until ``down -v``.
 
-- **The gateway refuses to start with ``config: mcps[...]: url: must use https``.** Something changed ``demo-postgres``'s URL away from a loopback
+- The gateway refuses to start with ``config: mcps[...]: url: must use https``. Something changed ``demo-postgres``'s URL away from a loopback
   host. That check is deliberate
   (:doc:`ADR-0017 </architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps>`):
   the demo gets to use plaintext only because ``compose.yaml`` puts that
@@ -676,8 +676,8 @@ Troubleshooting
   ``localhost:8000`` genuinely loopback. Either keep it loopback or put TLS in
   front of the MCP.
 
-- **``demo-postgres`` shows ``unreachable`` in the admin UI, or a call returns
-  ``503 mcp_unavailable``.** Its container is down or restarting. The gateway
+- ``demo-postgres`` shows ``unreachable`` in the admin UI, or a call returns
+  ``503 mcp_unavailable``. Its container is down or restarting. The gateway
   retries it every ``mcp.health_check_interval`` (30s by default) and recovers on
   its own once the container is back, so give it a moment before digging - see
   :doc:`the health check </features/mcp-health-check>`. If it stays unreachable,
@@ -690,19 +690,19 @@ Troubleshooting
   Note that repeated failures back off, doubling up to five minutes, so the
   retries thin out rather than stopping.
 
-- **Inspector says ``403`` connecting to ``/admin/mcp``.** It is behind
+- Inspector says ``403`` connecting to ``/admin/mcp``. It is behind
   ``admin_auth``, so it needs ``mcplake-admin``'s bearer token in an
   ``Authorization`` header — alice's and bob's tokens authenticate but are not
   admins. See the :ref:`MCP Inspector <getting-started-demo-mcp-inspector>` section.
 
-- **Inspector's UI loads but connects fail with a ``403`` about origins.** You
+- Inspector's UI loads but connects fail with a ``403`` about origins. You
   remapped its published port. Inspector validates the browser's ``Origin``
   against its own bind port, so either publish it as ``6274:6274`` as
   ``compose.yaml`` does, or set ``ALLOWED_ORIGINS`` to the origin you browse
   from (it *replaces* the default list rather than merging with it).
 
-- **The admin UI lists ``employee-directory`` but it is never connected, shows
-  zero tools, and nothing you do to it helps.** That is a registration
+- The admin UI lists ``employee-directory`` but it is never connected, shows
+  zero tools, and nothing you do to it helps. That is a registration
   failure: ``cache.Registry.Register`` records an MCP it cannot reach as
   ``unreachable`` and the gateway serves on without it (ADR-0003). With zero
   discovered tools there is also nothing for the response-filter editor to
@@ -718,11 +718,11 @@ Troubleshooting
   running an image from before that check existed - see
   :ref:`Upgrading or resetting the demo <getting-started-demo-upgrading-or-resetting-the-demo>`.
 
-- **``entrypoint: python3 is not installed in this image`` (or ``fastmcp is not importable``), and the gateway exits.** Working as intended: the image
+- ``entrypoint: python3 is not installed in this image`` (or ``fastmcp is not importable``), and the gateway exits. Working as intended: the image
   predates the demo's Python MCP server while the bind-mounted ``config.toml``
   already references it. Rebuild - ``docker compose up -d --build``.
 
-- **alice gets ``403 forbidden`` on a tool that clearly exists.** Check whether
+- alice gets ``403 forbidden`` on a tool that clearly exists. Check whether
   the gateway logged ``config entry already seeded and DIFFERS from the stored record`` at startup. On a volume that survived an upgrade, the stored
   ``demo-reader`` policy still grants whatever MCP it was first seeded with -
   see :ref:`Upgrading or resetting the demo <getting-started-demo-upgrading-or-resetting-the-demo>`.
@@ -734,12 +734,12 @@ Troubleshooting
   until it responds. If Keycloak is healthy but this still fails, the realm
   name or the JWKS path drifted from ``deploy/demo/keycloak/mcplake-realm.json``.
 
-- **Token request returns ``unauthorized_client`` or similar.** Confirm the
+- Token request returns ``unauthorized_client`` or similar. Confirm the
   client ID is ``mcplake-demo`` and that you're posting to the ``mcplake``
   realm's token endpoint, not ``/realms/master/...``.
 
-- **``docker compose`` vs ``podman compose`` behave differently for
-  ``network_mode: "service:..."``.** Both support it, but if your Podman
+- ``docker compose`` vs ``podman compose`` behave differently for
+  ``network_mode: "service:..."``. Both support it, but if your Podman
   version doesn't, the gateway container will fail to start with a network
   error - update Podman (``network_mode: service:`` needs a reasonably recent
   Podman Compose provider).
