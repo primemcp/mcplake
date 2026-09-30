@@ -1,0 +1,8 @@
+{
+  "name": "mcplake-pipeline-recordings",
+  "private": true,
+  "description": "Throwaway Playwright automation for docs/media/pipeline recordings -- not part of the shipped webui module.",
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}
