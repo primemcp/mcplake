@@ -22,8 +22,7 @@ Requirements
        Dex, … — anything that publishes a JWKS).
 
 The runtime has no other dependencies: persistence defaults to an embedded,
-pure-Go SQLite, and the binary is built with ``CGO_ENABLED=0``-compatible
-dependencies.
+pure-Go SQLite.
 
 Build
 -----
@@ -35,7 +34,14 @@ Build
    make build
 
 ``make build`` builds the admin UI with Bun and then the gateway, producing
-``cmd/gateway/mcp-gateway``. Copy that file wherever you like.
+``cmd/gateway/mcp-gateway``.
+
+For a fully static binary that runs on any Linux host of the same
+architecture, disable cgo — every dependency is pure Go:
+
+.. code-block:: bash
+
+   CGO_ENABLED=0 make build
 
 .. note::
 
