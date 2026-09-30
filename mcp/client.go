@@ -170,7 +170,7 @@ func validateURLFor(transport, raw string) error {
 // baseSubprocessEnvVars is the minimal, documented set of the gateway's own
 // environment variables an MCP subprocess inherits by default -- just
 // enough for it to run and resolve its own tooling, not to see anything
-// about the gateway it's running under. See docs/CONFIG.md's `env` field
+// about the gateway it's running under. See docs/reference/configuration.rst's `env` field
 // for the operator-facing statement of this list; keep the two in sync.
 //
 //   - PATH    -- to resolve interpreters/binaries it shells out to itself

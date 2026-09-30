@@ -8,7 +8,7 @@ import (
 )
 
 // DefaultMCPTransport is applied when a registration request omits the
-// transport, matching config.MCPConfig's documented default (docs/CONFIG.md)
+// transport, matching config.MCPConfig's documented default (docs/reference/configuration.rst)
 // so the admin API and static config.yaml entries behave identically.
 const DefaultMCPTransport = "stdio"
 

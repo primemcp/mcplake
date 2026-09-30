@@ -199,7 +199,7 @@ Follow-up
   target (e.g. via a container) so both dialects are continuously verified, not just
   SQLite.
 - Document the two-backend configuration (``persistence.driver: sqlite|postgres``) in
-  ``config.example.toml`` and ``docs/CONFIG.md``.
+  ``config.example.toml`` and ``docs/reference/configuration.rst``.
 
 Validation
 ----------

@@ -1,7 +1,7 @@
 # Admin Web UI
 
 A React 19 + TypeScript SPA for operating the gateway without hand-writing
-`curl` calls against the [Control-Plane API](../api/admin.md): registering MCP
+`curl` calls against the [Control-Plane API](../reference/admin-api.rst): registering MCP
 endpoints and managing their response filters. Embedded into the control-plane
 binary and served from the same listener/port — no separate origin, no CORS
 configuration, nothing extra to deploy.
@@ -225,7 +225,7 @@ When the gateway enforces admin auth (`admin_auth.match` — see
 the UI obtains its own token through an OIDC **Authorization Code + PKCE**
 flow run in the browser, against the same provider `[oidc]` already verifies
 tokens from. Configure it with
-[`[admin_auth.login]`](../CONFIG.md#admin-ui-sign-in);
+[`[admin_auth.login]`](../reference/configuration.rst#admin-ui-sign-in);
 [ADR-0014](../architecture/decisions/0014-admin-ui-oidc-pkce-login.rst) records
 why this shape.
 

@@ -225,7 +225,7 @@ Negative
 
 - The "absent ⇒ open + warning" default means an operator who never reads the
   warning stays unauthenticated. Mitigated by the prominence of the log line and
-  by ``docs/CONFIG.md`` / ``docs/api/admin.md`` guidance; a future major version may
+  by ``docs/reference/configuration.rst`` / ``docs/reference/admin-api.rst`` guidance; a future major version may
   flip the default to fail-closed.
 - ``/admin/swagger/*`` now requires a token, so the interactive API explorer is no
   longer anonymously reachable.
@@ -276,6 +276,6 @@ References
 - :doc:`ADR-0002 </architecture/decisions/0002-jsonpath-regexp-claim-rule-engine>` — the ``{path, pattern}``
   claim-rule engine ``admin_auth.match`` reuses.
 - :doc:`ADR-0011 </architecture/decisions/0011-mcp-control-server>` — mounts ``/admin/mcp`` behind this gate.
-- :repo:`api/admin.md <docs/api/admin.md>` — the ``admin_auth`` section and per-endpoint
+- :doc:`/reference/admin-api` — the ``admin_auth`` section and per-endpoint
   401/403 responses.
-- :repo:`CONFIG.md <docs/CONFIG.md>` — the ``admin_auth`` config keys.
+- :doc:`/reference/configuration` — the ``admin_auth`` config keys.

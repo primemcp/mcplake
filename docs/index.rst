@@ -14,6 +14,12 @@ tool responses the caller is not allowed to see.
    ``docs/`` directory of the repository.
 
 .. toctree::
+   :caption: Reference
+   :maxdepth: 2
+
+   reference/index
+
+.. toctree::
    :caption: Architecture
    :maxdepth: 2
 

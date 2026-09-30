@@ -31,7 +31,7 @@ const (
 // the filtered envelope plus how many locations were actually removed.
 //
 // `fields` are authored against the *tool's own record* — `$.hashed_password`,
-// exactly as docs/CONFIG.md and config.example.toml show — not against the
+// exactly as docs/reference/configuration.rst and config.example.toml show — not against the
 // JSON-RPC envelope the result arrives in. That envelope can carry the same
 // record more than once:
 //   - as `structuredContent`;

@@ -124,7 +124,7 @@ Two things keep that from being a weaker gate than ``POST /v1/call``:
 The residual gap is an SSE session whose message POSTs carry no header: it
 remains usable until the stream drops, authorized by possession of an
 unguessable session id that was only ever handed to an authenticated GET. This
-is written down in ``docs/api/data-plane.md`` rather than papered over.
+is written down in ``docs/reference/data-plane-api.rst`` rather than papered over.
 
 The two transports need different session contexts, and neither is obvious
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -115,7 +115,7 @@ Consequences
 - **Breaking change**: an existing ``stdio`` MCP that relies on inheriting a
   gateway environment variable outside the base set (a credential, a proxy
   setting, anything config-derived) stops seeing it and must be given it
-  through ``env`` instead. Documented in ``docs/CONFIG.md``'s ``env`` field.
+  through ``env`` instead. Documented in ``docs/reference/configuration.rst``'s ``env`` field.
 - ``cache.ConnectConfig``, ``config.MCPConfig``, the REST DTOs, and the
   ``register_mcp`` MCP tool all gained an ``env`` field with no persistence
   schema change (GORM's ``datatypes.JSON`` columns round-trip a new struct

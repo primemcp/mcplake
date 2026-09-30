@@ -98,7 +98,7 @@ a disabled MCP rejects every call with ``403 mcp_disabled`` while staying connec
 disabled access policy grants nothing (so the pipeline never starts); a disabled filter
 policy strips nothing (so the response is returned unfiltered). See
 :doc:`ADR-0009 </architecture/decisions/0009-operator-enable-disable-flag>`,
-:ref:`architecture-data-enabledisable-gates`, and :repo:`CONFIG.md <docs/CONFIG.md>`.
+:ref:`architecture-data-enabledisable-gates`, and :doc:`/reference/configuration`.
 
 .. _architecture-overview-non-goals-for-this-milestone:
 

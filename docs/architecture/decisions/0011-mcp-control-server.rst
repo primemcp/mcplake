@@ -286,5 +286,5 @@ References
   1:1 and whose handlers are refactored into adapters here.
 - :doc:`ADR-0010 </architecture/decisions/0010-control-plane-admin-authentication>` — the admin-auth gate
   the MCP control server is mounted behind.
-- :repo:`api/admin-mcp.md <docs/api/admin-mcp.md>` — the tool catalog and usage.
-- :repo:`CONFIG.md <docs/CONFIG.md>` — the ``admin_mcp`` config keys.
+- :doc:`/reference/admin-mcp` — the tool catalog and usage.
+- :doc:`/reference/configuration` — the ``admin_mcp`` config keys.

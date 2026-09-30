@@ -3,7 +3,7 @@
 A turnkey stack that brings up the gateway end to end - Keycloak as the OIDC
 provider, four MCP servers (one on each transport the gateway speaks), Postgres, and MCP Inspector - with one command
 and no manual setup. See [`compose.yaml`](../compose.yaml) for the services and
-[`config.example.toml`](../config.example.toml)/[`CONFIG.md`](CONFIG.md) for
+[`config.example.toml`](../config.example.toml)/[`CONFIG.md`](reference/configuration.rst) for
 what a real deployment's config file looks like; this demo's own config is
 [`deploy/demo/config.toml`](../deploy/demo/config.toml).
 
@@ -186,7 +186,7 @@ Neither flag is optional, and each covers a different half of the stack:
   would make the change through the admin API instead, which is the whole
   point of the rule. Either way the gateway now logs a `WARN` naming any
   entry whose stored record disagrees with `config.toml`, so this is visible
-  rather than silent - see [CONFIG.md](CONFIG.md#3-persistence).
+  rather than silent - see [CONFIG.md](reference/configuration.rst#3-persistence).
 
 Between pulls, `up -d` on its own is fine: the config and the MCP script are
 mounts, so a `compose restart gateway` picks up edits to either without a
@@ -505,7 +505,7 @@ and `README.md` warns about.
   is the one case `mcp.ValidateEndpointURL` and
   `config.validateSecureHTTPURL` permit. A real deployment reaching a real
   remote MCP needs https; see
-  [CONFIG.md](CONFIG.md#4-mcp-servers).
+  [CONFIG.md](reference/configuration.rst#4-mcp-servers).
 - **No outbound authentication to a downstream MCP.** The gateway cannot yet
   present a bearer token or run OAuth against an MCP it connects to, so
   `demo-postgres` is open to anything that can reach its port - which is why

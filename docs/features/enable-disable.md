@@ -33,7 +33,7 @@ pre-existing database row, and an admin request without the field all mean
 
 **Seed config** (`config.toml`) — an optional `enabled` key on any entry in the
 `[[mcps]]`, `[[access_policies]]`, or `[[filter_policies]]` arrays. See
-[CONFIG.md](../CONFIG.md#4-mcp-servers) and `config.example.toml`.
+[CONFIG.md](../reference/configuration.rst#4-mcp-servers) and `config.example.toml`.
 
 ```toml
 [[mcps]]
@@ -42,7 +42,7 @@ command = "mcp-server-filesystem"
 enabled = false
 ```
 
-**Admin API** ([admin.md](../api/admin.md)) — the database is the source of
+**Admin API** ([admin.md](../reference/admin-api.rst)) — the database is the source of
 truth once the gateway is running, and stays so across restarts: config is
 seeded once per entry and never re-applied over a runtime change
 ([ADR-0016](../architecture/decisions/0016-config-seeding-happens-once-per-entry.rst)):

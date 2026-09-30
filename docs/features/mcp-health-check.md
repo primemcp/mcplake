@@ -131,8 +131,8 @@ server answering, say, `-32603` to an empty request is not obviously well.
 
 ## Related
 
-- [CONFIG.md](../CONFIG.md#mcp-global) — the `[mcp]` table.
-- [data-plane.md](../api/data-plane.md) — `503 mcp_unavailable`.
+- [CONFIG.md](../reference/configuration.rst#mcp-global) — the `[mcp]` table.
+- [data-plane.md](../reference/data-plane-api.rst) — `503 mcp_unavailable`.
 - [mcp-schema-refresh.md](mcp-schema-refresh.md) — the other `[mcp]` timer, and
   why they are separate.
 - [enable-disable.md](enable-disable.md) — `enabled` vs. `status`.
