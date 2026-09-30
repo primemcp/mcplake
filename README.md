@@ -177,9 +177,45 @@ The admin UI's own request-path simulator walks a call through Auth Validator �
 
 </td>
 </tr>
+<tr>
+<td width="50%">
+
+**Step 1 — authenticate**<br>
+Three users, one Keycloak realm, one claim (`role`) that everything downstream — routing, filtering, the admin UI's own gate — acts on.
+
+<img src="docs/media/pipeline/out/01-auth-three-tokens.gif" alt="Fetching tokens for alice, bob and mcplake-admin and decoding each one's role claim" width="420">
+
+</td>
+<td width="50%">
+
+**Step 2 — the deny path**<br>
+bob authenticates fine — Keycloak hands him a perfectly valid token — but no `access_policy` grants `role=guest` anything, so the call never reaches the MCP.
+
+<img src="docs/media/pipeline/out/03-router-bob-forbidden.gif" alt="bob's valid token still gets 403 forbidden calling employee-directory" width="420">
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**The enabled gate, live**<br>
+An operator disables `employee-directory` via `PATCH /admin/mcps/:name` — a live `200` becomes `403 mcp_disabled` for every caller, reversibly, with no reconnect needed to turn it back on.
+
+<img src="docs/media/pipeline/out/05-enabled-gate-toggle.gif" alt="Disabling employee-directory turns alice's 200 into 403 mcp_disabled, then back to 200 once re-enabled" width="420">
+
+</td>
+<td width="50%">
+
+**Signing in to the admin UI**<br>
+A real Authorization Code + PKCE round trip through Keycloak, not a token pasted by hand — the same flow an operator goes through in a browser.
+
+<img src="docs/media/pipeline/out/06-admin-oidc-signin.gif" alt="Admin UI redirecting to Keycloak, signing in as mcplake-admin, and landing back on the authenticated MCP connections screen" width="420">
+
+</td>
+</tr>
 </table>
 
-More scenarios (auth, the router's deny path, the enabled/disabled gate, OIDC sign-in) in [`docs/media/pipeline/`](docs/media/pipeline/).
+More scenarios and the scripts that produced these in [`docs/media/pipeline/`](docs/media/pipeline/).
 
 ## 🧩 Features
 
