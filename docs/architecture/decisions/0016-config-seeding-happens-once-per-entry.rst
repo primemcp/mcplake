@@ -12,7 +12,7 @@ durable home of MCP registrations and access/filter policies, and cast the
 config file as a *seed*. Four documents state the resulting contract plainly —
 ``docs/reference/configuration.rst``: "the database becomes the source of truth from then on; the
 config file is a seed mechanism, not a parallel state store", and the same in
-``docs/features/enable-disable.md``, ``docs/architecture/components.md`` and
+``docs/features/enable-disable.rst``, ``docs/architecture/components.md`` and
 ADR-0006 itself ("eliminating the two-sources-of-truth risk").
 
 The code did something else. ``App.New`` called ``Config.Seed`` unconditionally on
@@ -258,4 +258,4 @@ References
 - :doc:`ADR-0009 </architecture/decisions/0009-operator-enable-disable-flag>` — the kill switch whose
   durability this restores.
 - :doc:`/reference/configuration` — the operator-facing contract.
-- :repo:`features/enable-disable.md <docs/features/enable-disable.md>`
+- :doc:`/features/enable-disable`

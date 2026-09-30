@@ -25,7 +25,7 @@ It cannot be a separate container, a separate pod, a server on another host, or
 a service somebody else operates. Three concrete costs had accumulated:
 
 - The compose demo has to run its MCP server *inside the gateway's own image*,
-  which ``deploy/demo/Dockerfile``, ``compose.yaml`` and ``docs/DEMO.md`` each have a
+  which ``deploy/demo/Dockerfile``, ``compose.yaml`` and ``docs/getting-started/demo.rst`` each have a
   paragraph explaining. Adding a second demo MCP means adding its runtime to the
   gateway image too.
 - Every registered MCP inherits the gateway's process environment and filesystem.

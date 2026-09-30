@@ -174,7 +174,7 @@ Admin Web UI (``gateway/internal/controlplane/webui``)
 - React 19 + TypeScript SPA, built with Vite and embedded into the control-plane
   binary via ``//go:embed`` — served from the same listener and port as the
   Control-Plane API, no separate origin/CORS setup. See
-  :repo:`features/admin-webui.md <docs/features/admin-webui.md>` for what it does and how
+  :doc:`/features/admin-webui` for what it does and how
   to run it.
 - Talks to the real ``/admin/*`` API documented in
   :doc:`/reference/admin-api` — no separate backend or mock layer; every

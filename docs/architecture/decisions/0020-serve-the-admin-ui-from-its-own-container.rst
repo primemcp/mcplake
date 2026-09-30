@@ -156,4 +156,4 @@ References
 - :doc:`ADR-0010: Control-plane admin authentication </architecture/decisions/0010-control-plane-admin-authentication>`
 - :doc:`ADR-0014: Admin UI OIDC + PKCE login </architecture/decisions/0014-admin-ui-oidc-pkce-login>` — the
   redirect URI the single-origin requirement protects.
-- ``docs/features/admin-webui.md``
+- ``docs/features/admin-webui.rst``

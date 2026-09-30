@@ -88,7 +88,7 @@ Responses
      - ``mcp_unavailable``
      - ``mcp`` is registered but has no live session right now — its downstream is down or restarting. The health-check loop is already
        retrying it, so this is worth retrying; see
-       :repo:`mcp-health-check.md <docs/features/mcp-health-check.md>`.
+       :doc:`/features/mcp-health-check`.
    * - 502
      - ``upstream_error``
      - The downstream MCP call itself failed (connection issue, tool-level error).

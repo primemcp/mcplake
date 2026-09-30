@@ -1,7 +1,7 @@
 """Dummy MCP server for the mcplake compose demo.
 
 Deliberately not a passthrough over a real datastore (contrast with the
-official postgres reference server this replaced — see docs/DEMO.md):
+official postgres reference server this replaced — see docs/getting-started/demo.rst):
 several tools, each with its own declared response shape, exist
 specifically so filter_policies (ADR-0015) has real per-field structure to
 strip from. Seed data is in-memory and fictional; nothing here talks to

@@ -154,7 +154,7 @@ Authenticates and authorizes callers of the control-plane admin API
 Admin UI sign-in
 ^^^^^^^^^^^^^^^^
 
-How the embedded :repo:`admin web UI <docs/features/admin-webui.md>` obtains an admin
+How the embedded :doc:`admin web UI </features/admin-webui>` obtains an admin
 token: an OIDC **Authorization Code + PKCE** flow, run in the browser against
 the same provider ``[oidc]`` already verifies tokens from. See
 :doc:`ADR-0014 </architecture/decisions/0014-admin-ui-oidc-pkce-login>`.
@@ -223,6 +223,8 @@ The MCP endpoint is under ``/admin/``, so it is authenticated and claim-gated by
 no ``admin_auth``, the control server is unauthenticated and the gateway logs a
 warning — bind ``control_plane_addr`` to a trusted interface.
 
+.. _reference-configuration-mcp-global:
+
 MCP (global)
 ~~~~~~~~~~~~
 
@@ -258,8 +260,10 @@ Settings that apply to every registered MCP.
 
   An MCP that cannot be reconnected is retried on a doubling backoff, capped at
   five minutes. See
-  :repo:`mcp-health-check.md <docs/features/mcp-health-check.md>` and
+  :doc:`/features/mcp-health-check` and
   :doc:`ADR-0019 </architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop>`.
+
+.. _reference-configuration-3-persistence:
 
 3. Persistence
 ~~~~~~~~~~~~~~
@@ -396,7 +400,7 @@ Defines all MCP servers the gateway connects to. Each server is one
   configured the gateway to strip. If the MCP is http-only, front it with TLS
   or colocate it so the gateway can reach it over loopback — running it as a
   sidecar sharing the gateway's network namespace is what
-  :repo:`the compose demo <docs/DEMO.md>` does.
+  :doc:`the compose demo </getting-started/demo>` does.
 
   The gateway cannot yet present credentials to a downstream MCP: there is no
   bearer-token or OAuth support on the outbound side, so an endpoint that

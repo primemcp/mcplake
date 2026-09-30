@@ -241,4 +241,4 @@ References
 - :doc:`ADR-0003: Dynamic MCP registration and schema discovery </architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery>`
 - :doc:`ADR-0013: Periodic MCP schema refresh </architecture/decisions/0013-periodic-mcp-schema-refresh>`
 - :doc:`ADR-0017: HTTP and SSE transports for downstream MCPs </architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps>`
-- ``docs/features/mcp-health-check.md``
+- ``docs/features/mcp-health-check.rst``
