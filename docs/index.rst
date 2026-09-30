@@ -76,6 +76,9 @@ Where to start
   runs the whole stack — identity provider, gateway, MCP servers — with one
   command.
 - **Put it in front of your own MCP server:** :doc:`getting-started/first-gateway`.
+- **Solve a specific problem:** the :doc:`use cases <use-cases/index>` — read-only
+  vs read-write access, redacting fields, connecting clients, air-gapped
+  deployment and more.
 - **Understand the model:** :doc:`concepts/how-it-works`, then
   :doc:`concepts/claim-rules`.
 - **Look something up:** the :doc:`configuration reference
@@ -94,6 +97,13 @@ Where to start
    :hidden:
 
    concepts/index
+
+.. toctree::
+   :caption: Use Cases
+   :maxdepth: 2
+   :hidden:
+
+   use-cases/index
 
 .. toctree::
    :caption: Features

@@ -129,6 +129,9 @@ Current limitations (tracked, not bugs)
 
 - No request size limit or rate limiting is documented yet.
 
+
+.. _reference-data-plane-api-mcp-endpoints:
+
 MCP endpoints: ``/v1/mcp`` and ``/v1/sse``
 ------------------------------------------
 
