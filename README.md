@@ -154,6 +154,33 @@ Authorization happens **before** existence checks: a caller without a grant gets
 
 Deep dive: [How it works](docs/concepts/how-it-works.rst) · [Architecture overview](docs/architecture/overview.rst) · [Security model](docs/architecture/security.rst)
 
+### See it live
+
+Recorded against the real [compose demo](docs/getting-started/demo.rst) — same two MCPs, same three users (`alice`/`bob`/`mcplake-admin`), same policies, not staged for the screenshot.
+
+<table>
+<tr>
+<td width="50%">
+
+**Steps 2 + 5 — authorize, then filter**<br>
+Same tool, same employee, called as alice (`role=db-reader`) then mcplake-admin (`role=admin`). One response has `salary_usd`/`ssn_last4` stripped; the other doesn't — same code path, decided entirely by claims.
+
+<img src="docs/media/pipeline/out/02-filter-alice-vs-admin-get-employee.gif" alt="alice's get_employee call returns salary_usd and ssn_last4 stripped; mcplake-admin's identical call returns them unfiltered" width="420">
+
+</td>
+<td width="50%">
+
+**The whole pipeline, visualized**<br>
+The admin UI's own request-path simulator walks a call through Auth Validator → Access Check → Response Filter and shows each stage's real verdict — not a diagram, the actual decision.
+
+<img src="docs/media/pipeline/out/07-request-path-simulation-alice.gif" alt="Admin UI Request path tab showing Auth Validator verified, Access Check granted, Response Filter 1 filter ran" width="420">
+
+</td>
+</tr>
+</table>
+
+More scenarios (auth, the router's deny path, the enabled/disabled gate, OIDC sign-in) in [`docs/media/pipeline/`](docs/media/pipeline/).
+
 ## 🧩 Features
 
 **Security & policy**
