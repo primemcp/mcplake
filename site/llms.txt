@@ -1,0 +1,49 @@
+# mcplake
+
+> mcplake is a free, open-source (Apache-2.0) gateway for the Model Context Protocol (MCP). It sits between AI agents (MCP clients) and MCP servers, authenticates every caller with a JWT from an OIDC identity provider, authorizes each MCP server and tool from the token's claims, serves a per-caller filtered tool catalogue, and removes response fields the caller is not allowed to see (identity-aware field-level filtering, fail-closed). It ships as one Go binary with embedded SQLite (PostgreSQL optional), sends no telemetry, and runs in air-gapped networks. There is no paid tier.
+
+Key facts:
+
+- Category: MCP gateway / MCP proxy / MCP access control / AI agent security.
+- Distinguishing feature: the same claim-rule engine (JSONPath + RE2 regular expressions over JWT claims) decides both which `(mcp, tool)` pairs a caller may invoke and which fields of the tool's result are dropped for that caller. Filtering is applied to every copy of the payload (`structuredContent` and JSON text in `content` blocks); if a filter applies but the payload is not JSON, the response is refused (`502 filter_unenforceable`) rather than returned unfiltered.
+- Identity: any OIDC provider with a JWKS endpoint (Keycloak, Okta, Microsoft Entra ID, Auth0, Google, Dex, Authentik). No gateway-side user database or virtual keys; claims in the token are the single source of truth.
+- Inbound: MCP over Streamable HTTP at `/v1/mcp`, MCP over SSE at `/v1/sse`, and REST at `POST /v1/call`. Tools are namespaced `<mcp>__<tool>`.
+- Outbound: downstream MCP servers over stdio (supervised subprocess), Streamable HTTP or SSE, with health-check reconnection and periodic schema refresh.
+- Administration: REST control plane with OpenAPI, an admin web UI (OIDC PKCE login, with a request-path explainer that shows which policy allowed or denied a call), and an optional MCP control server exposing admin operations as MCP tools. Changes take effect on the next call; every MCP server and policy has a reversible enable/disable kill switch.
+- Configuration: a single TOML file (`[[mcps]]`, `[[access_policies]]`, `[[filter_policies]]`, `[oidc]`, `[admin_auth]`).
+- Compared with Bifrost, MCPX, agentgateway, IBM ContextForge and Docker MCP Gateway: mcplake is MCP-only (no LLM routing), puts OIDC-claims-based access control in the free open-source core, and removes response fields per caller identity using explicit JSONPath rather than pattern-based PII detection.
+- Not yet available (roadmap): audit trail and OpenTelemetry tracing, argument-level input policies, outbound credentials for downstream MCP servers, MCP OAuth protected-resource metadata.
+- Language: Go (gateway), TypeScript/React (admin UI). Repository: https://github.com/atsokha/mcplake
+
+## Docs
+
+- [Quickstart](https://atsokha.github.io/mcplake/latest/getting-started/quickstart.html): run Keycloak, the gateway and demo MCP servers with `docker compose up` and see allow, deny and redaction in five minutes
+- [How it works](https://atsokha.github.io/mcplake/latest/concepts/how-it-works.html): the two planes and the five-step pipeline (authenticate, authorize, route, call, filter)
+- [Claim rules](https://atsokha.github.io/mcplake/latest/concepts/claim-rules.html): JSONPath + regular-expression matching over JWT claims
+- [Access policies](https://atsokha.github.io/mcplake/latest/concepts/access-policies.html): granting MCP servers and tools by claims
+- [Response filtering](https://atsokha.github.io/mcplake/latest/concepts/response-filtering.html): field-level filtering, payload copies and fail-closed behaviour
+- [Configuration reference](https://atsokha.github.io/mcplake/latest/reference/configuration.html): every TOML key
+- [Data-plane API](https://atsokha.github.io/mcplake/latest/reference/data-plane-api.html): `/v1/mcp`, `/v1/sse`, `POST /v1/call` and status codes
+
+## Use cases
+
+- [Redact sensitive fields](https://atsokha.github.io/mcplake/latest/use-cases/redact-sensitive-fields.html)
+- [Read-only vs read-write access](https://atsokha.github.io/mcplake/latest/use-cases/read-only-and-read-write.html)
+- [Per-user and per-server access](https://atsokha.github.io/mcplake/latest/use-cases/per-user-and-per-server-access.html)
+- [Connect MCP clients (Claude Code, Cursor, MCP Inspector)](https://atsokha.github.io/mcplake/latest/use-cases/connect-mcp-clients.html)
+- [Put a stdio MCP server behind SSO](https://atsokha.github.io/mcplake/latest/use-cases/stdio-server-behind-sso.html)
+- [Air-gapped deployment](https://atsokha.github.io/mcplake/latest/use-cases/air-gapped-deployment.html)
+- [Let an agent operate the gateway](https://atsokha.github.io/mcplake/latest/use-cases/agent-operated-gateway.html)
+
+## Operations
+
+- [Configure Keycloak](https://atsokha.github.io/mcplake/latest/how-to/configure-keycloak.html)
+- [Deploy in production](https://atsokha.github.io/mcplake/latest/how-to/deploy-in-production.html)
+- [Secure the control plane](https://atsokha.github.io/mcplake/latest/how-to/secure-the-control-plane.html)
+- [Use PostgreSQL](https://atsokha.github.io/mcplake/latest/how-to/use-postgresql.html)
+
+## Optional
+
+- [Full LLM-oriented summary](https://atsokha.github.io/mcplake/llms-full.txt)
+- [Architecture decision records](https://atsokha.github.io/mcplake/latest/architecture/decisions/index.html)
+- [Source code and README](https://github.com/atsokha/mcplake)
