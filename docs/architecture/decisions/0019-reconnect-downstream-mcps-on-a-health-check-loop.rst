@@ -56,13 +56,13 @@ reconnects the ones that have stopped answering.** It is on by default.
 
 Per tick, for each registration:
 
-- **``active`` with a live session** — ``ping`` answers, nothing happens. This is the
+- ``active`` with a live session — ``ping`` answers, nothing happens. This is the
   overwhelmingly common case and costs one empty round trip per MCP.
-- **``active`` with a dead session** — the ping fails and a reconnect is attempted
+- ``active`` with a dead session — the ping fails and a reconnect is attempted
   immediately. On success the registration never leaves ``active``: the client and
   tools are swapped underneath it, so a concurrent caller sees the old working
   client or the new one, never a gap.
-- **not ``active``** — a reconnect is attempted, which is how a registration that
+- not ``active`` — a reconnect is attempted, which is how a registration that
   failed at startup becomes usable once its server arrives.
 - **reconnect failed** — the registration is demoted to ``unreachable`` and its dead
   client closed, with capped exponential backoff so a permanently misconfigured
@@ -219,7 +219,7 @@ only ever discovered by a user request, status stays stale until someone calls,
 and a burst of traffic against a restarted MCP turns into a burst of concurrent
 dials on the request path.
 
-**Extend ``SchemaRefresher`` to also reconnect.** One loop instead of two. Rejected:
+Extend ``SchemaRefresher`` to also reconnect. One loop instead of two. Rejected:
 it would have to be on by default to fix this, which reverses ADR-0013's
 deliberate opt-in for schema refresh, and it conflates two concerns whose right
 intervals differ by an order of magnitude.
@@ -230,7 +230,7 @@ server-side state: a server that restarted has never heard of the session ID the
 client holds, and no amount of transport-level retry recovers it. The reconnect
 has to redo ``initialize``, which is a client-level concern.
 
-**A ``/healthz``-style probe per downstream.** Would require every MCP to expose
+A ``/healthz``-style probe per downstream. Would require every MCP to expose
 something outside the MCP protocol. ``ping`` is in the protocol and every server
 answers it.
 

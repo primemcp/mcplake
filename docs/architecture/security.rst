@@ -107,7 +107,7 @@ Per request to ``POST /v1/call``
    No matching grant ⇒ ``403``, checked before resource existence so a missing
    grant never discloses whether an MCP/tool exists.
 3. **Response filtering** — ``filter_policies`` strip fields from the tool
-   response by claim-match ([ADR-0004]). This is data minimization, not access
+   response by claim-match (:doc:`ADR-0004 </architecture/decisions/0004-unified-policy-engine-for-access-and-filtering>`). This is data minimization, not access
    control.
 
 Control-plane authentication & authorization

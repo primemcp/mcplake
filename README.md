@@ -18,20 +18,29 @@ An open-source gateway for the Model Context Protocol (MCP) that enables secure,
 ### Prerequisites
 
 - Go 1.27.1 or later
+- [Bun](https://bun.sh) (builds the admin web UI embedded in the binary)
 - An OIDC provider (for JWT issuance)
 - Installed MCP servers
 
 ### Building
 
 ```bash
-go build -o mcp-gateway ./cmd/gateway
+make build
 ```
+
+This builds the admin UI, then the gateway, into `cmd/gateway/mcp-gateway`. A
+bare `go build ./cmd/gateway` on a fresh clone fails until the UI has been
+built; see [Installation](docs/getting-started/installation.rst).
 
 ### Running
 
 ```bash
-./mcp-gateway --config config.toml
+./cmd/gateway/mcp-gateway --config config.toml
 ```
+
+New here? The [quickstart](docs/getting-started/quickstart.rst) runs the whole
+stack with one command, and [Your First Gateway](docs/getting-started/first-gateway.rst)
+walks through a configuration of your own.
 
 ## Architecture
 

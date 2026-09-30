@@ -178,7 +178,7 @@ Connecting
 ``tools/list``
 ~~~~~~~~~~~~~~
 
-Returns one tool per ``(mcp, tool)`` pair, named **``<mcp>__<tool>``** — the
+Returns one tool per ``(mcp, tool)`` pair, named ``<mcp>__<tool>`` — the
 registered MCP's name, two underscores, the tool's own name. Every registered
 MCP's catalogue is flattened into one list, so the prefix is what keeps two
 downstreams that both advertise a ``query`` apart.
@@ -220,8 +220,8 @@ that could not be made and a call that failed:
        disabled (``mcp_disabled``), MCP
        or tool not found. The call
        should not have been made.
-   * - **Result with
-       ``isError: true``**
+   * - Result with
+       ``isError: true``
      - The downstream was reached and
        failed (``upstream_error``),
        timed out
@@ -274,7 +274,7 @@ Not exposed
 
 - **MCP prompts and resources.** Tools only, matching the control plane's MCP
   server (:doc:`ADR-0011 </architecture/decisions/0011-mcp-control-server>`).
-- **``notifications/tools/list_changed``.** Schema freshness is handled by polling
+- ``notifications/tools/list_changed``. Schema freshness is handled by polling
   (:doc:`ADR-0013 </architecture/decisions/0013-periodic-mcp-schema-refresh>`); a
   client sees a changed catalogue on its next ``tools/list``.
 - **The admin API.** That is the control plane's ``/admin/mcp``, a separate

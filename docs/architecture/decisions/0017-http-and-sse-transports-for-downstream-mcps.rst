@@ -43,7 +43,7 @@ wiring, not protocol work.
 Decision
 --------
 
-**Support ``stdio``, ``http`` and ``sse`` as downstream transports**, selected per
+Support ``stdio``, ``http`` and ``sse`` as downstream transports, selected per
 registration, with ``stdio`` remaining the default for an omitted value.
 
 ``mcp.Config`` gains ``Transport`` and ``URL``. ``mcp.NewClient`` switches on the
@@ -78,7 +78,7 @@ Loopback keeps plaintext for the same reason it does elsewhere — local
 development, the test fixtures, and a sidecar sharing the gateway's network
 namespace all serve over an interface no attacker sits on.
 
-**Enforcement lives in ``mcp.NewClient``, not only in ``config``.** Config is not the
+Enforcement lives in ``mcp.NewClient``, not only in ``config``. Config is not the
 only write path: ``POST /admin/mcps`` and the ADR-0011 MCP control server construct
 a registration directly and reach ``Registry.Register`` without passing through
 config at all. ``config.Validate`` additionally checks ``[[mcps]]`` entries at

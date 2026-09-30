@@ -21,7 +21,7 @@ Set an interval in the ``[mcp]`` table of ``config.toml``:
    schema_refresh_interval = "15m"
 
 - The value is a Go duration string (``"30s"``, ``"5m"``, ``"1h"``).
-- **Omitted or ``"0"`` disables it** — this is the default, and matches the
+- Omitted or ``"0"`` disables it — this is the default, and matches the
   behaviour before this feature: schemas are fetched only at registration.
 - A negative value is rejected at startup.
 

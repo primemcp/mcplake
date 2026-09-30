@@ -42,9 +42,9 @@ None of that is worth paying to move a directory of files.
 Decision
 --------
 
-**Ship the admin UI as its own image whose final layer is
+Ship the admin UI as its own image whose final layer is
 ``gcr.io/distroless/static``, containing one static Go binary and the built
-``dist/`` — and make that binary the browser's single origin** by serving the
+``dist/`` — and make that binary the browser's single origin by serving the
 assets and reverse-proxying the admin API prefix to the gateway.
 
 Three stages:
@@ -139,7 +139,7 @@ either would work. Rejected because the proxy rule is one line of Go we already
 need a process for, and a third service plus a config file in another language
 is more to keep correct than it saves.
 
-**Drop ``go:embed`` and serve the UI only from the new container.** Rejected: it
+Drop ``go:embed`` and serve the UI only from the new container. Rejected: it
 breaks the single-binary deployment and makes the simplest way to run the
 gateway strictly worse.
 

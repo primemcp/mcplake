@@ -46,7 +46,7 @@ An MCP subprocess's environment is now built explicitly, never inherited:
    text and time (``LANG``/``LC_ALL``/``TZ``), and write temp files somewhere that
    is actually writable (``TMPDIR``). None of these six is more sensitive than
    the fact that the gateway is running on this host at all.
-2. **The MCP's own declared ``Env``** (``mcp.Config.Env``, threaded through
+2. The MCP's own declared ``Env`` (``mcp.Config.Env``, threaded through
    ``cache.ConnectConfig.Env``, ``config.MCPConfig.Env`` (``env`` in TOML), the
    ``connect.env`` REST field, and the ``register_mcp`` MCP tool's flat ``env``
    field), overlaid on top — an explicit key here always wins over the same
@@ -68,8 +68,8 @@ Alternatives Considered
 documented footgun is still a footgun, and the fix is not expensive enough to
 justify leaving it.
 
-**B. Inherit an operator-configured allowlist of variable names, resolved
-from the gateway's own environment at spawn time (e.g. ``env_from_gateway = ["HTTP_PROXY"]``), instead of a fixed base set plus explicit values.**
+B. Inherit an operator-configured allowlist of variable names, resolved
+from the gateway's own environment at spawn time (e.g. ``env_from_gateway = ["HTTP_PROXY"]``), instead of a fixed base set plus explicit values.
 Rejected for the default: it still couples an MCP's environment to whatever
 the gateway happens to have, which is exactly the coupling this ADR removes.
 Nothing rules out adding this as an opt-in escape hatch later if an operator
@@ -77,8 +77,8 @@ needs to pass through something dynamic (a proxy setting that varies by
 deployment); today's ``Env`` map already covers every case the audit or the
 demo config needed.
 
-**C. No base set at all — every subprocess gets exactly the operator's ``Env``,
-nothing more.** Rejected: this breaks the ordinary case (a ``stdio`` MCP that
+C. No base set at all — every subprocess gets exactly the operator's ``Env``,
+nothing more. Rejected: this breaks the ordinary case (a ``stdio`` MCP that
 shells out to a package manager or interpreter needs ``PATH`` to do it) for
 every existing config, turning a security fix into a functional regression
 operators would have to work around one variable at a time.

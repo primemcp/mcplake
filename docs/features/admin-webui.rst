@@ -17,7 +17,7 @@ standalone via ``make ui-build``, which writes ``webui/dist``, embedded by
 ``gateway/internal/controlplane/webui.go`` via ``//go:embed``). The compiled
 gateway binary serves it directly — nothing to run separately.
 
-**Container (``deploy/webui/Dockerfile``):** a prebuilt image of its own, whose
+Container (``deploy/webui/Dockerfile``): a prebuilt image of its own, whose
 final layer is ``gcr.io/distroless/static`` — the SPA is compiled during the
 image build and the running container only serves it. The compose demo brings
 it up as the ``webui`` service on port 8082. See
@@ -244,7 +244,7 @@ Data model notes specific to the UI
   ``$.entities[*].name``) — verified against a real 15-level, branching test
   fixture, not just shallow examples. Arrays of primitives/arrays are
   leaves (not expandable), described recursively (``array<array<string>>``).
-- **The ``[N]`` badge** (``descendantCount``) counts every field nested under a
+- The ``[N]`` badge (``descendantCount``) counts every field nested under a
   row, recursively — not how many levels deep the nesting goes. A row with
   two direct leaf children reads ``[2]``, the same as a row with one child
   that itself has one child.

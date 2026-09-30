@@ -63,7 +63,7 @@ The redirect URI is the UI's own origin + ``/``, i.e. the control-plane listener
 the operator already browses. The gateway serves the SPA for unmatched paths
 already, so no new route is needed to receive the callback.
 
-**2. A public ``GET /admin/auth/config`` describing how to log in.**
+2. A public ``GET /admin/auth/config`` describing how to log in.
 
 Registered on the ``/admin`` group *before* the admin-auth middleware, exactly
 like ``GET /admin/healthz``, so an unauthenticated browser can read it:
@@ -106,14 +106,14 @@ the gate: it describes how a *human operating the admin UI* gets a token, not
 how tokens are verified. ``[oidc]`` stays the verification side, shared with the
 data plane.
 
-**4. The access token lives in ``sessionStorage``; ``state``/``code_verifier`` too.**
+4. The access token lives in ``sessionStorage``; ``state``/``code_verifier`` too.
 
 Scoped to one tab and cleared when it closes. Chosen over ``localStorage`` (shared
 across tabs, outlives the browsing session) and over memory-only (a page reload
 would bounce the operator through the provider again, which for an operational
 console is the difference between usable and not).
 
-**5. ``401`` and ``403`` drive different UI states.**
+5. ``401`` and ``403`` drive different UI states.
 
 ``401`` invalidates the session and returns to the login screen (the token is
 missing, expired, or rejected by the validator — signing in again can fix it).
