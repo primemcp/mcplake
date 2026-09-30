@@ -1,6 +1,6 @@
 // Package mcp implements a client connection to a single downstream MCP
 // server, built on the official github.com/modelcontextprotocol/go-sdk.
-// See docs/architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.md.
+// See docs/architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.rst.
 package mcp
 
 import (

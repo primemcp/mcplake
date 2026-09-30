@@ -1,8 +1,8 @@
 # MCP Health Check and Reconnection
 
 The gateway builds a session to each downstream MCP once, when the MCP is
-registered ([ADR-0003](../architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.md)).
-A server reached over `http` or `sse` ([ADR-0017](../architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.md))
+registered ([ADR-0003](../architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery.rst)).
+A server reached over `http` or `sse` ([ADR-0017](../architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.rst))
 has a lifecycle the gateway neither owns nor is told about: it restarts, gets
 redeployed, gets rescheduled. When that happens the session the gateway is
 holding is dead, and nothing about it says so.
@@ -11,7 +11,7 @@ The health check is what notices. Every interval it pings each registered MCP
 and rebuilds the ones that have stopped answering — and retries the ones that
 were never reachable in the first place.
 
-See [ADR-0019](../architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md)
+See [ADR-0019](../architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.rst)
 for the design and the alternatives considered.
 
 ## Configuring it
@@ -127,7 +127,7 @@ server answering, say, `-32603` to an empty request is not obviously well.
 - **A stale pooled connection hit by a *user's* call.** The health check retries
   its own probe, but a tool call that picks a connection the downstream already
   closed still fails with `502 upstream_error`; retry it. This is tracked as
-  follow-up on [ADR-0017](../architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.md).
+  follow-up on [ADR-0017](../architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.rst).
 
 ## Related
 
@@ -136,4 +136,4 @@ server answering, say, `-32603` to an empty request is not obviously well.
 - [mcp-schema-refresh.md](mcp-schema-refresh.md) — the other `[mcp]` timer, and
   why they are separate.
 - [enable-disable.md](enable-disable.md) — `enabled` vs. `status`.
-- [ADR-0019](../architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md).
+- [ADR-0019](../architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.rst).

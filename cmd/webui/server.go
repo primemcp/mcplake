@@ -1,7 +1,7 @@
 // Package main serves the mcplake admin SPA from its own container and
 // forwards the admin API to the gateway, so a browser sees one origin.
 //
-// See docs/architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.md.
+// See docs/architecture/decisions/0020-serve-the-admin-ui-from-its-own-container.rst.
 package main
 
 import (

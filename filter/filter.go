@@ -1,6 +1,6 @@
 // Package filter strips response fields identified by the Policy Engine
 // (router.Engine.FieldsToRemove) from a downstream MCP's JSON tool
-// response. See docs/architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.md.
+// response. See docs/architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.rst.
 package filter
 
 import (

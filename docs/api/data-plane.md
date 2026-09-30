@@ -1,7 +1,7 @@
 # Data-Plane API
 
 The data-plane is the fasthttp server described in
-[ADR-0001](../architecture/decisions/0001-use-fasthttp-for-gateway-server.md).
+[ADR-0001](../architecture/decisions/0001-use-fasthttp-for-gateway-server.rst).
 It listens on `server.data_plane_addr` (see [`docs/CONFIG.md`](../CONFIG.md)) and
 is the only surface agents talk to — never the control-plane admin API, never a
 downstream MCP directly.
@@ -14,7 +14,7 @@ authentication required.
 ## `POST /v1/call`
 
 Invokes a tool on a registered downstream MCP, subject to the caller's JWT-derived
-access policy (see [ADR-0004](../architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.md)).
+access policy (see [ADR-0004](../architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.rst)).
 
 ### Request
 
@@ -39,7 +39,7 @@ Content-Type: application/json
 The `Authorization` header is required and must use the `Bearer` scheme.
 
 The full pipeline (auth → authorize → route → call → filter) is described in
-[data.md#request-lifecycle](../architecture/data.md#request-lifecycle).
+[data.md#request-lifecycle](../architecture/data.rst#request-lifecycle).
 
 ### Responses
 
@@ -56,7 +56,7 @@ The full pipeline (auth → authorize → route → call → filter) is describe
 | 404    | `tool_not_found`         | `mcp` exists but doesn't advertise `tool`.                       |
 | 503    | `mcp_unavailable`        | `mcp` is registered but has no live session right now — its downstream is down or restarting. The health-check loop is already retrying it, so this is worth retrying; see [mcp-health-check.md](../features/mcp-health-check.md). |
 | 502    | `upstream_error`         | The downstream MCP call itself failed (connection issue, tool-level error). |
-| 502    | `filter_unenforceable`   | A filter policy applied to this call, but the tool answered with free-form text its `drop_fields` cannot be applied to. The gateway refuses to return a body it could not redact — see [ADR-0015](../architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.md). |
+| 502    | `filter_unenforceable`   | A filter policy applied to this call, but the tool answered with free-form text its `drop_fields` cannot be applied to. The gateway refuses to return a body it could not redact — see [ADR-0015](../architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.rst). |
 | 504    | `upstream_timeout`       | The downstream MCP call didn't complete within the gateway's call timeout (`internal.Config.CallTimeout`, default 30s — not yet exposed as a `config.toml` key). |
 | 500    | `internal_error`         | The Policy Engine or response filter failed unexpectedly — not a caller error. |
 | 501    | `not_implemented`        | The gateway was started without a configured auth/policy/MCP pipeline (should not happen in a real deployment). |
@@ -66,12 +66,12 @@ Every error body has the shape `{"error": "<code>", "message": "<human-readable>
 `404 mcp_not_found` and `503 mcp_unavailable` are deliberately distinct. The
 first means the registration does not exist and a caller should stop; the second
 means it exists and its downstream is currently unreachable, which the gateway is
-already working on ([ADR-0019](../architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md)).
+already working on ([ADR-0019](../architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.rst)).
 
 Authorization is checked *before* existence: a caller lacking a grant for a given
 `(mcp, tool)` gets 403 even if that `mcp`/`tool` doesn't actually exist, matching the
 `JWT eval -> [mcps] -> [tools]` pipeline order in
-[overview.md](../architecture/overview.md#pipeline-per-request) — access policies are
+[overview.md](../architecture/overview.rst#pipeline-per-request) — access policies are
 evaluated purely against claims and the requested names, independent of whether the
 registry currently has anything registered under them.
 
@@ -85,7 +85,7 @@ The gateway is itself an MCP server. Any MCP client — an agent, an MCP-enabled
 editor, MCP Inspector — can connect to it directly instead of hand-rolling
 `POST /v1/call`, and gets a tool catalogue filtered to what its token
 authorizes. See
-[ADR-0021](../architecture/decisions/0021-serve-mcp-on-the-data-plane.md).
+[ADR-0021](../architecture/decisions/0021-serve-mcp-on-the-data-plane.rst).
 
 | Path | Transport | Methods |
 |------|-----------|---------|
@@ -181,9 +181,9 @@ Sessions are also closed when the gateway shuts down.
 ### Not exposed
 
 - **MCP prompts and resources.** Tools only, matching the control plane's MCP
-  server ([ADR-0011](../architecture/decisions/0011-mcp-control-server.md)).
+  server ([ADR-0011](../architecture/decisions/0011-mcp-control-server.rst)).
 - **`notifications/tools/list_changed`.** Schema freshness is handled by polling
-  ([ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.md)); a
+  ([ADR-0013](../architecture/decisions/0013-periodic-mcp-schema-refresh.rst)); a
   client sees a changed catalogue on its next `tools/list`.
 - **The admin API.** That is the control plane's `/admin/mcp`, a separate
   listener and a separate credential.

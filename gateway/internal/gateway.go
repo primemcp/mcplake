@@ -1,8 +1,8 @@
 // Package internal implements the mcplake gateway's data-plane HTTP server.
 //
-// See docs/architecture/decisions/0001-use-fasthttp-for-gateway-server.md for
+// See docs/architecture/decisions/0001-use-fasthttp-for-gateway-server.rst for
 // why this is built on fasthttp instead of net/http, and
-// docs/architecture/data.md#request-lifecycle for the full tool-call pipeline
+// docs/architecture/data.rst#request-lifecycle for the full tool-call pipeline
 // this server will eventually orchestrate.
 package internal
 
@@ -75,7 +75,7 @@ type Config struct {
 	DataPlaneAddr string
 
 	// Authenticator, Policy, and Resolver implement the auth -> authorize ->
-	// route stages of the pipeline (docs/architecture/data.md#request-lifecycle).
+	// route stages of the pipeline (docs/architecture/data.rst#request-lifecycle).
 	// A POST /v1/call whose request parses successfully but which reaches a
 	// stage with a nil dependency here fails closed with 501, rather than
 	// panicking — see handleToolCall.

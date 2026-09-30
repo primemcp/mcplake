@@ -3,7 +3,7 @@
 ## Overview
 
 The MCP Gateway is configured with a single **TOML** file
-([ADR-0012](architecture/decisions/0012-toml-configuration-format.md)), passed
+([ADR-0012](architecture/decisions/0012-toml-configuration-format.rst)), passed
 with `--config` (default `config.toml`). This guide covers every option. See
 [`config.example.toml`](../config.example.toml) for a complete file.
 
@@ -12,7 +12,7 @@ with `--config` (default `config.toml`). This guide covers every option. See
 ### 1. Server Configuration
 
 Controls the gateway's two HTTP surfaces — see
-[`docs/architecture/overview.md`](architecture/overview.md) for why they're
+[`docs/architecture/overview.rst`](architecture/overview.rst) for why they're
 separate.
 
 ```toml
@@ -28,19 +28,19 @@ control_plane_addr = "127.0.0.1:8081"  # Gin admin API (ADR-0005)
 > the loader silently ignored — uncommenting them changed nothing while
 > looking like it had. Run behind a TLS-terminating proxy until TLS is
 > implemented; the gap is tracked in
-> [security.md](architecture/security.md#known-gaps-tracked-not-defects).
+> [security.md](architecture/security.rst#known-gaps-tracked-not-defects).
 
 **Fields:**
 - `data_plane_addr` — listen address for the tool-call endpoint used by agents
   (`POST /v1/call`, `GET /healthz`). Required.
 - `control_plane_addr` — listen address for the admin API used to manage MCP
   registrations and policies (`/admin/*`). Bind this to a trusted network/interface
-  only — see [ADR-0005](architecture/decisions/0005-use-gin-for-control-plane-api.md).
+  only — see [ADR-0005](architecture/decisions/0005-use-gin-for-control-plane-api.rst).
   Registering an MCP starts a process on the gateway host, so control-plane
   access is host-level access; the example binds loopback for that reason.
   Note that binding to a trusted network does **not** protect against a
   browser on a trusted host: see
-  [security.md](architecture/security.md#the-browser-is-inside-the-network-perimeter).
+  [security.md](architecture/security.rst#the-browser-is-inside-the-network-perimeter).
 
 ### 2. OIDC Configuration
 
@@ -80,7 +80,7 @@ maps to a 401 at the gateway's tool-call endpoint.
 
 Authenticates and authorizes callers of the control-plane admin API
 (`/admin/*`). See
-[ADR-0010](architecture/decisions/0010-control-plane-admin-authentication.md).
+[ADR-0010](architecture/decisions/0010-control-plane-admin-authentication.rst).
 
 ```toml
 # [admin_auth]
@@ -103,7 +103,7 @@ pattern = "^https://auth\\.example\\.com$"
    provider; the admin surface reuses the `[oidc]` section above.
 3. The decoded claim set is then tested against `admin_auth.match` — the same
    `{path, pattern}` JSONPath+regexp rule syntax as `access_policies`
-   ([ADR-0002](architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)).
+   ([ADR-0002](architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.rst)).
    All rules are ANDed. A caller whose claims fail any rule gets `403`.
 
 **Fields:**
@@ -138,7 +138,7 @@ pattern = "^https://auth\\.example\\.com$"
 How the embedded [admin web UI](features/admin-webui.md) obtains an admin
 token: an OIDC **Authorization Code + PKCE** flow, run in the browser against
 the same provider `[oidc]` already verifies tokens from. See
-[ADR-0014](architecture/decisions/0014-admin-ui-oidc-pkce-login.md).
+[ADR-0014](architecture/decisions/0014-admin-ui-oidc-pkce-login.rst).
 
 ```toml
 [admin_auth.login]
@@ -178,7 +178,7 @@ token_endpoint = "https://auth.example.com/oauth/token"
 
 Enables the in-process **MCP control server** — every admin operation exposed as
 an MCP tool on the control-plane listener, for MCP-speaking clients. See
-[ADR-0011](architecture/decisions/0011-mcp-control-server.md) and
+[ADR-0011](architecture/decisions/0011-mcp-control-server.rst) and
 [`docs/api/admin-mcp.md`](api/admin-mcp.md).
 
 ```toml
@@ -216,7 +216,7 @@ health_check_interval = "30s"
   `"0"` disables periodic refresh (the default — schemas are then fetched only
   at registration). A `tools/list` failure during a refresh is logged and
   leaves the previous schema in place. See
-  [ADR-0013](architecture/decisions/0013-periodic-mcp-schema-refresh.md).
+  [ADR-0013](architecture/decisions/0013-periodic-mcp-schema-refresh.rst).
 - `health_check_interval` — a Go duration string. How often the gateway pings
   every registered MCP and **reconnects** the ones that have stopped answering,
   including retrying registrations that are currently `unreachable`. This is
@@ -232,13 +232,13 @@ health_check_interval = "30s"
   An MCP that cannot be reconnected is retried on a doubling backoff, capped at
   five minutes. See
   [mcp-health-check.md](features/mcp-health-check.md) and
-  [ADR-0019](architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.md).
+  [ADR-0019](architecture/decisions/0019-reconnect-downstream-mcps-on-a-health-check-loop.rst).
 
 ### 3. Persistence
 
 Configures the control-plane's durable store for MCP registrations and
 access/filter policies. See
-[ADR-0006](architecture/decisions/0006-gorm-sqlite-postgres-persistence.md).
+[ADR-0006](architecture/decisions/0006-gorm-sqlite-postgres-persistence.rst).
 
 ```toml
 [persistence]
@@ -260,7 +260,7 @@ source of truth from then on; the config file is a seed mechanism, not a
 parallel state store.
 
 **Seeding happens once per entry, ever**
-([ADR-0016](architecture/decisions/0016-config-seeding-happens-once-per-entry.md)):
+([ADR-0016](architecture/decisions/0016-config-seeding-happens-once-per-entry.rst)):
 
 - A name the store has never seen is written on the next start, so adding a
   new MCP or policy to this file works as expected.
@@ -324,7 +324,7 @@ url = "https://mcp.analytics.example.com/sse"
   - `"http"` — MCP Streamable HTTP, for a server the gateway does not run.
   - `"sse"` — the older HTTP+SSE transport.
 
-  See [ADR-0017](architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.md).
+  See [ADR-0017](architecture/decisions/0017-http-and-sse-transports-for-downstream-mcps.rst).
 - `command` — Binary to execute. **Required for `stdio`**, and rejected for
   `http`/`sse` (the gateway does not start a remote MCP).
 - `arguments` — Command-line arguments, for `stdio`.
@@ -378,9 +378,9 @@ url = "https://mcp.analytics.example.com/sse"
 ### 5. Access Policies
 
 Grants access to `(mcp, tool)` pairs based on JWT claims. See
-[ADR-0002](architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md)
+[ADR-0002](architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.rst)
 for the `match` rule syntax and
-[ADR-0004](architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.md)
+[ADR-0004](architecture/decisions/0004-unified-policy-engine-for-access-and-filtering.rst)
 for policy semantics.
 
 ```toml
@@ -454,7 +454,7 @@ pattern = "^user$"
   applies each path to every copy of the record it carries — MCP can return
   the same payload both as structured content and serialized into a text
   block, and both are filtered. See
-  [ADR-0015](architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.md).
+  [ADR-0015](architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope.rst).
   A path that doesn't exist in a given response is a no-op, since
   `drop_fields` are authored once against a tool's general shape; the
   gateway logs a `WARN` when a policy matched a call and removed nothing.

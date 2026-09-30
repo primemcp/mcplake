@@ -152,7 +152,7 @@ func writeJSON(ctx *fasthttp.RequestCtx, status int, v any) {
 
 // handleToolCall implements POST /v1/call end to end: parse -> auth ->
 // authorize -> route -> call -> filter. See
-// docs/architecture/data.md#request-lifecycle for the sequence this
+// docs/architecture/data.rst#request-lifecycle for the sequence this
 // mirrors.
 func (g *Gateway) handleToolCall(ctx *fasthttp.RequestCtx) {
 	req, err := parseToolCallRequest(ctx)

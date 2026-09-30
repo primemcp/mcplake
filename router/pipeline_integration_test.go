@@ -15,7 +15,7 @@ import (
 // by an AccessPolicy and matches a FilterPolicy for that same (mcp, tool)
 // must have its call authorized AND the specified fields stripped from the
 // response — the full "JWT eval -> tool -> resp_filter" pipeline from
-// docs/architecture/overview.md, minus the actual HTTP/MCP transport (that's
+// docs/architecture/overview.rst, minus the actual HTTP/MCP transport (that's
 // Epic #1 ticket #9).
 func TestPolicyPipeline_AuthorizedAndFiltered(t *testing.T) {
 	claims := json.RawMessage(`{"role": "user"}`)

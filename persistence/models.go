@@ -1,8 +1,8 @@
 // Package persistence implements the GORM-backed durable store for
 // MCPRegistration, AccessPolicy, and FilterPolicy records. See
-// docs/architecture/components.md#persistence-layer-persistence,
-// docs/architecture/data.md#persistence-models-gorm, and
-// docs/architecture/decisions/0006-gorm-sqlite-postgres-persistence.md.
+// docs/architecture/components.rst#persistence-layer-persistence,
+// docs/architecture/data.rst#persistence-models-gorm, and
+// docs/architecture/decisions/0006-gorm-sqlite-postgres-persistence.rst.
 package persistence
 
 import (

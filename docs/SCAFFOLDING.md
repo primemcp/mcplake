@@ -241,4 +241,4 @@ Commit both `go.work` and each module's `go.mod` and `go.sum` files.
 8. Integrate into `cmd/gateway` main function
 9. Add HTTP server startup
 
-See [docs/OVERVIEW.md](docs/OVERVIEW.md) for detailed architecture decisions and design rationale.
+See [docs/architecture/design-history.rst](docs/architecture/design-history.rst) for detailed architecture decisions and design rationale.

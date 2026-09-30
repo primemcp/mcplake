@@ -1,7 +1,7 @@
 // Package controlplane implements the Gin-based admin API server: the
 // control-plane HTTP surface for MCP registration and access/filter policy
 // CRUD, separate from the fasthttp data plane in package internal. See
-// docs/architecture/decisions/0005-use-gin-for-control-plane-api.md.
+// docs/architecture/decisions/0005-use-gin-for-control-plane-api.rst.
 package controlplane
 
 import (

@@ -34,22 +34,24 @@ All persistent architecture documentation belongs under:
 
     /docs/architecture/
 
-Architecture documentation must be written in Markdown.
+Architecture documentation is written in reStructuredText (`.rst`) and is part
+of the Sphinx documentation site (see the documentation skill and ADR-0022).
+Add every new page to the `toctree` in `docs/architecture/index.rst`.
 
 Use architecture documents to describe the current or intended structure of
 the system.
 
 Typical documents include:
 
-- `overview.md` — high-level architecture and system boundaries
-- `components.md` — major components and their responsibilities
-- `data.md` — data architecture and data flows
-- `deployment.md` — deployment/runtime architecture
-- `security.md` — security architecture
-- `observability.md` — logging, metrics, tracing, and monitoring
-- `integration.md` — external systems and integration patterns
-- `scalability.md` — scaling and capacity considerations
-- `testing.md` — architectural testing strategy
+- `overview.rst` — high-level architecture and system boundaries
+- `components.rst` — major components and their responsibilities
+- `data.rst` — data architecture and data flows
+- `deployment.rst` — deployment/runtime architecture
+- `security.rst` — security architecture
+- `observability.rst` — logging, metrics, tracing, and monitoring
+- `integration.rst` — external systems and integration patterns
+- `scalability.rst` — scaling and capacity considerations
+- `testing.rst` — architectural testing strategy
 
 Do not create documents merely to follow the list above. Create them when the
 project actually needs the information documented.
@@ -92,9 +94,11 @@ Examples of decisions that deserve an ADR:
 
 Use sequential numeric identifiers:
 
-    0001-use-postgresql.md
-    0002-use-phoenix.md
-    0003-use-redis-for-caching.md
+    0001-use-postgresql.rst
+    0002-use-phoenix.rst
+    0003-use-redis-for-caching.rst
+
+Add each new ADR to the `toctree` in `docs/architecture/decisions/index.rst`.
 
 Before creating an ADR:
 
@@ -127,15 +131,18 @@ Do not silently rewrite history.
 
 ## ADR Format
 
-Use this format:
+Use this format (reStructuredText; section adornments `=` for the title,
+`-` for sections, `~` for subsections):
 
-```markdown
-# ADR-NNNN: Decision Title
+```rst
+ADR-NNNN: Decision Title
+========================
 
-- Status: Proposed
-- Date: YYYY-MM-DD
+:Status: Proposed
+:Date: YYYY-MM-DD
 
-## Context
+Context
+-------
 
 Describe the problem that requires a decision.
 
@@ -151,118 +158,89 @@ Include:
 
 Do not describe the solution yet.
 
-## Decision
+Decision
+--------
 
 State the decision clearly and unambiguously.
 
 Explain what will be used and how it will be used.
 
-## Alternatives Considered
+Alternatives Considered
+-----------------------
 
-### Alternative A
-
-Brief description.
-
-Advantages:
-- ...
-
-Disadvantages:
-- ...
-
-### Alternative B
+Alternative A
+~~~~~~~~~~~~~
 
 Brief description.
 
 Advantages:
+
 - ...
 
 Disadvantages:
+
 - ...
 
-### Alternative C
+(repeat for each alternative)
 
-Brief description.
-
-Advantages:
-- ...
-
-Disadvantages:
-- ...
-
-## Decision Criteria
+Decision Criteria
+-----------------
 
 Evaluate alternatives against criteria relevant to this project.
 
-Typical criteria:
-
-- Functional fit
-- Performance
-- Scalability
-- Reliability
-- Security
-- Operational complexity
-- Maintainability
-- Developer experience
-- Ecosystem maturity
-- Integration requirements
-- Resource consumption
-- Cost
-- Reversibility
+Typical criteria: functional fit, performance, scalability, reliability,
+security, operational complexity, maintainability, developer experience,
+ecosystem maturity, integration requirements, resource consumption, cost,
+reversibility.
 
 Do not include irrelevant criteria merely to make the comparison look
 comprehensive.
 
-## Rationale
+Rationale
+---------
 
 Explain why the selected option is preferable given the actual project
-constraints.---
-name: architecture
-description: 
-  This skill provides guidance on software architecture, including design patterns, best practices, and architectural principles. It can help you make informed decisions about system structure, scalability, and maintainability.
----
+constraints. Focus on trade-offs rather than generic claims.
 
+Consequences
+------------
 
-
-Focus on trade-offs rather than generic claims.
-
-## Consequences
-
-### Positive
+Positive
+~~~~~~~~
 
 - ...
 
-### Negative
+Negative
+~~~~~~~~
 
 - ...
 
-### Risks
+Risks
+~~~~~
 
 - ...
 
-### Follow-up
+Follow-up
+~~~~~~~~~
 
 - ...
 
-## Validation
+Validation
+----------
 
 If the decision requires empirical validation, document how it should be
-validated.
+validated (proof of concept, benchmark, load test, failure test, security
+review, migration test). Record actual findings here when validation has
+been performed.
 
-Examples:
-
-- proof of concept
-- benchmark
-- load test
-- failure test
-- security review
-- migration test
-
-Record actual findings here when validation has been performed.
-
-## References
+References
+----------
 
 Link to relevant documentation, research, existing architecture documents,
-or other ADRs.
+or other ADRs, using Sphinx roles so links are checked at build time:
+:doc:`/architecture/decisions/0004-unified-policy-engine-for-access-and-filtering`,
+:doc:`/architecture/components`, :issue:`123`.
+```
 
 ## Clean Architecture
 

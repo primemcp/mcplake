@@ -1,5 +1,5 @@
 // Package router implements the Policy Engine's claim-rule matching (see
-// docs/architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.md) and,
+// docs/architecture/decisions/0002-jsonpath-regexp-claim-rule-engine.rst) and,
 // built on it, claims-based routing/authorization.
 package router
 
