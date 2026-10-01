@@ -31,17 +31,18 @@ they just watched.
 Real, reproducible problems found running the actual compose demo — worth
 fixing separately from this directory's own purpose:
 
-- **Keycloak 26.0 rejects every demo login with "Account is not fully set
-  up".** The realm's default `VERIFY_PROFILE` required action (on by
-  default since Keycloak ~24, not something `mcplake-realm.json` has ever
-  had to declare) fires because the demo users' `attributes.role` custom
-  claim isn't declared in the realm's User Profile schema. Worked around
-  live for this recording session via
-  `kcadm.sh update authentication/required-actions/VERIFY_PROFILE -r mcplake -s enabled=false`
-  (not persisted — a fresh `docker compose up` hits it again). Fixing it
-  for real means either declaring `role` in the realm export's
-  `userProfile` config or disabling `VERIFY_PROFILE` in
-  `mcplake-realm.json` itself.
+- ~~**Keycloak 26.0 rejects every demo login with "Account is not fully
+  set up".**~~ **Fixed.** The realm's default `VERIFY_PROFILE` required
+  action (on by default since Keycloak ~24, not something
+  `mcplake-realm.json` had ever declared) fired because the demo users'
+  `attributes.role` custom claim isn't declared in the realm's User
+  Profile schema. During this recording session it was worked around live
+  via `kcadm.sh update authentication/required-actions/VERIFY_PROFILE -r
+  mcplake -s enabled=false`; that isn't persisted, so a fresh
+  `docker compose up` hit it again every time. Now fixed for real:
+  `mcplake-realm.json` declares `VERIFY_PROFILE` disabled in its own
+  `requiredActions` export, so a clean import never hits it — verified
+  against a real `docker compose up keycloak` with no manual patching.
 - **`demo-postgres` never registers.** The gateway's SSE client sends a
   `server/discover` probe (visible in `postgres-mcp`'s logs as a pydantic
   validation error — it doesn't recognize that method) before `initialize`,

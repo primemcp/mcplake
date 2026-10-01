@@ -30,8 +30,12 @@ Assign users (and service accounts, below) to them.
 
    Prefer roles or groups over custom user attributes. Keycloak 26's declared
    user profile manages which attributes users may have, and an attribute
-   outside the profile schema can block sign-in — the demo's
-   "Account is not fully set up" error (:issue:`209`) is of this kind.
+   outside the profile schema can block sign-in with an "Account is not
+   fully set up" error — the demo hit exactly this with its ``role``
+   attribute (:issue:`209`) and works around it by disabling the
+   ``VERIFY_PROFILE`` required action in
+   :repo:`deploy/demo/keycloak/mcplake-realm.json` rather than declaring a
+   full user-profile schema for three fixed demo users.
 
 2. Add the gateway's audience
 -----------------------------

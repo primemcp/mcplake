@@ -3,6 +3,17 @@
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
+  "requiredActions": [
+    {
+      "alias": "VERIFY_PROFILE",
+      "name": "Verify Profile",
+      "providerId": "VERIFY_PROFILE",
+      "enabled": false,
+      "defaultAction": false,
+      "priority": 90,
+      "config": {}
+    }
+  ],
   "clients": [
     {
       "clientId": "mcplake-demo",
