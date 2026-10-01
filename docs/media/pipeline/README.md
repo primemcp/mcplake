@@ -1,50 +1,49 @@
 # Pipeline recordings
 
-Source scripts for the gifs/screenshots that will illustrate the gateway's
+Source scripts for the gifs/screenshots that illustrate the gateway's
 actual request pipeline (auth → router → cache → filter, plus the control
-plane's own write path) for the README and the upcoming GitHub Pages landing
-page. This directory holds the **recording pipelines** (scripts that
-produce the media) — running them is a separate, later step from writing
-them.
+plane's own write path) for the README and the GitHub Pages landing page.
+This directory holds the **recording pipelines** (scripts that produce the
+media), and the media itself under `out/`.
 
-Every scenario runs against the real [compose demo](../../getting-started/demo.rst), using
-its real entities — `alice`/`bob`/`mcplake-admin`, `employee-directory`/
-`inventory`, `hide-sensitive-fields-get-employee` — not placeholder
-names, so a viewer who then reads that walkthrough recognizes exactly what
-they just watched.
+Every scenario runs against the real [compose demo](../../getting-started/demo.rst),
+using its real entities — `alice`/`bob`/`mcplake-admin`, `employee-directory`/
+`inventory`, `hide-sensitive-fields-get-employee` — not placeholder names,
+so a viewer who then reads that walkthrough recognizes exactly what they
+just watched.
 
 ## Scenarios
 
-| # | File | Pipeline stage | What it shows | Status |
-|---|------|-----------------|----------------|--------|
-| 01 | `tapes/01-auth-three-tokens.tape` | Auth | Three users, one Keycloak realm, one claim (`role`) that drives everything downstream. | ✅ recorded |
-| 02 | `tapes/02-filter-alice-vs-admin-get-employee.tape` | Filter (ADR-0015) | Same tool, same employee, called as alice then mcplake-admin — one response has `salary_usd`/`ssn_last4` stripped, the other doesn't. | ✅ recorded |
-| 03 | `tapes/03-router-bob-forbidden.tape` | Router — deny path | A valid token that matches no `access_policy` never reaches the MCP. | ✅ recorded |
-| 04 | `tapes/04-router-cross-mcp-grants.tape` | Router — per-MCP grants | alice's grant names one MCP; mcplake-admin's wildcard reaches both, stdio and sse alike (ADR-0017). Targets `inventory`, not `demo-postgres` — see below. | ✅ recorded |
-| 05 | `tapes/05-enabled-gate-toggle.tape` | Enabled gate | Toggling `employee-directory` off via `PATCH /admin/mcps/:name` turns a live 200 into `403 mcp_disabled`, reversibly. | ✅ recorded |
-| 06 | `browser/06-admin-oidc-signin.mjs` | Auth, from the UI | Real Authorization Code + PKCE round trip through Keycloak (ADR-0014), not a ROPC curl. | ✅ recorded |
-| 07 | `browser/07-request-path-simulation-alice.mjs` | The whole pipeline, visualized | Users & access → demo-reader → **Request path** tab — the UI's own Client/Agent → Auth Validator → Access Check → Response Filter nodes. | ✅ recorded |
-| 08 | `browser/08-inspector-register-mcp.mjs` | Control plane write path | MCP Inspector driving `/admin/mcp` itself (ADR-0011). | ⛔ blocked — see below |
+| # | File | Pipeline stage | What it shows |
+|---|------|-----------------|----------------|
+| 01 | `tapes/01-auth-three-tokens.tape` | Auth | Three users, one Keycloak realm, one claim (`role`) that drives everything downstream. |
+| 02 | `tapes/02-filter-alice-vs-admin-get-employee.tape` | Filter (ADR-0015) | Same tool, same employee, called as alice then mcplake-admin — one response has `salary_usd`/`ssn_last4` stripped, the other doesn't. |
+| 03 | `tapes/03-router-bob-forbidden.tape` | Router — deny path | A valid token that matches no `access_policy` never reaches the MCP. |
+| 04 | `tapes/04-router-cross-mcp-grants.tape` | Router — per-MCP grants | alice's grant names one MCP; mcplake-admin's wildcard reaches both, stdio and sse alike (ADR-0017). Targets `inventory`, not `demo-postgres` — see below. |
+| 05 | `tapes/05-enabled-gate-toggle.tape` | Enabled gate | Toggling `employee-directory` off via `PATCH /admin/mcps/:name` turns a live 200 into `403 mcp_disabled`, reversibly. |
+| 06 | `browser/06-admin-oidc-signin.mjs` | Auth, from the UI | Real Authorization Code + PKCE round trip through Keycloak (ADR-0014), not a ROPC curl. |
+| 07 | `browser/07-request-path-simulation-alice.mjs` | The whole pipeline, visualized | Users & access → demo-reader → **Request path** tab — the UI's own Client/Agent → Auth Validator → Access Check → Response Filter nodes. |
+| 08 | `browser/08-inspector-register-mcp.mjs` | Control plane write path | MCP Inspector driving `/admin/mcp` itself (ADR-0011) via its real `Custom Headers` panel (Inspector ≥2.9.0) — `list_mcps` over real MCP, not REST. |
 
-## Known issues hit while recording (2026-09-28)
+All eight are recorded, converted to gif, and verified frame-by-frame
+against the real running compose demo — `out/` has the result.
 
-Real, reproducible problems found running the actual compose demo — worth
-fixing separately from this directory's own purpose:
+## Issues hit while recording, and how each was resolved
 
-- ~~**Keycloak 26.0 rejects every demo login with "Account is not fully
-  set up".**~~ **Fixed.** The realm's default `VERIFY_PROFILE` required
-  action (on by default since Keycloak ~24, not something
-  `mcplake-realm.json` had ever declared) fired because the demo users'
-  `attributes.role` custom claim isn't declared in the realm's User
-  Profile schema. During this recording session it was worked around live
-  via `kcadm.sh update authentication/required-actions/VERIFY_PROFILE -r
-  mcplake -s enabled=false`; that isn't persisted, so a fresh
-  `docker compose up` hit it again every time. Now fixed for real:
-  `mcplake-realm.json` declares `VERIFY_PROFILE` disabled in its own
+Real, reproducible problems found running the actual compose demo. Two
+were genuinely ours to fix; one wasn't.
+
+- **Fixed — Keycloak 26.0 rejected every demo login with "Account is not
+  fully set up".** The realm's default `VERIFY_PROFILE` required action
+  (on by default since Keycloak ~24, not something `mcplake-realm.json`
+  had ever declared) fired because the demo users' `attributes.role`
+  custom claim isn't declared in the realm's User Profile schema. Fixed by
+  declaring `VERIFY_PROFILE` disabled in `mcplake-realm.json`'s own
   `requiredActions` export, so a clean import never hits it — verified
-  against a real `docker compose up keycloak` with no manual patching.
-- ~~**`demo-postgres` never registers.**~~ **Worked around**, not fixed —
-  this one isn't ours to fix. The gateway's SSE client always sends a
+  against a real `docker compose up keycloak` with no manual `kcadm.sh`
+  patching.
+- **Worked around, not fixed — `demo-postgres` never registers.** This one
+  isn't ours to fix. The gateway's SSE client always sends a
   `server/discover` probe (SEP-2575) before `initialize`; `postgres-mcp`'s
   Python `mcp` SDK doesn't recognize it and tears down the SSE session in
   response (visible in its logs as a pydantic `ValidationError`) instead of
@@ -53,20 +52,22 @@ fixing separately from this directory's own purpose:
   connection. `crystaldba/postgres-mcp` hasn't published a release since
   2025-05-16 (`0.3.0` is still latest), predating SEP-2575 entirely, so
   there's no newer image to move to, and this isn't a bug in our own
-  `go-sdk` usage to patch. Scenario 04 now targets `inventory` instead — a
+  `go-sdk` usage to patch. Scenario 04 targets `inventory` instead — a
   FastMCP server the demo already owns, also over `sse`, in its own
   container (`inventory-mcp`), unaffected because it's built on a current
-  MCP SDK. `demo-postgres` itself is untouched and still documents the
-  "a real third-party server, not one we wrote" story elsewhere in the demo
-  — this only affects which MCP the recording pipeline calls.
-- **MCP Inspector 2.7.0 has no manual-header field for `streamable-http`
-  servers.** `docs/DEMO.md`'s Inspector section says to paste
-  `Authorization: Bearer <token>` as a header, but the pinned image's
-  "Add server" / "Edit server" / "Server Settings" modals only offer
-  Server ID / Transport / URL (plus protocol-era options) — auth is
-  OAuth/Enterprise-IdP-only in this version. Either `docs/DEMO.md` is
-  describing an older Inspector UI, or the compose pin needs revisiting.
-  Blocks scenario 08.
+  MCP SDK. `demo-postgres` itself is untouched and still demonstrates the
+  "a real third-party server, not one we wrote" story elsewhere in the
+  demo — this only affects which MCP the recording pipeline calls.
+- **Fixed — MCP Inspector 2.7.0 had no manual-header field for
+  `streamable-http` servers.** Auth was OAuth/Enterprise-IdP-only; there
+  was no way to paste a bearer token for `/admin/mcp` at all. Inspector
+  2.9.0 adds a real `Custom Headers` panel (per-server `Settings` →
+  `Custom Headers` → `+ Add Header`). Fixed by bumping `compose.yaml`'s
+  pinned tag from `2.7.0` to `2.9.0` and updating
+  `docs/getting-started/demo.rst`'s Inspector walkthrough to describe the
+  actual UI path — verified live: added the server, set
+  `Authorization: Bearer <mcplake-admin's token>` under Custom Headers,
+  connected, and ran `list_mcps` for a real result.
 
 ## Prerequisites (for the capture step, not for reading this)
 
@@ -80,7 +81,7 @@ scripts only — not part of the shipped webui module. `node_modules` isn't
 committed; re-run `npm install` before recording again.
 
 Bring up the real demo stack first (not `mcplake-dev`/`mcplake-demo`, the
-compose stack — see [docs/DEMO.md](../../DEMO.md#running-it)):
+compose stack — see [the demo walkthrough](../../getting-started/demo.rst)):
 
 ```bash
 docker compose up -d --build
@@ -104,16 +105,12 @@ cd docs/media/pipeline/browser
 node 06-admin-oidc-signin.mjs
 ```
 
+`08-inspector-register-mcp.mjs` needs `MCPLAKE_ADMIN_TOKEN` set first —
+see the comment at its top.
+
 These record a `.webm` (via Playwright's `recordVideo`) and one payoff
 `.png`. Convert the video to a gif:
 
 ```bash
 ffmpeg -i ../out/<generated>.webm -vf "fps=12,scale=1280:-1" ../out/06-admin-oidc-signin.gif
 ```
-
-## Status
-
-01 through 07 are recorded, converted to gif, and verified frame-by-frame
-against the real running compose demo — `out/` has the result. 08 is
-blocked on the real, reproducible Inspector issue above, not on the
-recording script itself.
