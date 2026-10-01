@@ -502,8 +502,10 @@ Inspector:
 
 - Transport: **Streamable HTTP**
 - URL: ``http://localhost:9091/admin/mcp``
-- Header: ``Authorization: Bearer <mcplake-admin's token>`` — the same
-  ``$ADMIN_TOKEN`` from the sections above. ``/admin/mcp`` sits behind the
+- Add the server first, then open its **Settings** → **Custom Headers** →
+  **+ Add Header**, and set ``Authorization`` to
+  ``Bearer <mcplake-admin's token>`` — the same ``$ADMIN_TOKEN`` from the
+  sections above — before connecting. ``/admin/mcp`` sits behind the
   ``admin_auth`` gate, so alice's and bob's tokens get ``403`` here exactly as
   they do against the REST API.
 
@@ -527,13 +529,6 @@ the data plane speaks MCP to its callers too:
 ``<mcp>__<tool>``, and every call runs through the same authorization and
 field filtering as ``POST /v1/call``. See :doc:`/reference/data-plane-api`.
 
-.. warning::
-
-   Inspector 2.7.0, the version ``compose.yaml`` pins, offers only OAuth /
-   enterprise-IdP login for Streamable HTTP servers and no field for a manual
-   ``Authorization`` header (:issue:`209`). Until the demo is updated, use
-   ``curl`` or another MCP client for the authenticated endpoints above.
-
 Going around the gateway
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -556,7 +551,7 @@ this compose file:
   Keycloak's and the gateway's are.
 - Authentication is **left on**. ``DANGEROUSLY_OMIT_AUTH`` is not set and
   should not be.
-- The image tag is pinned (``2.7.0``) rather than tracking ``latest``.
+- The image tag is pinned (``2.9.0``) rather than tracking ``latest``.
 
 The pinned session token is a convenience that is *only* defensible because
 of the loopback binding — it is committed to a public repository, so anyone

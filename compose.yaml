@@ -226,7 +226,7 @@ services:
   # spawns processes, and an unauthenticated one has been a critical RCE
   # before (CVE-2025-49596).
   inspector:
-    image: ghcr.io/modelcontextprotocol/inspector:2.7.0
+    image: ghcr.io/modelcontextprotocol/inspector:2.9.0
     network_mode: "service:keycloak"
     depends_on:
       keycloak:

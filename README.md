@@ -222,7 +222,14 @@ alice's grant names `employee-directory` (stdio) and nothing else; mcplake-admin
 <img src="docs/media/pipeline/out/04-router-cross-mcp-grants.gif" alt="alice gets 403 forbidden calling inventory; mcplake-admin's wildcard grant reaches it and returns the full item list" width="420">
 
 </td>
-<td width="50%"></td>
+<td width="50%">
+
+**The control plane, as an MCP server**<br>
+MCP Inspector driving `/admin/mcp` itself (ADR-0011) — `list_mcps` called over real MCP, through the same bearer-token gate as the REST API, not a REST shortcut.
+
+<img src="docs/media/pipeline/out/08-inspector-register-mcp.gif" alt="MCP Inspector connected to the gateway's admin MCP server, calling list_mcps and getting back every registered MCP" width="420">
+
+</td>
 </tr>
 </table>
 
