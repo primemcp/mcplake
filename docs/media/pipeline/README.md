@@ -7,10 +7,10 @@ page. This directory holds the **recording pipelines** (scripts that
 produce the media) — running them is a separate, later step from writing
 them.
 
-Every scenario runs against the real [compose demo](../../DEMO.md), using
+Every scenario runs against the real [compose demo](../../getting-started/demo.rst), using
 its real entities — `alice`/`bob`/`mcplake-admin`, `employee-directory`/
-`demo-postgres`, `hide-sensitive-fields-get-employee` — not placeholder
-names, so a viewer who then reads `docs/DEMO.md` recognizes exactly what
+`inventory`, `hide-sensitive-fields-get-employee` — not placeholder
+names, so a viewer who then reads that walkthrough recognizes exactly what
 they just watched.
 
 ## Scenarios
@@ -20,7 +20,7 @@ they just watched.
 | 01 | `tapes/01-auth-three-tokens.tape` | Auth | Three users, one Keycloak realm, one claim (`role`) that drives everything downstream. | ✅ recorded |
 | 02 | `tapes/02-filter-alice-vs-admin-get-employee.tape` | Filter (ADR-0015) | Same tool, same employee, called as alice then mcplake-admin — one response has `salary_usd`/`ssn_last4` stripped, the other doesn't. | ✅ recorded |
 | 03 | `tapes/03-router-bob-forbidden.tape` | Router — deny path | A valid token that matches no `access_policy` never reaches the MCP. | ✅ recorded |
-| 04 | `tapes/04-router-cross-mcp-grants.tape` | Router — per-MCP grants | alice's grant names one MCP; mcplake-admin's wildcard reaches both, stdio and sse alike (ADR-0017). | ⛔ blocked — see below |
+| 04 | `tapes/04-router-cross-mcp-grants.tape` | Router — per-MCP grants | alice's grant names one MCP; mcplake-admin's wildcard reaches both, stdio and sse alike (ADR-0017). Targets `inventory`, not `demo-postgres` — see below. | ✅ recorded |
 | 05 | `tapes/05-enabled-gate-toggle.tape` | Enabled gate | Toggling `employee-directory` off via `PATCH /admin/mcps/:name` turns a live 200 into `403 mcp_disabled`, reversibly. | ✅ recorded |
 | 06 | `browser/06-admin-oidc-signin.mjs` | Auth, from the UI | Real Authorization Code + PKCE round trip through Keycloak (ADR-0014), not a ROPC curl. | ✅ recorded |
 | 07 | `browser/07-request-path-simulation-alice.mjs` | The whole pipeline, visualized | Users & access → demo-reader → **Request path** tab — the UI's own Client/Agent → Auth Validator → Access Check → Response Filter nodes. | ✅ recorded |
@@ -43,16 +43,22 @@ fixing separately from this directory's own purpose:
   `mcplake-realm.json` declares `VERIFY_PROFILE` disabled in its own
   `requiredActions` export, so a clean import never hits it — verified
   against a real `docker compose up keycloak` with no manual patching.
-- **`demo-postgres` never registers.** The gateway's SSE client sends a
-  `server/discover` probe (visible in `postgres-mcp`'s logs as a pydantic
-  validation error — it doesn't recognize that method) before `initialize`,
-  and `crystaldba/postgres-mcp:0.3.0`'s SSE session tears down the
-  connection in response, so the *following* `initialize` call fails with
-  `EOF`. Reproduced from a clean boot and via a manual re-register well
-  after boot — not a startup race. Blocks scenario 04 (needs a second,
-  reachable MCP on a different transport). Worth its own issue: either the
-  vendored `go-sdk`'s SSE preflight needs to tolerate an unrecognized
-  response, or the pinned `postgres-mcp` version needs to move.
+- ~~**`demo-postgres` never registers.**~~ **Worked around**, not fixed —
+  this one isn't ours to fix. The gateway's SSE client always sends a
+  `server/discover` probe (SEP-2575) before `initialize`; `postgres-mcp`'s
+  Python `mcp` SDK doesn't recognize it and tears down the SSE session in
+  response (visible in its logs as a pydantic `ValidationError`) instead of
+  answering with a JSON-RPC "method not found", so the client's *correct*
+  per-spec fallback to legacy `initialize` fails too, on the same dead
+  connection. `crystaldba/postgres-mcp` hasn't published a release since
+  2025-05-16 (`0.3.0` is still latest), predating SEP-2575 entirely, so
+  there's no newer image to move to, and this isn't a bug in our own
+  `go-sdk` usage to patch. Scenario 04 now targets `inventory` instead — a
+  FastMCP server the demo already owns, also over `sse`, in its own
+  container (`inventory-mcp`), unaffected because it's built on a current
+  MCP SDK. `demo-postgres` itself is untouched and still documents the
+  "a real third-party server, not one we wrote" story elsewhere in the demo
+  — this only affects which MCP the recording pipeline calls.
 - **MCP Inspector 2.7.0 has no manual-header field for `streamable-http`
   servers.** `docs/DEMO.md`'s Inspector section says to paste
   `Authorization: Bearer <token>` as a header, but the pinned image's
@@ -107,7 +113,7 @@ ffmpeg -i ../out/<generated>.webm -vf "fps=12,scale=1280:-1" ../out/06-admin-oid
 
 ## Status
 
-01, 02, 03, 05, 06 and 07 are recorded, converted to gif, and verified
-frame-by-frame against the real running compose demo — `out/` has the
-result. 04 and 08 are blocked on the real, reproducible issues above, not
-on the recording scripts themselves.
+01 through 07 are recorded, converted to gif, and verified frame-by-frame
+against the real running compose demo — `out/` has the result. 08 is
+blocked on the real, reproducible Inspector issue above, not on the
+recording script itself.

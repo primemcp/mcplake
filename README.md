@@ -213,6 +213,17 @@ A real Authorization Code + PKCE round trip through Keycloak, not a token pasted
 
 </td>
 </tr>
+<tr>
+<td width="50%">
+
+**Per-MCP grants, across transports**<br>
+alice's grant names `employee-directory` (stdio) and nothing else; mcplake-admin's wildcard reaches `inventory` too — a second MCP, its own container, over `sse` — same router, same code path, different transport.
+
+<img src="docs/media/pipeline/out/04-router-cross-mcp-grants.gif" alt="alice gets 403 forbidden calling inventory; mcplake-admin's wildcard grant reaches it and returns the full item list" width="420">
+
+</td>
+<td width="50%"></td>
+</tr>
 </table>
 
 More scenarios and the scripts that produced these in [`docs/media/pipeline/`](docs/media/pipeline/).
