@@ -11,12 +11,12 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0b8f86.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.27-00ADD8.svg?logo=go&logoColor=white)](go.work)
 [![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP%20%7C%20SSE%20%7C%20stdio-5b4bd6.svg)](https://modelcontextprotocol.io)
-[![Docs](https://img.shields.io/badge/docs-latest-0b8f86.svg)](https://atsokha.github.io/mcplake/latest/)
+[![Docs](https://img.shields.io/badge/docs-latest-0b8f86.svg)](https://primemcp.github.io/mcplake/latest/)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-f4b740.svg)](CONTRIBUTING.md)
 
-[Website](https://atsokha.github.io/mcplake/) ·
+[Website](https://primemcp.github.io/mcplake/) ·
 [Quickstart](#-quickstart-5-minutes) ·
-[Documentation](https://atsokha.github.io/mcplake/latest/) ·
+[Documentation](https://primemcp.github.io/mcplake/latest/) ·
 [Why mcplake](#-why-mcplake) ·
 [Comparison](#-how-it-compares) ·
 [Contributing](#-contributing)
@@ -86,7 +86,7 @@ The demo stack starts **Keycloak**, **PostgreSQL**, the **gateway**, the **admin
 **Prerequisites:** Docker with Compose (or Podman), `curl`, `jq`, and free ports `8080`, `8082`, `9090`, `9091`.
 
 ```bash
-git clone https://github.com/atsokha/mcplake.git
+git clone https://github.com/primemcp/mcplake.git
 cd mcplake
 docker compose up -d --build        # or: podman compose up -d --build
 
@@ -356,7 +356,7 @@ Bifrost, MCPX, agentgateway, ContextForge and Docker's MCP Gateway are good proj
 | Primary focus | MCP identity & data governance | LLM + MCP gateway | MCP governance platform | Agent / MCP / A2A proxy | MCP, A2A & REST federation | Containerised MCP servers |
 | Footprint | One Go binary + SQLite | Go binary | Container | Rust binary | Python service | Docker CLI plugin |
 
-<sub>✅ included · ◐ partial · 💰 / open core = requires a paid tier · — not found in public docs. Based on each project's public documentation as of September 2026. Something wrong or out of date? [Open an issue](https://github.com/atsokha/mcplake/issues) and we'll fix it.</sub>
+<sub>✅ included · ◐ partial · 💰 / open core = requires a paid tier · — not found in public docs. Based on each project's public documentation as of September 2026. Something wrong or out of date? [Open an issue](https://github.com/primemcp/mcplake/issues) and we'll fix it.</sub>
 
 **When to pick something else:** if you need LLM routing, caching and failover, use an LLM gateway (it can sit alongside mcplake). If you need Kubernetes-native traffic management across agents, A2A and MCP, look at agentgateway. If you mainly want to sandbox MCP servers in containers, use Docker's MCP Gateway.
 
@@ -479,7 +479,7 @@ mcplake is built in the open and contributions of every size are welcome — bug
 **Ways to help right now**
 
 - ⭐ **Star the repo** — it's the simplest way to help others find it.
-- 🧪 **Run the demo** and [open an issue](https://github.com/atsokha/mcplake/issues) for anything that confused you or broke.
+- 🧪 **Run the demo** and [open an issue](https://github.com/primemcp/mcplake/issues) for anything that confused you or broke.
 - 🔌 **Try it with your IdP and MCP servers** and share what worked (or didn't) — new how-to guides are very welcome.
 - 🛠 **Pick a roadmap item** — audit trail, argument-level policies and outbound credentials are great places to start.
 

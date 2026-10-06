@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/atsokha/mcplake/auth"
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/mcp"
+	"github.com/primemcp/mcplake/auth"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/mcp"
 )
 
 // fakeAuthenticator is a test double for internal.Authenticator.

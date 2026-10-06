@@ -1,14 +1,14 @@
-module github.com/atsokha/mcplake
+module github.com/primemcp/mcplake
 
 go 1.27.1
 
 require (
 	github.com/MicahParks/jwkset v0.11.1
-	github.com/atsokha/mcplake/auth v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/cache v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/filter v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/mcp v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/router v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/auth v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/cache v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/filter v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/mcp v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/router v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/modelcontextprotocol/go-sdk v1.7.0
@@ -77,10 +77,10 @@ require (
 )
 
 replace (
-	github.com/atsokha/mcplake/auth => ../auth
-	github.com/atsokha/mcplake/cache => ../cache
-	github.com/atsokha/mcplake/config => ../config
-	github.com/atsokha/mcplake/filter => ../filter
-	github.com/atsokha/mcplake/mcp => ../mcp
-	github.com/atsokha/mcplake/router => ../router
+	github.com/primemcp/mcplake/auth => ../auth
+	github.com/primemcp/mcplake/cache => ../cache
+	github.com/primemcp/mcplake/config => ../config
+	github.com/primemcp/mcplake/filter => ../filter
+	github.com/primemcp/mcplake/mcp => ../mcp
+	github.com/primemcp/mcplake/router => ../router
 )

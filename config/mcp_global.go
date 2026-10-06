@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"github.com/atsokha/mcplake/cache"
+	"github.com/primemcp/mcplake/cache"
 )
 
 // SchemaRefreshInterval is how often the gateway re-discovers every active

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/mcp"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/mcp"
 )
 
 // defaultMCPTransport matches the documented default for MCPConfig.Type in

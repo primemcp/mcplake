@@ -1,4 +1,4 @@
-module github.com/atsokha/mcplake/filter
+module github.com/primemcp/mcplake/filter
 
 go 1.27.1
 

@@ -1,25 +1,25 @@
-module github.com/atsokha/mcplake/cmd/gateway
+module github.com/primemcp/mcplake/cmd/gateway
 
 go 1.27.1
 
 replace (
-	github.com/atsokha/mcplake => ../../gateway
-	github.com/atsokha/mcplake/auth => ../../auth
-	github.com/atsokha/mcplake/cache => ../../cache
-	github.com/atsokha/mcplake/config => ../../config
-	github.com/atsokha/mcplake/filter => ../../filter
-	github.com/atsokha/mcplake/mcp => ../../mcp
-	github.com/atsokha/mcplake/router => ../../router
+	github.com/primemcp/mcplake => ../../gateway
+	github.com/primemcp/mcplake/auth => ../../auth
+	github.com/primemcp/mcplake/cache => ../../cache
+	github.com/primemcp/mcplake/config => ../../config
+	github.com/primemcp/mcplake/filter => ../../filter
+	github.com/primemcp/mcplake/mcp => ../../mcp
+	github.com/primemcp/mcplake/router => ../../router
 )
 
 require (
 	github.com/MicahParks/jwkset v0.11.1
-	github.com/atsokha/mcplake v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/auth v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/cache v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/config v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/persistence v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/router v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/auth v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/cache v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/config v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/persistence v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/router v0.0.0-00010101000000-000000000000
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/stretchr/testify v1.12.1
@@ -33,8 +33,8 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/andybalholm/brotli v1.2.2 // indirect
-	github.com/atsokha/mcplake/filter v0.0.0-00010101000000-000000000000 // indirect
-	github.com/atsokha/mcplake/mcp v0.0.0-00010101000000-000000000000 // indirect
+	github.com/primemcp/mcplake/filter v0.0.0-00010101000000-000000000000 // indirect
+	github.com/primemcp/mcplake/mcp v0.0.0-00010101000000-000000000000 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
@@ -111,4 +111,4 @@ require (
 	modernc.org/sqlite v1.23.1 // indirect
 )
 
-replace github.com/atsokha/mcplake/persistence => ../../persistence
+replace github.com/primemcp/mcplake/persistence => ../../persistence

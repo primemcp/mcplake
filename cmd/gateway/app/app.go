@@ -11,14 +11,14 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/atsokha/mcplake/auth"
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/config"
-	"github.com/atsokha/mcplake/internal"
-	"github.com/atsokha/mcplake/internal/controlplane"
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
-	"github.com/atsokha/mcplake/persistence"
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/auth"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/config"
+	"github.com/primemcp/mcplake/internal"
+	"github.com/primemcp/mcplake/internal/controlplane"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
+	"github.com/primemcp/mcplake/persistence"
+	"github.com/primemcp/mcplake/router"
 )
 
 // shutdownTimeout bounds how long Run waits for both HTTP surfaces to drain

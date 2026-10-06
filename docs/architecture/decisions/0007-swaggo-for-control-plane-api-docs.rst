@@ -10,7 +10,7 @@ Context
 :doc:`ADR-0005 </architecture/decisions/0005-use-gin-for-control-plane-api>` defines a CRUD admin API
 (``/admin/mcps``, ``/admin/access-policies``, ``/admin/filter-policies``) for registering
 MCPs and managing access/filter policies. As that surface grows (this milestone adds
-~10 endpoints across three resources, per the `Epic #4 task list <https://github.com/atsokha/mcplake/issues/4>`__),
+~10 endpoints across three resources, per the `Epic #4 task list <https://github.com/primemcp/mcplake/issues/4>`__),
 operators and future Admin/Graph UI developers need a discoverable, accurate
 reference for request/response shapes without reading Go source.
 
@@ -161,4 +161,4 @@ References
 
 - :doc:`ADR-0005 </architecture/decisions/0005-use-gin-for-control-plane-api>` — the API surface this documents.
 - :ref:`architecture-components-control-plane-api-gin`
-- Epic: https://github.com/atsokha/mcplake/issues/4
+- Epic: https://github.com/primemcp/mcplake/issues/4

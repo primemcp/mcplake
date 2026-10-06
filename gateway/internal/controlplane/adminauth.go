@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/atsokha/mcplake/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/primemcp/mcplake/auth"
 )
 
 // adminClaimsKey is the gin.Context key under which AdminAuth stashes the

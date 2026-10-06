@@ -1,8 +1,8 @@
 package internal_test
 
 import (
-	"github.com/atsokha/mcplake/internal"
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/internal"
+	"github.com/primemcp/mcplake/router"
 )
 
 // A compile-time assertion that *router.PolicyStore satisfies

@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/config"
-	"github.com/atsokha/mcplake/persistence"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/config"
+	"github.com/primemcp/mcplake/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

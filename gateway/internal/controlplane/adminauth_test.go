@@ -8,10 +8,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/atsokha/mcplake/auth"
-	"github.com/atsokha/mcplake/internal/controlplane"
-	"github.com/atsokha/mcplake/router"
 	"github.com/gin-gonic/gin"
+	"github.com/primemcp/mcplake/auth"
+	"github.com/primemcp/mcplake/internal/controlplane"
+	"github.com/primemcp/mcplake/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

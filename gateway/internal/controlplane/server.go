@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/atsokha/mcplake/internal/controlplane/docs"
 	"github.com/gin-gonic/gin"
+	_ "github.com/primemcp/mcplake/internal/controlplane/docs"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )

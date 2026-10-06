@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/atsokha/mcplake/mcp"
+	"github.com/primemcp/mcplake/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

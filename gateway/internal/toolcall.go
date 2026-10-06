@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/atsokha/mcplake/auth"
-	"github.com/atsokha/mcplake/filter"
+	"github.com/primemcp/mcplake/auth"
+	"github.com/primemcp/mcplake/filter"
 	"github.com/valyala/fasthttp"
 )
 

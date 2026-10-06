@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atsokha/mcplake/auth"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/auth"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 )

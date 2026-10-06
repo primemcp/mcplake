@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atsokha/mcplake/config"
+	"github.com/primemcp/mcplake/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

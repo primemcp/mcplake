@@ -1,4 +1,4 @@
-module github.com/atsokha/mcplake/mcp
+module github.com/primemcp/mcplake/mcp
 
 go 1.27.1
 

@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atsokha/mcplake/auth"
-	"github.com/atsokha/mcplake/cache"
+	"github.com/primemcp/mcplake/auth"
+	"github.com/primemcp/mcplake/cache"
 	"github.com/valyala/fasthttp"
 )
 

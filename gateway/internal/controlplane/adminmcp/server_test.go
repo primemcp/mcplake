@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/internal/controlplane/adminmcp"
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
-	"github.com/atsokha/mcplake/router"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/internal/controlplane/adminmcp"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
+	"github.com/primemcp/mcplake/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

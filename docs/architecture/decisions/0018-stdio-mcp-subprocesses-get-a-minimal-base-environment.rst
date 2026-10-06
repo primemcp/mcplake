@@ -28,7 +28,7 @@ entry an operator wrote (see
 :ref:`architecture-security-control-plane-access-is-host-code-execution`,
 already host code execution by design) — received all of it.
 
-This was tracked as a known gap (`#166 <https://github.com/atsokha/mcplake/issues/166>`__,
+This was tracked as a known gap (`#166 <https://github.com/primemcp/mcplake/issues/166>`__,
 split out of the initial security audit that also produced ADR-0015 and
 ADR-0016) rather than fixed alongside those, since closing it changes what
 every existing ``stdio`` MCP receives — a behavior change worth its own review,
@@ -142,7 +142,7 @@ Validation
 References
 ----------
 
-- `#166 <https://github.com/atsokha/mcplake/issues/166>`__ — the tracked finding
+- `#166 <https://github.com/primemcp/mcplake/issues/166>`__ — the tracked finding
 - :ref:`architecture-security-control-plane-access-is-host-code-execution` —
   control-plane access as host code execution
 - :doc:`ADR-0015 </architecture/decisions/0015-filter-the-tool-payload-not-the-transport-envelope>`,

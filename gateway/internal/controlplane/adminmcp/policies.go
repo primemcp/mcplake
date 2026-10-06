@@ -3,9 +3,9 @@ package adminmcp
 import (
 	"context"
 
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
-	"github.com/atsokha/mcplake/router"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
+	"github.com/primemcp/mcplake/router"
 )
 
 // claimRuleView is one {path, pattern} rule, shared by the access- and

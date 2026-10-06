@@ -9,8 +9,8 @@ package adminmcp
 import (
 	"encoding/json"
 
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
 )
 
 // serverName / serverVersion identify this MCP server to clients in the

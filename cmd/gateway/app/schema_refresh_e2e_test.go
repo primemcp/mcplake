@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atsokha/mcplake/config"
 	"github.com/golang-jwt/jwt/v5"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

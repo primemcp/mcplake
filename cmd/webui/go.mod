@@ -1,3 +1,3 @@
-module github.com/atsokha/mcplake/cmd/webui
+module github.com/primemcp/mcplake/cmd/webui
 
 go 1.27.1

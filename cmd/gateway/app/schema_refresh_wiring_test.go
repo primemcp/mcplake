@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atsokha/mcplake/cmd/gateway/app"
-	"github.com/atsokha/mcplake/config"
+	"github.com/primemcp/mcplake/cmd/gateway/app"
+	"github.com/primemcp/mcplake/config"
 	"github.com/stretchr/testify/require"
 )
 

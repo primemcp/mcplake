@@ -22,7 +22,7 @@ Prerequisites
 
 .. code-block:: bash
 
-   git clone https://github.com/atsokha/mcplake.git
+   git clone https://github.com/primemcp/mcplake.git
    cd mcplake
    docker compose up -d --build
    # or: podman compose up -d --build
