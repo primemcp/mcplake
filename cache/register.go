@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atsokha/mcplake/mcp"
+	"github.com/primemcp/mcplake/mcp"
 )
 
 // newMCPClient constructs a live connection to a downstream MCP. It's a

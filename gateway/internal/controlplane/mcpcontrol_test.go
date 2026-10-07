@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atsokha/mcplake/internal/controlplane"
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
+	"github.com/primemcp/mcplake/internal/controlplane"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

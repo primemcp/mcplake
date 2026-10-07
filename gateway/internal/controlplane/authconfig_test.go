@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/atsokha/mcplake/internal/controlplane"
 	"github.com/gin-gonic/gin"
+	"github.com/primemcp/mcplake/internal/controlplane"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -13,8 +13,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/router"
 )
 
 // Sentinel errors returned by the services, wrapped with context via

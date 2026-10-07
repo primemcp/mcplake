@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/router"
 )
 
 // AccessPolicyService performs the access-policy CRUD behind

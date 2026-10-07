@@ -1,13 +1,13 @@
-module github.com/atsokha/mcplake/config
+module github.com/primemcp/mcplake/config
 
 go 1.27.1
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/atsokha/mcplake/cache v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/mcp v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/persistence v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/router v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/cache v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/mcp v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/persistence v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/router v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.12.1
 )
 
@@ -15,7 +15,7 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/MicahParks/jwkset v0.11.1 // indirect
 	github.com/MicahParks/keyfunc/v3 v3.8.1 // indirect
-	github.com/atsokha/mcplake/auth v0.0.0-00010101000000-000000000000 // indirect
+	github.com/primemcp/mcplake/auth v0.0.0-00010101000000-000000000000 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/glebarez/sqlite v1.11.0 // indirect
@@ -53,10 +53,10 @@ require (
 )
 
 replace (
-	github.com/atsokha/mcplake/auth => ../auth
-	github.com/atsokha/mcplake/cache => ../cache
-	github.com/atsokha/mcplake/filter => ../filter
-	github.com/atsokha/mcplake/mcp => ../mcp
-	github.com/atsokha/mcplake/persistence => ../persistence
-	github.com/atsokha/mcplake/router => ../router
+	github.com/primemcp/mcplake/auth => ../auth
+	github.com/primemcp/mcplake/cache => ../cache
+	github.com/primemcp/mcplake/filter => ../filter
+	github.com/primemcp/mcplake/mcp => ../mcp
+	github.com/primemcp/mcplake/persistence => ../persistence
+	github.com/primemcp/mcplake/router => ../router
 )

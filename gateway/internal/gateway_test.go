@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atsokha/mcplake/internal"
+	"github.com/primemcp/mcplake/internal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/MicahParks/jwkset"
-	"github.com/atsokha/mcplake/cmd/gateway/app"
-	"github.com/atsokha/mcplake/config"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/primemcp/mcplake/cmd/gateway/app"
+	"github.com/primemcp/mcplake/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

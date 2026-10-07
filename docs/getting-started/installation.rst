@@ -29,7 +29,7 @@ Build
 
 .. code-block:: bash
 
-   git clone https://github.com/atsokha/mcplake.git
+   git clone https://github.com/primemcp/mcplake.git
    cd mcplake
    make build
 

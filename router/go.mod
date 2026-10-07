@@ -1,10 +1,10 @@
-module github.com/atsokha/mcplake/router
+module github.com/primemcp/mcplake/router
 
 go 1.27.1
 
 require (
-	github.com/atsokha/mcplake/auth v0.0.0-00010101000000-000000000000
-	github.com/atsokha/mcplake/filter v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/auth v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/filter v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.12.1
 	github.com/theory/jsonpath v0.12.1
 )
@@ -18,6 +18,6 @@ require (
 )
 
 replace (
-	github.com/atsokha/mcplake/auth => ../auth
-	github.com/atsokha/mcplake/filter => ../filter
+	github.com/primemcp/mcplake/auth => ../auth
+	github.com/primemcp/mcplake/filter => ../filter
 )

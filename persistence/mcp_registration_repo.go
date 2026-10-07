@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atsokha/mcplake/cache"
+	"github.com/primemcp/mcplake/cache"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

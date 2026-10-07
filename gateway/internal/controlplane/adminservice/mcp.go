@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atsokha/mcplake/cache"
+	"github.com/primemcp/mcplake/cache"
 )
 
 // DefaultMCPTransport is applied when a registration request omits the

@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/atsokha/mcplake/cmd/gateway/app"
-	"github.com/atsokha/mcplake/config"
+	"github.com/primemcp/mcplake/cmd/gateway/app"
+	"github.com/primemcp/mcplake/config"
 )
 
 func main() {

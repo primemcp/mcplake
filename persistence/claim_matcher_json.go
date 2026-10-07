@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/router"
 )
 
 // claimRuleJSON is the wire/storage shape of a router.ClaimRule: just the

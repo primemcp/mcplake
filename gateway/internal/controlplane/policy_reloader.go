@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/router"
 )
 
 // accessPolicyRepository is the behavior the access-policy admin handlers

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/internal"
-	"github.com/atsokha/mcplake/mcp"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/internal"
+	"github.com/primemcp/mcplake/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

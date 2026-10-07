@@ -3,9 +3,9 @@ package adminmcp
 import (
 	"context"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
 )
 
 // toolSchemaView is one discovered downstream tool in an mcpView.

@@ -10,10 +10,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/internal/controlplane"
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/gin-gonic/gin"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/internal/controlplane"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

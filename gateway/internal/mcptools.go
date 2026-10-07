@@ -9,9 +9,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/atsokha/mcplake/auth"
-	"github.com/atsokha/mcplake/cache"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/auth"
+	"github.com/primemcp/mcplake/cache"
 )
 
 // toolNameSeparator joins a registered MCP's name to one of its tools to

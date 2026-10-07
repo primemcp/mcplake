@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/MicahParks/jwkset"
-	"github.com/atsokha/mcplake/auth"
-	"github.com/atsokha/mcplake/internal"
-	"github.com/atsokha/mcplake/mcp"
-	"github.com/atsokha/mcplake/router"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/primemcp/mcplake/auth"
+	"github.com/primemcp/mcplake/internal"
+	"github.com/primemcp/mcplake/mcp"
+	"github.com/primemcp/mcplake/router"
 )
 
 // BenchmarkToolCall exercises the fully-wired POST /v1/call handler with

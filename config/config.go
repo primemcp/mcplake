@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/router"
 )
 
 type Config struct {

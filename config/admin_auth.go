@@ -1,6 +1,6 @@
 package config
 
-import "github.com/atsokha/mcplake/router"
+import "github.com/primemcp/mcplake/router"
 
 // AdminAuthEnabled reports whether the control-plane admin API should
 // enforce JWT authentication and the admin_auth.match claim rules. When it

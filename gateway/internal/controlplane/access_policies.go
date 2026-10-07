@@ -3,9 +3,9 @@ package controlplane
 import (
 	"net/http"
 
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
-	"github.com/atsokha/mcplake/router"
 	"github.com/gin-gonic/gin"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
+	"github.com/primemcp/mcplake/router"
 )
 
 type claimRuleDTO struct {

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/MicahParks/jwkset"
-	"github.com/atsokha/mcplake/auth"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/primemcp/mcplake/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

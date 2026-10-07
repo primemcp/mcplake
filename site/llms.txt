@@ -13,37 +13,37 @@ Key facts:
 - Configuration: a single TOML file (`[[mcps]]`, `[[access_policies]]`, `[[filter_policies]]`, `[oidc]`, `[admin_auth]`).
 - Compared with Bifrost, MCPX, agentgateway, IBM ContextForge and Docker MCP Gateway: mcplake is MCP-only (no LLM routing), puts OIDC-claims-based access control in the free open-source core, and removes response fields per caller identity using explicit JSONPath rather than pattern-based PII detection.
 - Not yet available (roadmap): audit trail and OpenTelemetry tracing, argument-level input policies, outbound credentials for downstream MCP servers, MCP OAuth protected-resource metadata.
-- Language: Go (gateway), TypeScript/React (admin UI). Repository: https://github.com/atsokha/mcplake
+- Language: Go (gateway), TypeScript/React (admin UI). Repository: https://github.com/primemcp/mcplake
 
 ## Docs
 
-- [Quickstart](https://atsokha.github.io/mcplake/latest/getting-started/quickstart.html): run Keycloak, the gateway and demo MCP servers with `docker compose up` and see allow, deny and redaction in five minutes
-- [How it works](https://atsokha.github.io/mcplake/latest/concepts/how-it-works.html): the two planes and the five-step pipeline (authenticate, authorize, route, call, filter)
-- [Claim rules](https://atsokha.github.io/mcplake/latest/concepts/claim-rules.html): JSONPath + regular-expression matching over JWT claims
-- [Access policies](https://atsokha.github.io/mcplake/latest/concepts/access-policies.html): granting MCP servers and tools by claims
-- [Response filtering](https://atsokha.github.io/mcplake/latest/concepts/response-filtering.html): field-level filtering, payload copies and fail-closed behaviour
-- [Configuration reference](https://atsokha.github.io/mcplake/latest/reference/configuration.html): every TOML key
-- [Data-plane API](https://atsokha.github.io/mcplake/latest/reference/data-plane-api.html): `/v1/mcp`, `/v1/sse`, `POST /v1/call` and status codes
+- [Quickstart](https://primemcp.github.io/mcplake/latest/getting-started/quickstart.html): run Keycloak, the gateway and demo MCP servers with `docker compose up` and see allow, deny and redaction in five minutes
+- [How it works](https://primemcp.github.io/mcplake/latest/concepts/how-it-works.html): the two planes and the five-step pipeline (authenticate, authorize, route, call, filter)
+- [Claim rules](https://primemcp.github.io/mcplake/latest/concepts/claim-rules.html): JSONPath + regular-expression matching over JWT claims
+- [Access policies](https://primemcp.github.io/mcplake/latest/concepts/access-policies.html): granting MCP servers and tools by claims
+- [Response filtering](https://primemcp.github.io/mcplake/latest/concepts/response-filtering.html): field-level filtering, payload copies and fail-closed behaviour
+- [Configuration reference](https://primemcp.github.io/mcplake/latest/reference/configuration.html): every TOML key
+- [Data-plane API](https://primemcp.github.io/mcplake/latest/reference/data-plane-api.html): `/v1/mcp`, `/v1/sse`, `POST /v1/call` and status codes
 
 ## Use cases
 
-- [Redact sensitive fields](https://atsokha.github.io/mcplake/latest/use-cases/redact-sensitive-fields.html)
-- [Read-only vs read-write access](https://atsokha.github.io/mcplake/latest/use-cases/read-only-and-read-write.html)
-- [Per-user and per-server access](https://atsokha.github.io/mcplake/latest/use-cases/per-user-and-per-server-access.html)
-- [Connect MCP clients (Claude Code, Cursor, MCP Inspector)](https://atsokha.github.io/mcplake/latest/use-cases/connect-mcp-clients.html)
-- [Put a stdio MCP server behind SSO](https://atsokha.github.io/mcplake/latest/use-cases/stdio-server-behind-sso.html)
-- [Air-gapped deployment](https://atsokha.github.io/mcplake/latest/use-cases/air-gapped-deployment.html)
-- [Let an agent operate the gateway](https://atsokha.github.io/mcplake/latest/use-cases/agent-operated-gateway.html)
+- [Redact sensitive fields](https://primemcp.github.io/mcplake/latest/use-cases/redact-sensitive-fields.html)
+- [Read-only vs read-write access](https://primemcp.github.io/mcplake/latest/use-cases/read-only-and-read-write.html)
+- [Per-user and per-server access](https://primemcp.github.io/mcplake/latest/use-cases/per-user-and-per-server-access.html)
+- [Connect MCP clients (Claude Code, Cursor, MCP Inspector)](https://primemcp.github.io/mcplake/latest/use-cases/connect-mcp-clients.html)
+- [Put a stdio MCP server behind SSO](https://primemcp.github.io/mcplake/latest/use-cases/stdio-server-behind-sso.html)
+- [Air-gapped deployment](https://primemcp.github.io/mcplake/latest/use-cases/air-gapped-deployment.html)
+- [Let an agent operate the gateway](https://primemcp.github.io/mcplake/latest/use-cases/agent-operated-gateway.html)
 
 ## Operations
 
-- [Configure Keycloak](https://atsokha.github.io/mcplake/latest/how-to/configure-keycloak.html)
-- [Deploy in production](https://atsokha.github.io/mcplake/latest/how-to/deploy-in-production.html)
-- [Secure the control plane](https://atsokha.github.io/mcplake/latest/how-to/secure-the-control-plane.html)
-- [Use PostgreSQL](https://atsokha.github.io/mcplake/latest/how-to/use-postgresql.html)
+- [Configure Keycloak](https://primemcp.github.io/mcplake/latest/how-to/configure-keycloak.html)
+- [Deploy in production](https://primemcp.github.io/mcplake/latest/how-to/deploy-in-production.html)
+- [Secure the control plane](https://primemcp.github.io/mcplake/latest/how-to/secure-the-control-plane.html)
+- [Use PostgreSQL](https://primemcp.github.io/mcplake/latest/how-to/use-postgresql.html)
 
 ## Optional
 
-- [Full LLM-oriented summary](https://atsokha.github.io/mcplake/llms-full.txt)
-- [Architecture decision records](https://atsokha.github.io/mcplake/latest/architecture/decisions/index.html)
-- [Source code and README](https://github.com/atsokha/mcplake)
+- [Full LLM-oriented summary](https://primemcp.github.io/mcplake/llms-full.txt)
+- [Architecture decision records](https://primemcp.github.io/mcplake/latest/architecture/decisions/index.html)
+- [Source code and README](https://github.com/primemcp/mcplake)

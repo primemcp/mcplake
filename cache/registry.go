@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/atsokha/mcplake/mcp"
+	"github.com/primemcp/mcplake/mcp"
 )
 
 // Registration status values. See ADR-0003 for the state machine: a

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atsokha/mcplake/persistence"
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/persistence"
+	"github.com/primemcp/mcplake/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

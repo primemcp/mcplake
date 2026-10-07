@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/router"
 )
 
 // seedField is one config-owned attribute of a seeded entry, rendered as

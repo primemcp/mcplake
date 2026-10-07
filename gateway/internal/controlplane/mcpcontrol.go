@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/atsokha/mcplake/internal/controlplane/adminmcp"
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/gin-gonic/gin"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/primemcp/mcplake/internal/controlplane/adminmcp"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
 )
 
 // RegisterMCPControlServer mounts the MCP control server (ADR-0011) as a

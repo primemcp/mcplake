@@ -1,9 +1,9 @@
-module github.com/atsokha/mcplake/cache
+module github.com/primemcp/mcplake/cache
 
 go 1.27.1
 
 require (
-	github.com/atsokha/mcplake/mcp v0.0.0-00010101000000-000000000000
+	github.com/primemcp/mcplake/mcp v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.12.1
 )
 
@@ -20,4 +20,4 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 )
 
-replace github.com/atsokha/mcplake/mcp => ../mcp
+replace github.com/primemcp/mcplake/mcp => ../mcp

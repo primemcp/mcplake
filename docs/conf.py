@@ -41,7 +41,7 @@ exclude_patterns = [
 nitpicky = False
 todo_include_todos = False
 
-repo_url = "https://github.com/atsokha/mcplake"
+repo_url = "https://github.com/primemcp/mcplake"
 extlinks = {
     "issue": (f"{repo_url}/issues/%s", "#%s"),
     "pr": (f"{repo_url}/pull/%s", "PR #%s"),

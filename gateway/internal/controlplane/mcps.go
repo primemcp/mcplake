@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/gin-gonic/gin"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
 )
 
 type mcpHandlers struct {

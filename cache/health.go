@@ -8,7 +8,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/atsokha/mcplake/mcp"
+	"github.com/primemcp/mcplake/mcp"
 )
 
 // healthProbeTimeout bounds the `ping` a health check sends to an active

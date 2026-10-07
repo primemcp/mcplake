@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/atsokha/mcplake/internal/controlplane/adminservice"
 	"github.com/gin-gonic/gin"
+	"github.com/primemcp/mcplake/internal/controlplane/adminservice"
 )
 
 // errorResponse is the structured error body every admin handler returns on

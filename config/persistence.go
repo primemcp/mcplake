@@ -1,6 +1,6 @@
 package config
 
-import "github.com/atsokha/mcplake/persistence"
+import "github.com/primemcp/mcplake/persistence"
 
 // PersistenceConfig converts the Persistence entry into a persistence.Config,
 // ready to pass to persistence.Open. This is the only place the YAML shape

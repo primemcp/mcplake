@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atsokha/mcplake/cache"
-	"github.com/atsokha/mcplake/persistence"
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/cache"
+	"github.com/primemcp/mcplake/persistence"
+	"github.com/primemcp/mcplake/router"
 )
 
 // Seed writes c's mcps/access_policies/filter_policies entries into the

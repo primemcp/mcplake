@@ -9,7 +9,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/atsokha/mcplake/internal/controlplane"
+	"github.com/primemcp/mcplake/internal/controlplane"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

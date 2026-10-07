@@ -1,4 +1,4 @@
-module github.com/atsokha/mcplake/auth
+module github.com/primemcp/mcplake/auth
 
 go 1.27.1
 

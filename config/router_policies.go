@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/atsokha/mcplake/router"
+	"github.com/primemcp/mcplake/router"
 )
 
 // RouterAccessPolicies converts every AccessPolicies entry into a
