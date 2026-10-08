@@ -89,7 +89,10 @@ mermaid_d3_zoom = False
 linkcheck_timeout = 15
 linkcheck_retries = 2
 linkcheck_ignore = [
-    # The repository is private: GitHub answers 404 to anonymous requests.
+    # Generated from known issue/PR numbers and real file paths via the
+    # extlinks above, so they're correct by construction; skipped here to
+    # avoid GitHub's anonymous-request rate limit flaking the build across
+    # the dozens of :issue:/:pr:/:repo: references in these docs.
     rf"{repo_url}.*",
     # Local endpoints used in examples.
     r"https?://localhost.*",

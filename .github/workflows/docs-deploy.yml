@@ -1,0 +1,129 @@
+name: Deploy docs site
+
+# ADR-0022: GitHub Pages serves the static landing page (site/, always
+# from develop -- it's the one living copy, not versioned per release) at
+# the root, with the Sphinx docs published underneath as /stable/ (built
+# from main) and /latest/ (built from develop). One workflow builds and
+# deploys all three together.
+#
+# The stable and latest builds are intentionally independent jobs with
+# continue-on-error: true, not a matrix the deploy job needs outright --
+# until main has caught up with develop's docs (see #234), a push to
+# develop would otherwise fail the whole deploy because main's build has
+# nothing to build from. Once both branches carry the Sphinx sources this
+# degrades to "both always succeed," which is the steady state ADR-0022
+# describes; it just doesn't require that to be true to ship /latest/.
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-root
+          path: site/
+          include-hidden-files: true
+
+  build-docs-stable:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.9.x"
+
+      - id: build
+        working-directory: docs
+        env:
+          DOCS_VERSION: stable
+          DOCS_BRANCH: main
+        run: uv run --frozen sphinx-build -b html . _build/html
+
+      - if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-stable
+          path: docs/_build/html
+
+  build-docs-latest:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.9.x"
+
+      - id: build
+        working-directory: docs
+        env:
+          DOCS_VERSION: latest
+          DOCS_BRANCH: develop
+        run: uv run --frozen sphinx-build -b html . _build/html
+
+      - if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-latest
+          path: docs/_build/html
+
+  deploy:
+    needs: [build-site, build-docs-stable, build-docs-latest]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Assemble the Pages tree
+        run: mkdir -p pages/stable pages/latest
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-root
+          path: pages
+
+      # Each absent until its build job actually produced one -- see the
+      # header comment. continue-on-error here means "ship what we have."
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: docs-stable
+          path: pages/stable
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: docs-latest
+          path: pages/latest
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
