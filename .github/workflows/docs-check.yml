@@ -1,0 +1,26 @@
+name: Docs check
+
+# ADR-0022: the docs build is strict (warnings are errors) and gates PRs
+# that touch docs/ -- a broken cross-reference fails here, not in review.
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.9.x"
+
+      - name: make docs-check
+        run: make docs-check
