@@ -1,0 +1,24 @@
+[project]
+name = "mcplake-docs"
+version = "0.1.0"
+description = "Documentation site for mcplake, the claims-aware MCP gateway"
+readme = "README.rst"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+    "sphinx>=9.1",
+    "furo>=2025.12.19",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.7",
+    "sphinxcontrib-mermaid>=2.1",
+    "sphinxcontrib-openapi>=0.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "sphinx-autobuild>=2025.8.25",
+]
+
+# docs/ is a documentation project, not an installable package.
+[tool.uv]
+package = false

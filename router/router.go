@@ -3,7 +3,7 @@ package router
 import (
 	"fmt"
 
-	"github.com/atsokha/mcplake/auth"
+	"github.com/primemcp/mcplake/auth"
 )
 
 type Router struct {

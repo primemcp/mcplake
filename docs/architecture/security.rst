@@ -1,0 +1,182 @@
+Security Architecture
+=====================
+
+This document describes the gateway's trust boundaries and the authentication
+and authorization applied at each one. It is a map of *what is enforced where*;
+the rationale for each mechanism lives in the referenced ADRs.
+
+Surfaces and trust boundaries
+-----------------------------
+
+The gateway exposes two independent HTTP listeners
+(:doc:`overview </architecture/overview>`, :doc:`ADR-0001 </architecture/decisions/0001-use-fasthttp-for-gateway-server>`,
+:doc:`ADR-0005 </architecture/decisions/0005-use-gin-for-control-plane-api>`):
+
++---------------+-------------------------------+-----------------+-------------------+
+| Surface       | Listener                      | Callers         | Trust boundary    |
++===============+===============================+=================+===================+
+| Data plane    | ``server.data_plane_addr``    | AI agents       | Untrusted — every |
+|               |                               |                 | request is        |
+|               |                               |                 | authenticated and |
+|               |                               |                 | authorized.       |
++---------------+-------------------------------+-----------------+-------------------+
+| Control plane | ``server.control_plane_addr`` | Operators, the  | **Host-level** —  |
+|               |                               | admin web UI,   | see below.        |
+|               |                               | MCP admin       | Authenticated +   |
+|               |                               | clients         | claim-gated when  |
+|               |                               |                 | ``admin_auth`` is |
+|               |                               |                 | set; **must**     |
+|               |                               |                 | still be          |
+|               |                               |                 | network-isolated. |
++---------------+-------------------------------+-----------------+-------------------+
+
+Downstream MCP servers are treated as trusted infrastructure the operator
+configured; the gateway is the client to them, not a server.
+
+.. _architecture-security-control-plane-access-is-host-code-execution:
+
+Control-plane access is host code execution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Registering an MCP supplies the command and argv the gateway then runs
+(``mcp.NewClient`` → ``exec.CommandContext``), so anyone who can call
+``POST /admin/mcps`` — or the equivalent ``register_mcp`` tool on ``/admin/mcp`` —
+can execute an arbitrary program as the gateway process. That is the
+feature, not a defect: launching stdio MCP servers is what the gateway does
+(:doc:`ADR-0003 </architecture/decisions/0003-dynamic-mcp-registration-and-schema-discovery>`).
+Two consequences worth stating plainly:
+
+- The subprocess starts *before* the gateway has verified that it speaks MCP,
+  so a failed registration (``502 registration_failed``) means the program has
+  already run. It is also bound to the gateway's lifetime, not the request's.
+- ``admin_auth`` is a single "is an admin" gate with no per-operation RBAC, so
+  there is no lower-trust admin tier. An operator trusted only to toggle
+  ``enabled`` has the same host-level reach as any other.
+
+Treat control-plane credentials as host credentials.
+
+The subprocess does not, however, inherit the gateway's own process
+environment — only a minimal documented base set plus whatever the MCP's own
+``env`` declares; see :doc:`ADR-0018 </architecture/decisions/0018-stdio-mcp-subprocesses-get-a-minimal-base-environment>`.
+
+.. _architecture-security-the-browser-is-inside-the-network-perimeter:
+
+The browser is inside the network perimeter
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+"Bind ``control_plane_addr`` to a trusted interface" is necessary but not
+sufficient: a page an operator merely visits runs inside that perimeter and
+can issue requests to ``localhost``. Cross-origin requests escape preflight
+only as *simple requests* — GET/HEAD/POST with ``text/plain``,
+``application/x-www-form-urlencoded`` or ``multipart/form-data`` — and Gin's
+``ShouldBindJSON`` parses a body as JSON whatever its declared type, so such a
+request would otherwise reach a write handler.
+
+The control plane therefore refuses any ``POST``/``PUT``/``PATCH`` that does not
+declare ``Content-Type: application/json``, answering ``415 unsupported_media_type`` before authentication runs. That closes both halves
+of the attack:
+
+- A simple-request content type reaches the listener without a preflight and
+  is refused on its media type, so no handler runs.
+- ``application/json`` is not a simple content type, so the browser must
+  preflight first — and the control plane answers no CORS headers at all, so
+  the browser never sends the request.
+
+``DELETE`` and ``GET`` are exempt: they carry no body here, and a cross-origin
+``DELETE`` already requires a preflight of its own.
+
+This is a structural defence, not a token: there is no CSRF token to manage
+because the admin API is bearer-only and holds no ambient credentials — the
+web UI sends ``Authorization`` from ``sessionStorage``, never a cookie
+(:doc:`ADR-0014 </architecture/decisions/0014-admin-ui-oidc-pkce-login>`).
+
+Data-plane authentication & authorization
+-----------------------------------------
+
+Per request to ``POST /v1/call``
+(:doc:`data-plane API </reference/data-plane-api>`, :ref:`data lifecycle <architecture-data-request-lifecycle>`):
+
+1. **Authentication** — ``auth.Validator`` verifies the ``Bearer`` JWT's signature
+   against the OIDC provider's JWKS (cached, background-refreshed) and checks
+   ``exp`` / ``iss`` / ``aud``
+   (:doc:`ADR-0002 </architecture/decisions/0002-jsonpath-regexp-claim-rule-engine>`). Failure ⇒
+   ``401``.
+2. **Authorization** — the unified policy engine evaluates the caller's decoded
+   claims against ``access_policies`` (claim-match + ``(mcp, tool)`` grant)
+   (:doc:`ADR-0004 </architecture/decisions/0004-unified-policy-engine-for-access-and-filtering>`).
+   No matching grant ⇒ ``403``, checked before resource existence so a missing
+   grant never discloses whether an MCP/tool exists.
+3. **Response filtering** — ``filter_policies`` strip fields from the tool
+   response by claim-match (:doc:`ADR-0004 </architecture/decisions/0004-unified-policy-engine-for-access-and-filtering>`). This is data minimization, not access
+   control.
+
+Control-plane authentication & authorization
+--------------------------------------------
+
+Per request to ``/admin/*`` except ``GET /admin/healthz``
+(:ref:`admin API <reference-admin-api-authentication>`,
+:doc:`ADR-0010 </architecture/decisions/0010-control-plane-admin-authentication>`):
+
+1. **Authentication** — the *same* ``auth.Validator`` and OIDC configuration as
+   the data plane verify the ``Bearer`` JWT. There is no separate admin identity
+   provider (a possible future ``admin_auth.oidc`` override is an ADR-0010
+   follow-up). Failures ⇒ ``401 missing_authorization`` / ``invalid_authorization``
+   / ``unauthorized``.
+2. **Authorization** — the decoded claims are tested against ``admin_auth.match``,
+   a list of ``{path, pattern}`` claim rules (ADR-0002 syntax, ANDed) kept in the
+   **config file, not the database**: the guard must not live inside the store
+   it guards, and there must be no path for an admin API call to grant itself
+   admin. Claims failing any rule ⇒ ``403 forbidden``. A matcher error fails
+   closed (``403``).
+3. **Scope** — the gate covers MCP registration, access/filter policy CRUD, the
+   Swagger UI, and (when enabled) the ``/admin/mcp`` MCP control server
+   (:doc:`ADR-0011 </architecture/decisions/0011-mcp-control-server>`), which inherits it by
+   being mounted under ``/admin``. ``GET /admin/healthz`` is exempt for liveness
+   probes.
+
+Backward-compatible default
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If ``admin_auth`` is absent or ``enabled = false``, the control plane is
+**unauthenticated** and the gateway logs a prominent startup ``WARN``. This
+preserves existing deployments. Operators opt in by adding ``admin_auth.match``;
+the web UI signs in through the OIDC provider and attaches a token
+(:doc:`ADR-0014 </architecture/decisions/0014-admin-ui-oidc-pkce-login>`), so enabling the gate
+no longer breaks it.
+
+Until then, network isolation of ``control_plane_addr`` is the only *authentication*
+control — and, per "The browser is inside the network perimeter" above, it is
+not by itself enough. ``config.example.toml`` binds loopback for this reason.
+
+.. _architecture-security-known-gaps-tracked-not-defects:
+
+Known gaps (tracked, not defects)
+---------------------------------
+
+- No audit trail of admin actions yet; the verified ``auth.Claims.Subject`` is
+  stashed on the request context for the future Phase 3 audit log.
+- No per-operation RBAC on the control plane — ``admin_auth`` is a single
+  "is an admin" gate.
+- No rate limiting or request-size limits on either surface
+  (:ref:`data-plane API <reference-data-plane-api-current-limitations-tracked-not-bugs>`).
+- TLS termination for both listeners is still a ``// TODO`` in
+  ``config.ServerConfig``; run behind a TLS-terminating proxy. The :doc:`configuration reference </reference/configuration>`
+  used to show commented-out ``tls.cert_file`` / ``tls.key_file`` keys that the
+  loader ignored, so an operator could believe they had enabled TLS when
+  they had not; those are gone. The URLs the gateway and the admin UI fetch
+  — ``oidc.jwks_url`` and the ``admin_auth.login`` endpoints — must now be
+  ``https`` unless their host is loopback, so the JWKS (the root of trust for
+  every token) and the PKCE exchange are at least not configured onto
+  plaintext by accident.
+- The control plane's "open + warn" default is not fail-closed; a future major
+  version may flip it.
+
+References
+----------
+
+- :doc:`ADR-0002 </architecture/decisions/0002-jsonpath-regexp-claim-rule-engine>` — JWT claim-rule engine
+- :doc:`ADR-0004 </architecture/decisions/0004-unified-policy-engine-for-access-and-filtering>` — unified access/filter policy engine
+- :doc:`ADR-0005 </architecture/decisions/0005-use-gin-for-control-plane-api>` — control-plane surface
+- :doc:`ADR-0010 </architecture/decisions/0010-control-plane-admin-authentication>` — control-plane admin authentication
+- :doc:`ADR-0011 </architecture/decisions/0011-mcp-control-server>` — MCP control server (inherits the admin gate)
+- :doc:`ADR-0018 </architecture/decisions/0018-stdio-mcp-subprocesses-get-a-minimal-base-environment>` — stdio MCP subprocess environment isolation

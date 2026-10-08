@@ -1,0 +1,5 @@
+fastmcp==4.0.5
+# Invoked directly as the ASGI server for project_tracker.py and inventory.py
+# (see ./Dockerfile). Already a fastmcp dependency; pinned so the version
+# that serves them does not move under the demo.
+uvicorn==0.53.0

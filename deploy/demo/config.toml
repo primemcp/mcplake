@@ -1,0 +1,156 @@
+# mcplake Gateway - compose demo configuration. See config.example.toml for
+# the full annotated reference and docs/getting-started/demo.rst for how this file is used.
+
+[server]
+# 8080 is Keycloak's port: the gateway container shares Keycloak's network
+# namespace (see compose.yaml), so these must not collide with it or with
+# each other.
+data_plane_addr = ":9090"
+# Bound to all interfaces (not the usual loopback-only default) and published
+# in compose.yaml so the admin web UI is reachable from the host browser.
+# README.md's "widen it only once admin_auth is configured" caveat is why
+# that's paired with the [admin_auth] section below rather than left open.
+control_plane_addr = ":9091"
+
+[oidc]
+# Reached over loopback because the gateway container shares Keycloak's
+# network namespace (network_mode: "service:keycloak" in compose.yaml) -
+# config.validateSecureHTTPURL requires https everywhere except a loopback
+# host, and this genuinely is one, not a bypass of that check.
+jwks_url = "http://localhost:8080/realms/mcplake/protocol/openid-connect/certs"
+issuer = "http://localhost:8080/realms/mcplake"
+audience = "mcplake-demo"
+
+[persistence]
+driver = "postgres"
+dsn = "postgres://gateway:gateway@postgres:5432/gateway?sslmode=disable"
+
+# The dummy MCP: a small FastMCP server (deploy/demo/mcp-servers/), run as a
+# subprocess inside the gateway's own container (mcp.Client only speaks
+# stdio - see ADR-0003). Three tools over an in-memory fictional employee
+# directory - list_employees/get_employee carry sensitive fields the
+# filter_policies below strip; list_departments has nothing sensitive to
+# strip, on purpose, for contrast.
+[[mcps]]
+name = "employee-directory"
+type = "stdio"
+command = "python3"
+arguments = ["/opt/mcplake/demo-mcp/employee_directory.py"]
+
+# The second MCP, and the contrast: a real server (crystaldba/postgres-mcp)
+# in its own container, reached over the network instead of being a
+# subprocess of the gateway. ADR-0017.
+#
+# The URL is loopback because compose puts that container in the same
+# network namespace as this one, so mcp.ValidateEndpointURL's "https, or
+# http only on a loopback host" rule is satisfied honestly rather than
+# waived. Point this at a hostname and the gateway will refuse to start,
+# which is the intended answer: put TLS in front of it.
+#
+# It exposes SQL tools (list_schemas, list_objects, execute_sql, ...) over
+# the demo database. Nothing here filters its responses -- see
+# docs/getting-started/demo.rst on why that is a property of the server's response shape,
+# not of the filter engine.
+[[mcps]]
+name = "demo-postgres"
+type = "sse"
+url = "http://localhost:8000/sse"
+
+# Two more remote MCPs, both small FastMCP servers this repo owns
+# (deploy/demo/mcp-servers/), each served as an ASGI app by uvicorn in its own
+# container - see compose.yaml. One per network transport, so the demo has an
+# endpoint on every transport the gateway speaks: stdio above, Streamable
+# HTTP here, and sse twice (this one, and postgres-mcp as a third-party
+# server). Loopback for the same reason as demo-postgres above.
+[[mcps]]
+name = "project-tracker"
+type = "http"
+url = "http://localhost:8001/mcp"
+
+[[mcps]]
+name = "inventory"
+type = "sse"
+url = "http://localhost:8002/sse"
+
+# "alice" (role=db-reader) is granted employee-directory and ONLY
+# employee-directory. She gets 403 on demo-postgres (and on project-tracker
+# and inventory), which mcplake-admin's
+# wildcard grant below does reach - two MCPs with different policies, which
+# is what a per-MCP grant is for. "bob" (role=guest) matches no policy at
+# all and gets 403 on both. See docs/getting-started/demo.rst.
+[[access_policies]]
+name = "demo-reader"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+[[access_policies.grants]]
+mcp = "employee-directory"
+tools = ["*"]
+
+# Field-level filtering (ADR-0015): alice (role=db-reader) can call these
+# tools but never sees salary/SSN; admin's wildcard grant above isn't
+# subject to either filter, so mcplake-admin sees the same calls
+# unfiltered - see docs/getting-started/demo.rst for the side-by-side.
+#
+# get_employee returns its record unwrapped, so the paths are bare; the
+# FastMCP result-wrapping rules take a different shape:
+#   - a tool returning one Pydantic model -> structuredContent *is* the
+#     record, hence "$.salary_usd" here;
+[[filter_policies]]
+name = "hide-sensitive-fields-get-employee"
+mcp = "employee-directory"
+tool = "get_employee"
+drop_fields = ["$.salary_usd", "$.ssn_last4"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+
+#   - list_employees returns a named `employees` field instead of a bare
+#     list on purpose (see employee_directory.py's docstring on it): a bare
+#     `list[Employee]` return gets wrapped as {"result": [...]} in
+#     structuredContent by FastMCP, but the human-readable text copy of the
+#     same result stays a bare array - two different shapes for one tool,
+#     and "$.result[*].ssn_last4" would silently miss the text copy,
+#     leaking the field through it. The named field keeps both copies
+#     identically shaped, so one path reaches both.
+[[filter_policies]]
+name = "hide-sensitive-fields-list-employees"
+mcp = "employee-directory"
+tool = "list_employees"
+drop_fields = ["$.employees[*].salary_usd", "$.employees[*].ssn_last4"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+
+[[access_policies]]
+name = "admin"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^admin$"
+[[access_policies.grants]]
+mcp = "*"
+tools = ["*"]
+
+# Gates /admin/* (the JSON API and the embedded web UI's calls to it) and
+# tells the UI how to sign in - ADR-0010 and ADR-0014. Only "admin"
+# (role=admin) is let in; alice and bob authenticate fine at Keycloak but get
+# 403 here, same as they would against a real deployment's admin API.
+[[admin_auth.match]]
+path = "$.role"
+pattern = "^admin$"
+
+# The same admin operations as /admin/*, exposed as MCP tools on the control
+# plane (ADR-0011). Off by default everywhere else; on here so the demo's MCP
+# Inspector container has something to connect to, and so administering the
+# gateway over MCP is something you can actually try rather than read about.
+#
+# It mounts at /admin/mcp, which puts it behind the admin_auth gate above -
+# a caller needs mcplake-admin's token, exactly like the REST API. Do not
+# enable this on a control plane that is reachable more widely than yours.
+[admin_mcp]
+enabled = true
+
+[admin_auth.login]
+client_id = "mcplake-demo"
+authorization_endpoint = "http://localhost:8080/realms/mcplake/protocol/openid-connect/auth"
+token_endpoint = "http://localhost:8080/realms/mcplake/protocol/openid-connect/token"

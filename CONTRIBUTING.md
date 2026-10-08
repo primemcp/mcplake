@@ -1,78 +1,31 @@
-# Contributing to MCP Gateway
+# Contributing to mcplake
 
-We welcome contributions to the MCP Gateway project! This document provides guidelines and instructions for contributing.
+Contributions are welcome. The full contributor guide is part of the
+documentation:
 
-## Getting Started
+- [Contributing](docs/development/contributing.rst) — issues, branches, pull requests and review
+- [Repository and workspace](docs/development/workspace.rst) — modules, layout and `make` targets
+- [Testing](docs/development/testing.rst)
+- [Admin web UI development](docs/development/admin-ui.rst)
+- [Writing documentation](docs/development/documentation.rst)
 
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-username/mcp-gateway.git`
-3. Add upstream: `git remote add upstream https://github.com/mcp-gateway/mcp-gateway.git`
-4. Create a feature branch: `git checkout -b feature/your-feature`
+## In short
 
-## Development Setup
+1. Start from a GitHub issue.
+2. Branch from `develop` as `feature/<issue-number>_<short_title>`.
+3. Include tests and documentation with the change.
+4. Run `make check` (and `make ui-test` / `make docs-check` if you touched the UI or docs).
+5. Open a pull request into `develop` that references the issue.
 
 ### Prerequisites
 
-- Go 1.22 or later
-- Make
+- Go 1.27.1 or later
+- [Bun](https://bun.sh) for the admin web UI
+- [uv](https://docs.astral.sh/uv/) for the documentation
 
-### Building
+The dev container in `.devcontainer/` has all of them.
 
-```bash
-go build -o mcp-gateway ./cmd/gateway
-```
+## License
 
-### Running Tests
-
-```bash
-go test ./...
-```
-
-## Contribution Guidelines
-
-### Code Style
-
-- Follow Go conventions (use `gofmt`, `golint`)
-- Keep functions small and focused
-- Use clear, descriptive names
-- Add comments for non-obvious logic
-
-### Commit Messages
-
-- Use clear, descriptive commit messages
-- Start with a verb (Add, Fix, Implement, Refactor)
-- Reference issues when applicable: "Fixes #123"
-
-### Pull Requests
-
-1. Create a descriptive PR title
-2. Include a summary of changes
-3. Reference any related issues
-4. Ensure all tests pass
-5. Keep PRs focused (one feature/fix per PR when possible)
-
-## Testing
-
-- Add tests for new features
-- Ensure existing tests pass
-- Aim for >80% code coverage
-
-## Documentation
-
-- Update README if behavior changes
-- Add doc comments to public APIs
-- Update architecture docs if design changes
-
-## Community
-
-- Be respectful and constructive
-- Help review other contributors' work
-- Share ideas and feedback
-
-## Questions?
-
-- Open an issue for questions or clarifications
-- Check existing issues first
-- Use discussions for non-bug topics
-
-Thank you for contributing!
+By contributing, you agree that your contributions are licensed under the
+Apache License 2.0.

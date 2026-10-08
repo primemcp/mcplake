@@ -1,0 +1,240 @@
+# Turnkey demo stack for the mcplake gateway. `docker compose up --build` or
+# `podman compose up --build` brings up:
+#   - Keycloak, as the OIDC provider (a realm is pre-imported, so three demo
+#     users - alice/alice, bob/bob, mcplake-admin/mcplake-admin - can log in
+#     immediately; mcplake-admin is a realm user, distinct from Keycloak's
+#     own KEYCLOAK_ADMIN bootstrap superuser below)
+#   - the mcplake gateway itself, fronting FOUR downstream MCPs and serving
+#     its embedded admin web UI, gated by admin_auth (ADR-0010/0014)
+#   - employee-directory: a small FastMCP script the gateway runs as a
+#     subprocess over stdio (deploy/demo/mcp-servers/). The filtering demo.
+#   - postgres-mcp: a real MCP server in its OWN container, reached over
+#     the sse transport (ADR-0017). The "an MCP need not live inside the
+#     gateway" demo, and the reason the two have different access policies.
+#   - project-tracker-mcp and inventory-mcp: small FastMCP servers served by
+#     uvicorn in their own containers, over Streamable HTTP and sse
+#     respectively - so the demo has an MCP on every transport.
+#   - MCP Inspector, for poking at the gateway's own MCP control server
+#     (ADR-0011) without installing anything - see docs/getting-started/demo.rst, and note
+#     the security caveats there before pointing it at anything real
+#   - Postgres, backing both the gateway's own control-plane persistence
+#     and the demo database postgres-mcp reads
+#
+# See docs/getting-started/demo.rst for the walkthrough: getting a token, calling /v1/call
+# (alice's 200 vs bob's 403), field-level filtering, the admin UI, and
+# Inspector.
+#
+# Every bind mount below carries an SELinux relabel option: on an
+# SELinux-enforcing host (Fedora/RHEL and derivatives) a container is
+# otherwise denied access to bind-mounted host files regardless of Unix
+# permissions. Both are no-ops wherever SELinux isn't enforcing.
+#
+#   ",Z" relabels the path for ONE container's exclusive use. Right for a
+#        mount only one service has.
+#   ",z" relabels it as shared between containers. Required when several
+#        services mount the same path: with Z, each container that starts
+#        takes the label for itself and the others get "Permission denied"
+#        (deploy/demo/mcp-servers, mounted by three services, is the case
+#        here - see #207).
+name: mcplake-demo
+
+services:
+  postgres:
+    image: docker.io/postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ./deploy/demo/postgres:/docker-entrypoint-initdb.d:ro,Z
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Owns the network namespace the gateway joins (see the `gateway` service
+  # below), so this is also where the gateway's own ports get published.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # A fixed, explicit hostname (rather than the container's own name)
+      # keeps the issuer/JWKS URLs identical whether they're reached from the
+      # host, from a browser, or from the gateway container sharing this
+      # network namespace - see deploy/demo/config.toml's [oidc] comment.
+      KC_HOSTNAME: "http://localhost:8080"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./deploy/demo/keycloak/mcplake-realm.json:/opt/keycloak/data/import/mcplake-realm.json:ro,Z
+    ports:
+      - "8080:8080" # Keycloak
+      - "9090:9090" # gateway data plane (MCP at /v1/mcp and /v1/sse, POST /v1/call, GET /healthz)
+      - "9091:9091" # gateway control plane + embedded admin web UI
+      # The two below are bound to 127.0.0.1 rather than every interface,
+      # unlike the three above. Both are developer tooling rather than the
+      # thing being demonstrated: Inspector's backend spawns processes and
+      # is published here with a known, in-repo session token, and the
+      # Postgres MCP talks to the demo database directly, below the
+      # gateway's policy layer. Neither belongs on a LAN.
+      - "8082:8082"           # admin web UI (the webui container)
+      - "127.0.0.1:8000:8000" # postgres-mcp, sse endpoint at /sse
+      - "127.0.0.1:6274:6274" # MCP Inspector web UI
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/demo/Dockerfile
+    # Sharing Keycloak's network namespace (rather than reaching it as
+    # "http://keycloak:8080") is what lets oidc.jwks_url stay a genuine
+    # loopback URL - config.validateSecureHTTPURL requires https everywhere
+    # else, and this setup is the documented exception, not a workaround of
+    # it. Since ADR-0017 the same namespace does double duty: it is also how
+    # the sse URL for postgres-mcp below stays loopback, and how Inspector
+    # reaches the control plane.
+    #
+    # employee-directory still runs inside THIS container, because it is a
+    # stdio MCP and stdio means a subprocess. That is now a property of that
+    # one server's transport, not a limit of the gateway.
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      postgres-mcp:
+        condition: service_started
+      project-tracker-mcp:
+        condition: service_started
+      inventory-mcp:
+        condition: service_started
+    volumes:
+      - ./deploy/demo/config.toml:/etc/mcplake/config.toml:ro,Z
+      # Mounted, not only baked in, for two reasons. It keeps the demo MCP
+      # server editable without a rebuild - poke at a tool, restart the
+      # gateway, see the difference - and it keeps the script from ever
+      # being a revision behind the config.toml above that names it, which
+      # is a mount too. The image still carries its own copy (see
+      # deploy/demo/Dockerfile), so it remains runnable on its own; this
+      # mount just wins when compose is what starts it.
+      - ./deploy/demo/mcp-servers:/opt/mcplake/demo-mcp:ro,z
+    command: ["--config", "/etc/mcplake/config.toml"]
+    restart: on-failure
+
+  # A real MCP server, in its own container, with its own image and
+  # lifecycle - the thing ADR-0017 made possible. It joins Keycloak's
+  # network namespace for one reason: the gateway then reaches it at
+  # http://localhost:8000/sse, which is a genuine loopback URL and so
+  # satisfies mcp.ValidateEndpointURL without any plaintext-to-a-remote-host
+  # exception. Give it a hostname instead and the correct answer is to put
+  # TLS in front of it, not to loosen the rule.
+  #
+  # --access-mode=restricted keeps it to read-only transactions. The gateway
+  # is what decides *who* may call it (deploy/demo/config.toml's
+  # access_policies); this is the MCP's own belt-and-braces, and the right
+  # default for anything a demo points at a database.
+  postgres-mcp:
+    image: docker.io/crystaldba/postgres-mcp:0.3.0
+    network_mode: "service:keycloak"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URI: "postgresql://demo_reader:demo_reader@postgres:5432/demo"
+    command: ["--access-mode=restricted", "--transport=sse"]
+    restart: on-failure
+
+  # The demo's own remote MCPs: two small FastMCP servers from
+  # deploy/demo/mcp-servers/, each an ASGI app served by uvicorn in its own
+  # container. project-tracker is the demo's Streamable HTTP endpoint (it
+  # has no other), inventory a second sse one alongside postgres-mcp. Both
+  # join Keycloak's namespace and bind loopback for the same reason
+  # postgres-mcp does: the gateway reaches them at http://localhost:800x,
+  # which satisfies mcp.ValidateEndpointURL honestly.
+  #
+  # The scripts are bind-mounted over the image's copies, like the gateway's
+  # employee_directory.py, so edits need a restart, not a rebuild.
+  project-tracker-mcp:
+    build:
+      context: ./deploy/demo/mcp-servers
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+    volumes:
+      - ./deploy/demo/mcp-servers:/srv/mcp:ro,z
+    command: ["uvicorn", "project_tracker:app", "--host", "127.0.0.1", "--port", "8001"]
+    restart: on-failure
+
+  inventory-mcp:
+    build:
+      context: ./deploy/demo/mcp-servers
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+    volumes:
+      - ./deploy/demo/mcp-servers:/srv/mcp:ro,z
+    command: ["uvicorn", "inventory:app", "--host", "127.0.0.1", "--port", "8002"]
+    restart: on-failure
+
+  # The admin web UI as its own prebuilt image (ADR-0020): the SPA is compiled
+  # at image build time and this container only serves it, so nothing builds
+  # when the stack comes up.
+  #
+  # It is also the browser's single origin. The UI fetches the admin API with
+  # relative URLs and ADR-0014's PKCE redirect names whatever origin you
+  # browsed to, so this container serves the assets *and* reverse-proxies
+  # /admin/* to the gateway's control plane. Split those across two origins
+  # and you need a CORS allowlist on the admin API plus a second registered
+  # redirect URI -- see the ADR.
+  #
+  # Joining Keycloak's network namespace like everything else is what lets
+  # WEBUI_API_TARGET be a loopback address.
+  #
+  # The gateway's own control plane still serves its embedded copy of the UI
+  # on :9091. Both work; this is the one the demo points you at, and the one
+  # that shows the deployment shape a real install would use.
+  webui:
+    build:
+      context: .
+      dockerfile: deploy/webui/Dockerfile
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+    environment:
+      WEBUI_ADDR: ":8082"
+      WEBUI_API_TARGET: "http://localhost:9091"
+    restart: on-failure
+
+  # MCP Inspector, the reference client, for driving the gateway's own MCP
+  # control server (ADR-0011) from a browser. Also in Keycloak's namespace,
+  # so http://localhost:9091/admin/mcp and http://localhost:8000/sse both
+  # resolve from inside it.
+  #
+  # Read docs/getting-started/demo.rst's Inspector section before reusing any of this: the
+  # session token is pinned to a value committed to this repo, which is only
+  # acceptable because the port above is bound to 127.0.0.1. Authentication
+  # is deliberately left ON (no DANGEROUSLY_OMIT_AUTH) - Inspector's backend
+  # spawns processes, and an unauthenticated one has been a critical RCE
+  # before (CVE-2025-49596).
+  inspector:
+    image: ghcr.io/modelcontextprotocol/inspector:2.9.0
+    network_mode: "service:keycloak"
+    depends_on:
+      keycloak:
+        condition: service_started
+    environment:
+      MCP_INSPECTOR_API_TOKEN: "mcplake-demo-inspector"
+      MCP_AUTO_OPEN_ENABLED: "false"
+    restart: on-failure
+
+volumes:
+  pgdata:

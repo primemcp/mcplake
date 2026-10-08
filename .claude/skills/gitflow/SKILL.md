@@ -238,6 +238,17 @@ A PR should normally contain only the work associated with its ticket.
 
 **Never merge a Pull Request without human review and approval.**
 
+**Exception:** If the user explicitly instructs Claude, in the conversation, to
+merge a specific PR (or a stack of PRs) itself, Claude may do so using `gh pr
+merge`. This must be an explicit, in-context instruction naming the merge
+action — not inferred from silence, from a prior approval on a different PR,
+from general permissiveness (e.g. auto mode), or from the user simply approving
+the PR's content. Before merging under this exception, Claude should still
+surface what is being merged (files changed, test results, mergeability status)
+so the instruction is genuinely informed. This exception does not extend to
+merging into `main` or cutting a release — see
+[Main Is the Release Branch](#main-is-the-release-branch).
+
 The workflow is:
 
 ```text
@@ -280,7 +291,7 @@ Do not approve your own PR.
 
 Do not merge a PR merely because CI passes.
 
-Do not use administrative/bypass mechanisms to circumvent branch protection or required reviews.Manage project planning and execution through GitHub using the `gh` CLI.
+Do not use administrative/bypass mechanisms to circumvent branch protection or required reviews (the explicit-instruction exception above is not such a mechanism — it's a documented, user-invoked path, not a bypass).Manage project planning and execution through GitHub using the `gh` CLI.
 Use milestones, epics, and tasks to turn plans into tracked, actionable work.
 Always keep the human in the loop before creating tasks or issues.
 
@@ -307,7 +318,7 @@ git push --force-with-lease
 
 ## Merging to Develop
 
-The feature branch is merged into `develop` only through the approved Pull Request process.
+The feature branch is merged into `develop` only through the approved Pull Request process — normally a human merges it after review, or Claude does when the user explicitly instructs it to (see [Human Review Is Mandatory](#human-review-is-mandatory)).
 
 After the PR is merged:
 
@@ -454,6 +465,6 @@ For a normal GitHub task, follow this sequence:
 12. Use `git push --force-with-lease` after rebasing when necessary.
 13. Never use plain `git push --force` without explicit human instruction.
 14. Merge feature branches into `develop` through a Pull Request.
-15. Human review is mandatory before merging.
+15. Human review is mandatory before merging, unless the user explicitly instructs Claude in-conversation to merge a specific PR itself (see [Human Review Is Mandatory](#human-review-is-mandatory)).
 16. Never bypass required GitHub review or branch protection.
 17. Keep GitHub ticket, branch, commit, and PR associated with the same piece of work.

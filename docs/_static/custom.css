@@ -1,0 +1,17 @@
+/* Small adjustments on top of the Furo theme. */
+
+/* Keep wide ASCII diagrams and tables readable instead of wrapping. */
+.highlight pre {
+  white-space: pre;
+}
+
+/* Landing-page feature cards: equal height, no underline on the title link. */
+.sd-card-title a {
+  text-decoration: none;
+}
+
+/* Mermaid diagrams scroll horizontally on narrow screens. */
+pre.mermaid,
+div.mermaid {
+  overflow-x: auto;
+}

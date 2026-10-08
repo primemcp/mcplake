@@ -6,6 +6,9 @@
 *.so.*
 *.dylib
 mcp-gateway
+/cmd/gateway/gateway
+/cmd/webui/webui
+webui-server
 
 # Build artifacts
 dist/
@@ -26,7 +29,7 @@ build/
 Thumbs.db
 
 # Local configuration
-config.local.yaml
+config.local.toml
 .env
 .env.local
 
@@ -36,3 +39,14 @@ config.local.yaml
 # SQLite databases
 *.db
 *.sqlite
+
+# Python (deploy/demo/mcp-servers/)
+__pycache__/
+*.pyc
+
+# Playwright MCP scratch output (page snapshots, screenshots)
+.playwright-mcp/
+
+# Documentation site (docs/ is a uv project, ADR-0022)
+docs/_build/
+docs/.venv/

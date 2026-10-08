@@ -1,0 +1,246 @@
+import { useMemo, useState } from "react";
+import {
+  annotateFields,
+  collapseFields,
+  countDroppedDescendants,
+  effectiveDropped,
+  enablePath,
+  flattenSchema,
+  matchesFieldQuery,
+  type SchemaField,
+} from "../../lib/schema";
+import type { FieldsByTool } from "../../lib/filterGroups";
+import { Modal } from "../primitives/Modal";
+import { SearchInput } from "../primitives/SearchInput";
+import type { ToolSchema } from "../../api/types";
+import { SchemaExplorer } from "./SchemaExplorer";
+
+type Row = SchemaField & { tool: string };
+
+// Tool names come from whatever the MCP server itself advertises via
+// list_tools() -- nothing on the backend restricts their charset, so a
+// delimiter-joined string key (even one a JSON path can't contain) isn't
+// actually safe: a tool literally named e.g. "get user" would collide
+// with a plain space separator, splitting into the wrong (tool, path)
+// pair and silently saving a filter against a tool that doesn't exist.
+// JSON-encoding the pair sidesteps the whole class of delimiter
+// collisions regardless of what either string contains.
+const key = (tool: string, path: string) => JSON.stringify([tool, path]);
+const parseKey = (k: string): [tool: string, path: string] => JSON.parse(k) as [string, string];
+
+function flattenAllTools(tools: Record<string, ToolSchema>): Row[] {
+  return Object.entries(tools).flatMap(([tool, schema]) =>
+    flattenSchema(schema.output_schema).map((f) => ({ ...f, tool })),
+  );
+}
+
+function toFieldsByTool(keys: string[]): FieldsByTool {
+  const byTool: FieldsByTool = {};
+  for (const k of keys) {
+    const [tool, path] = parseKey(k);
+    (byTool[tool] ??= []).push(path);
+  }
+  return byTool;
+}
+
+export type AllToolsFieldPickerProps = {
+  tools: Record<string, ToolSchema>;
+  /** Reports every tool with at least one dropped field, keyed by tool
+   * name -- called with the full up-to-date map on every toggle. */
+  onChange: (fieldsByTool: FieldsByTool) => void;
+  /** Prefills the picker when editing an existing (possibly multi-tool)
+   * filter group. Only read on mount -- pass a `key` from the parent to
+   * force a remount when switching what's being edited. */
+  initial?: FieldsByTool;
+  meta?: string;
+};
+
+/**
+ * The design has no "select a tool" step — one merged, searchable list of
+ * every field the endpoint exposes across all its tools (matching the
+ * mockup's single `Discovered response fields` browser exactly). The real
+ * backend's FilterPolicy still needs exactly one `tool` per record though
+ * (it's a required field, not a list) — so a "filter across N tools" here
+ * is a frontend-only grouping of N real per-tool records sharing a name
+ * prefix (see lib/filterGroups). This picker itself doesn't need to know
+ * about that: it just reports every tool with at least one dropped field,
+ * and the caller (ResponseFilterGroup) decides how to persist that as one
+ * or several real FilterPolicy records.
+ *
+ * Nested fields never expand inline any more -- the only way to see or
+ * toggle them is the schema graph (opened from the `[N]` badge), so
+ * browsing always shows just each tool's top-level fields. Searching
+ * still reaches every nested field (collapseFields' searching bypass),
+ * shown flat (full path, no stair-step indent) since there's no tree
+ * structure being drawn around them any more to indent against.
+ */
+export function AllToolsFieldPicker({ tools, onChange, initial, meta }: AllToolsFieldPickerProps) {
+  const [query, setQuery] = useState("");
+  const [dropped, setDropped] = useState<string[]>(() =>
+    Object.entries(initial ?? {}).flatMap(([tool, paths]) => paths.map((p) => key(tool, p))),
+  );
+  const [graphTool, setGraphTool] = useState<string | null>(null);
+  const searching = query.trim() !== "";
+
+  const rows = useMemo(() => annotateFields(flattenAllTools(tools)), [tools]);
+  const droppedSet = useMemo(() => new Set(dropped), [dropped]);
+  // Whether each row is dropped *in effect* -- explicitly toggled, or
+  // under a dropped ancestor (dropping a node removes its whole subtree
+  // via one JSONPath on the real backend, so a child was never really
+  // still there just because nobody clicked it individually). Drives the
+  // row's own display (so it matches what toggling it will actually do,
+  // see `toggle` below) and the `[N] -M` badge counts.
+  const effectiveByKey = useMemo(() => {
+    const isExplicitlyDropped = (r: Row) => droppedSet.has(key(r.tool, r.path));
+    const effective = effectiveDropped(rows, isExplicitlyDropped);
+    const m = new Map<string, boolean>();
+    rows.forEach((r, i) => m.set(key(r.tool, r.path), effective[i]));
+    return m;
+  }, [rows, droppedSet]);
+  const droppedBelowByKey = useMemo(() => {
+    const counts = countDroppedDescendants(rows, (r) => effectiveByKey.get(key(r.tool, r.path)) ?? false);
+    const m = new Map<string, number>();
+    rows.forEach((r, i) => m.set(key(r.tool, r.path), counts[i]));
+    return m;
+  }, [rows, effectiveByKey]);
+  const filtered = useMemo(
+    () => (searching ? rows.filter((r) => matchesFieldQuery(r, query)) : rows),
+    [rows, query, searching],
+  );
+  // Never expanded -- collapseFields then always hides every row past the
+  // first level, which is exactly "browse shows top-level fields only."
+  const hits = useMemo(() => collapseFields(filtered, () => false, searching), [filtered, searching]);
+  const droppedCount = dropped.length;
+
+  const toggle = (tool: string, path: string) => {
+    // A field that's only dropped *in effect* (blocked by a dropped
+    // ancestor, not itself explicitly toggled) can't just be removed from
+    // `dropped` -- it was never there. enablePath un-drops the blocking
+    // ancestor(s) and pushes an explicit drop onto every sibling branch
+    // along the way instead, so exactly this field (and its path) comes
+    // back while everything else that was hidden alongside it stays
+    // hidden. A field that's fully visible is the simple case: just drop
+    // it (enablePath's own direct-removal branch covers "explicitly
+    // dropped, toggle it back off" the same way).
+    const toolRows = rows.filter((r) => r.tool === tool);
+    const toolDropped = dropped.filter((k) => parseKey(k)[0] === tool).map((k) => parseKey(k)[1]);
+    const isEffectivelyDropped = effectiveByKey.get(key(tool, path)) ?? false;
+    const nextToolDropped = isEffectivelyDropped ? enablePath(toolRows, toolDropped, path) : [...toolDropped, path];
+
+    const next = [...dropped.filter((k) => parseKey(k)[0] !== tool), ...nextToolDropped.map((p) => key(tool, p))];
+    setDropped(next);
+    onChange(toFieldsByTool(next));
+  };
+
+  if (rows.length === 0) {
+    return <p className="text-[11px] text-muted px-1">No tools have discovered response fields yet.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="text-[10.5px] font-semibold tracking-wide uppercase text-muted">
+          Discovered response fields
+        </span>
+        <span className="flex-1" />
+        {meta && <span className="text-[10px] text-muted font-mono">{meta}</span>}
+        <span className="text-[10px] text-muted">
+          {rows.length} {rows.length === 1 ? "field" : "fields"}
+        </span>
+      </div>
+      <SearchInput value={query} onChange={setQuery} placeholder="Search fields, e.g. email or PII" />
+      {hits.length === 0 ? (
+        <p className="text-[11px] text-muted px-1">No field matches that.</p>
+      ) : (
+        <div className="max-h-[240px] overflow-y-auto border border-border rounded-lg bg-surface">
+          {hits.map((r) => {
+            const k = key(r.tool, r.path);
+            const isDropped = effectiveByKey.get(k) ?? false;
+            const droppedBelow = droppedBelowByKey.get(k) ?? 0;
+            const flagged = /PII|secret|internal|PCI|payload|cost|financial/i.test(
+              `${r.type} ${r.description ?? ""}`,
+            );
+            return (
+              <div
+                key={k}
+                className="flex items-center gap-2.5 px-2.5 py-1.5 border-b border-border-soft last:border-b-0"
+              >
+                {/* 12px per nesting level while browsing -- real schemas
+                    can nest arbitrarily deep, so indent needs to scale
+                    with actual depth. Search results skip it: with no
+                    tree drawn around them any more (nesting is only ever
+                    browsed via the schema graph now), the full dotted
+                    path already says everything the indent used to. */}
+                <div
+                  className="flex-1 min-w-0 flex items-start gap-1.5"
+                  style={{ paddingLeft: searching ? 0 : r.indent * 12 }}
+                >
+                  <div className="flex-1 min-w-0 flex flex-col gap-px">
+                    <div className="flex items-baseline gap-1.5">
+                      <div
+                        className={`text-[11.5px] font-mono truncate ${isDropped ? "text-muted line-through" : "text-ink"}`}
+                      >
+                        <span className="text-muted">{r.tool}:</span> {r.path}
+                      </div>
+                      {r.hasChildren && (
+                        <button
+                          type="button"
+                          aria-label={`View schema graph for ${r.tool}`}
+                          title={`View ${r.tool}'s schema as a graph`}
+                          onClick={() => setGraphTool(r.tool)}
+                          className="shrink-0 border-0 bg-transparent p-0 cursor-pointer text-[9.5px] font-mono text-muted underline decoration-dotted underline-offset-2 hover:text-accent hover:decoration-accent"
+                        >
+                          [{r.descendantCount}]
+                          {droppedBelow > 0 && <span className="text-danger"> -{droppedBelow}</span>}
+                        </button>
+                      )}
+                    </div>
+                    <div className={`text-[10px] ${flagged ? "text-warn" : "text-muted"}`}>
+                      {r.type}
+                      {r.description ? ` · ${r.description}` : ""}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`${isDropped ? "Stop hiding" : "Hide"} ${r.tool} ${r.path}`}
+                  onClick={() => toggle(r.tool, r.path)}
+                  className="shrink-0 border-0 bg-transparent p-0 cursor-pointer"
+                >
+                  <span
+                    className={`flex w-[30px] h-[17px] rounded-full p-0.5 ${isDropped ? "bg-track-off justify-start" : "bg-success justify-end"}`}
+                  >
+                    <span className="w-[13px] h-[13px] rounded-full bg-white" />
+                  </span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className={`text-[10.5px] ${droppedCount > 0 ? "text-warn" : "text-muted"}`}>
+        {droppedCount === 0
+          ? `All ${rows.length} ${rows.length === 1 ? "field" : "fields"} pass through — toggle a field off to strip it`
+          : `${droppedCount} of ${rows.length} fields removed from the response`}
+      </p>
+      {/* Scoped to one tool at a time -- unlike the merged list above, a
+          graph needs unique node ids, and two different tools can easily
+          share a bare path like "$.id". */}
+      <Modal open={graphTool !== null} onClose={() => setGraphTool(null)} title="Schema graph" size="wide">
+        {graphTool && (
+          <SchemaExplorer
+            // Remounts (back to the default Graph view) when a different
+            // tool's schema is opened -- otherwise switching tools would
+            // leak "still on the Tree tab" state across an unrelated
+            // schema, the same class of leak fixed elsewhere in this app
+            // by keying on whatever's selected.
+            key={graphTool}
+            rows={rows.filter((r) => r.tool === graphTool)}
+            selected={dropped.map(parseKey).filter(([tool]) => tool === graphTool).map(([, path]) => path)}
+            onToggle={(path) => toggle(graphTool, path)}
+          />
+        )}
+      </Modal>
+    </div>
+  );
+}

@@ -19,52 +19,114 @@ in `/docs` during the same task.
 The project should remain understandable and usable by someone who did not
 implement the feature.
 
+## Format and Tooling
+
+Project documentation is a **Sphinx** site written in **reStructuredText**
+(`.rst`), published to GitHub Pages
+([ADR-0022](../../../docs/architecture/decisions/0022-sphinx-and-restructuredtext-for-project-documentation.rst)).
+
+- `docs/` is the Sphinx source root **and** a self-contained Python project
+  (`docs/pyproject.toml`, `docs/uv.lock`, `docs/conf.py`), managed with `uv`.
+  It is not a Go module.
+- A page's repository path is its site path: `docs/how-to/foo.rst` is
+  published as `how-to/foo.html`.
+- Write new documentation as `.rst`. Do **not** add Markdown pages: Sphinx
+  only reads `.rst`, so a `.md` file under `docs/` is invisible on the site.
+  The only Markdown left under `docs/` is internal working notes
+  (`docs/superpowers/`, `docs/SCAFFOLDING.md`), excluded from the site.
+- Top-level `README.md`, `CONTRIBUTING.md` and Go code comments stay as they
+  are; when they point at documentation, point at the `.rst` file.
+
+Build and check:
+
+```bash
+make docs          # build into docs/_build/html
+make docs-serve    # live-reloading preview on http://127.0.0.1:8000
+make docs-check    # strict build (-W: every warning is an error) + linkcheck
+```
+
+`make docs-check` must pass before committing documentation changes. CI runs
+it on every pull request.
+
 ## Documentation Location
 
-Persistent project documentation belongs under:
-
     /docs/
-
-Use Markdown (`.md`) for documentation unless there is a strong reason to use
-another format.
-
-Architecture documentation belongs under:
-
-    /docs/architecture/
-
-Architecture decisions belong under:
-
-    /docs/architecture/decisions/
-
-General application documentation belongs directly under `/docs` or in an
-appropriate subdirectory.
-
-Example:
-
-    /docs/
-    ├── README.md
-    ├── getting-started.md
-    ├── configuration.md
-    ├── development.md
-    ├── testing.md
-    ├── deployment.md
-    ├── troubleshooting.md
-    ├── api/
-    │   ├── overview.md
-    │   └── authentication.md
-    ├── features/
-    │   ├── users.md
-    │   └── payments.md
+    ├── index.rst              # landing page, top-level toctrees
+    ├── conf.py, pyproject.toml, uv.lock, Makefile
+    ├── getting-started/       # first run, first config
+    ├── concepts/              # how the gateway thinks: planes, policies, rules
+    ├── use-cases/             # task-driven tutorials
+    ├── how-to/                # focused operational recipes
+    ├── reference/             # configuration, APIs, CLI — exhaustive and exact
+    ├── features/              # one page per operator-visible feature
+    ├── development/           # contributor workflow
     └── architecture/
-        ├── overview.md
-        └── decisions/
-            ├── 0001-....md
-            └── 0002-....md
+        ├── index.rst
+        ├── overview.rst, components.rst, data.rst, security.rst
+        └── decisions/         # ADRs (see the architecture skill)
 
-Do not create this entire structure unless the project needs iom/login/devicet.
+Put a page in the section matching what the reader is trying to do: learn
+(getting started, use cases), accomplish a task (how-to), look something up
+(reference), or understand (concepts, architecture).
 
-Prefer a small number of well-maintained documents over a large documentation
-hierarchy.
+Every new page must be added to a `toctree` (usually the section's
+`index.rst`); an orphan page is a build warning and fails `docs-check`.
+
+Prefer a small number of well-maintained pages over a large hierarchy.
+
+## Writing reStructuredText
+
+Headings — use this adornment order consistently:
+
+```rst
+Page Title
+==========
+
+Section
+-------
+
+Subsection
+~~~~~~~~~~
+```
+
+Cross-references — always use Sphinx roles, never raw relative links, so
+the build can verify them:
+
+```rst
+:doc:`/architecture/overview`                  page, shows its title
+:doc:`the overview </architecture/overview>`   page, custom text
+:ref:`reference-config-server`                 labelled section
+:repo:`compose.yaml`                           file in the repository (GitHub link)
+:issue:`211`                                   GitHub issue
+```
+
+To make a section referenceable, put an explicit label above it. Labels are
+global, so prefix them with the page path:
+
+```rst
+.. _reference-config-server:
+
+``[server]``
+------------
+```
+
+Code and config — use `code-block` with a language, and prefer including
+real files over copying them, so examples cannot drift:
+
+```rst
+.. code-block:: toml
+
+   [server]
+   data_plane_addr = ":8080"
+
+.. literalinclude:: /../config.example.toml
+   :language: toml
+   :lines: 1-10
+```
+
+Also available: admonitions (`.. note::`, `.. warning::`), diagrams
+(`.. mermaid::`), and `sphinx-design` cards and tabs (`.. tab-set::` for
+Docker vs Podman style alternatives).
 
 ## Documentation-First During Development
 
@@ -108,7 +170,7 @@ Depending on the feature, document:
 - How to configure it
 - Configuration options
 - Environment variables
-- Required dependenciesom/login/device
+- Required dependencies
 - Default values
 - CLI commands
 - API endpoints
@@ -129,15 +191,20 @@ Depending on the feature, document:
 - Limitations
 - Security considerations
 - Performance considerations when relevant
-om/login/device
+
 Do not document implementation details merely because they exist in the code.
 
 Document implementation details when they are necessary to understand,
 operate, extend, or troubleshoot the functionality.
 
+A behavior change usually touches more than one section: the reference page
+(exact keys and endpoints), the feature or concept page (what and why), and
+any use case or how-to whose steps change. Update all of them.
+
 ## Configuration Documentation
 
-Configuration must be documented close to the functionality that uses it.
+Configuration must be documented close to the functionality that uses it,
+and every key must appear in the configuration reference.
 
 For every meaningful configuration option, document where applicable:
 
@@ -156,16 +223,29 @@ For every meaningful configuration option, document where applicable:
 
 Example:
 
-```markdown
-## `DATABASE_URL`
+```rst
+.. _reference-config-persistence-dsn:
 
-PostgreSQL connection string used by the application.
+``dsn``
+~~~~~~~
 
-- Required: Yes
-- Default: None
-- Environment variable: `DATABASE_URL`
+PostgreSQL connection string used for control-plane persistence.
 
-Example:
+:Type: string
+:Required: when ``driver = "postgres"``
+:Default: none
+:Sensitive: yes — contains credentials
 
-```text
-postgres://app:password@localhost:5432/myapp
+.. code-block:: toml
+
+   [persistence]
+   driver = "postgres"
+   dsn = "postgres://mcplake:secret@db:5432/mcplake"
+```
+
+## Verify Examples
+
+Every command, request and config snippet in the docs must work against the
+current code. When you change behavior, re-run the examples that describe
+it; when you write a new example, run it. Do not document behavior you have
+not verified.

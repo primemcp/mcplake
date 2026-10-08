@@ -1,0 +1,146 @@
+# MCP Gateway Configuration Example (TOML — see ADR-0012)
+
+[server]
+data_plane_addr = ":8080"            # fasthttp tool-call proxy (ADR-0001)
+# The admin API can register an MCP, which means starting a process on this
+# host -- so it defaults to loopback here. Widen it only once admin_auth is
+# configured, and even then prefer a trusted interface over ":8081".
+control_plane_addr = "127.0.0.1:8081"  # Gin admin API (ADR-0005)
+
+[oidc]
+jwks_url = "https://auth.example.com/.well-known/jwks.json"
+issuer = "https://auth.example.com"
+audience = "mcp-gateway"
+# jwks_cache_ttl = "1h"
+
+# Authentication for the control-plane admin API (/admin/*). ADR-0010.
+# Callers present a Bearer JWT verified against the [oidc] JWKS above; their
+# claims must then satisfy every match rule (ANDed, ADR-0002 syntax).
+# Omitting this section leaves /admin/* OPEN (with a startup warning) for
+# backward compatibility — bind control_plane_addr to a trusted interface
+# until you set match rules. `enabled = false` also forces it off.
+# [[admin_auth.match]]
+# path = "$.role"
+# pattern = "^admin$"
+
+# In-process MCP control server (ADR-0011): the admin operations, exposed as
+# MCP tools on the control-plane listener. Off by default. When on, it mounts
+# under /admin/ and is gated by admin_auth like the rest of the admin API.
+# [admin_mcp]
+# enabled = true
+# path = "/admin/mcp"   # optional, default /admin/mcp; must be under /admin/
+
+# Settings that apply to every registered MCP.
+#
+# schema_refresh_interval: periodic re-discovery of each MCP's tool schema
+# (ADR-0013). Omitted or "0" disables it, which is the default. A refresh
+# re-runs tools/list on the live client -- no reconnect.
+#
+# health_check_interval: how often every registered MCP is pinged and, if its
+# session has died, reconnected -- and how often an MCP that is currently
+# unreachable is retried (ADR-0019). This is what lets an http/sse MCP survive
+# a restart of the server behind it. Unlike the setting above, an OMITTED key
+# means 30s, not off; disabling it takes an explicit "0", and the gateway warns
+# at startup when you do.
+# [mcp]
+# schema_refresh_interval = "15m"
+# health_check_interval = "30s"
+
+# Control-plane persistence (ADR-0006). Defaults to embedded SQLite — no
+# external service required for a single-instance, air-gapped deployment.
+[persistence]
+driver = "sqlite"     # sqlite (default) | postgres
+dsn = "gateway.db"    # SQLite file path, or a Postgres connection string
+
+# MCP servers the gateway connects to. `type` picks the transport (ADR-0017):
+# "stdio" runs the server as a subprocess of the gateway and takes `command`;
+# "http" (MCP Streamable HTTP) and "sse" reach a server running elsewhere and
+# take `url` instead. A url must be https, or http only on a loopback host --
+# a tool call's arguments and response are exactly what access_policies and
+# filter_policies exist to control, so they don't travel in the clear. There
+# is no outbound auth yet: an MCP requiring credentials can't be registered.
+[[mcps]]
+name = "postgres-ro"
+type = "stdio"
+command = "mcp-server-postgres"
+arguments = ["--connection-string", "postgresql://reader@localhost/mydb", "--read-only"]
+
+[[mcps]]
+name = "postgres-rw"
+type = "stdio"
+command = "mcp-server-postgres"
+arguments = ["--connection-string", "postgresql://writer@localhost/mydb"]
+
+[[mcps]]
+name = "filesystem"
+type = "stdio"
+command = "mcp-server-filesystem"
+arguments = ["/data"]
+
+# A server the gateway does not start, reached over the network.
+# [[mcps]]
+# name = "hosted-crm"
+# type = "http"                          # or "sse" for the older transport
+# url = "https://mcp.crm.example.com/mcp"
+# enabled = false   # optional, default true. A disabled MCP still connects and
+#                   # caches its tools, but the data plane rejects every call for
+#                   # it with 403 mcp_disabled. Toggle at runtime with
+#                   # PATCH /admin/mcps/:name.
+
+# Grant access to (mcp, tool) pairs based on JWT claims. A call is authorized if
+# ANY policy's match matches the claims AND has a grant covering the requested
+# (mcp, tool). "*" means "all" for either field. See ADR-0002 (match rule
+# syntax) and ADR-0004 (policy semantics).
+[[access_policies]]
+name = "db-reader"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^db-reader$"
+[[access_policies.grants]]
+mcp = "postgres-ro"
+tools = ["*"]
+
+[[access_policies]]
+name = "db-writer"
+[[access_policies.match]]
+path = "$.role"
+pattern = "^db-writer$"
+[[access_policies.grants]]
+mcp = "postgres-rw"
+tools = ["*"]
+
+[[access_policies]]
+name = "admin"
+# enabled = false   # optional, default true. A disabled access policy is
+#                   # skipped: it grants nothing, so a caller authorized only by
+#                   # it gets 403 forbidden.
+[[access_policies.match]]
+path = "$.role"
+pattern = "^admin$"
+[[access_policies.grants]]
+mcp = "*"
+tools = ["*"]
+
+# Strip response fields for a specific (mcp, tool) call when the caller's claims
+# match. Unlike access_policies' grants, mcp/tool here are exact, not wildcarded
+# — a filter always targets one specific tool response shape.
+[[filter_policies]]
+name = "hide-pii-for-plain-users-get-user"
+mcp = "postgres-ro"
+tool = "get_user"
+drop_fields = ["$.hashed_password", "$.api_key", "$.internal_id"]
+# enabled = false   # optional, default true. A disabled filter policy strips
+#                   # nothing, so the response is returned unfiltered by it
+#                   # (other enabled filters still run).
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^user$"
+
+[[filter_policies]]
+name = "hide-pii-for-plain-users-list-users"
+mcp = "postgres-ro"
+tool = "list_users"
+drop_fields = ["$.email", "$.hashed_password", "$.phone_number"]
+[[filter_policies.match]]
+path = "$.role"
+pattern = "^user$"

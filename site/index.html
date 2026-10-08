@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mcplake — Open-Source MCP Gateway with OIDC Access Control &amp; Field-Level Filtering</title>
+<meta name="description" content="mcplake is a free, open-source (Apache-2.0) MCP gateway. Your OIDC identity provider's JWT claims decide which MCP servers and tools each AI agent can call — and which response fields it gets to see. Single Go binary, air-gap ready.">
+<meta name="keywords" content="MCP gateway, Model Context Protocol, MCP proxy, MCP access control, MCP authorization, MCP RBAC, MCP OIDC, MCP JWT, MCP security, AI agent security, PII redaction, field-level filtering, data minimization, air-gapped AI, open source, Go, Keycloak, Okta, Entra ID">
+<meta name="author" content="mcplake contributors">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<link rel="canonical" href="https://primemcp.github.io/mcplake/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/plain" title="LLM-friendly summary" href="https://primemcp.github.io/mcplake/llms.txt">
+<link rel="alternate" type="text/plain" title="LLM-friendly full reference" href="https://primemcp.github.io/mcplake/llms-full.txt">
+<meta name="theme-color" content="#f6f9fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#06121b" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+
+<!-- Open Graph / social previews -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="mcplake">
+<meta property="og:title" content="mcplake — the identity-aware MCP gateway">
+<meta property="og:description" content="Your identity provider decides what every AI agent can call — and what it gets to see. Open source, no paid tier, single Go binary.">
+<meta property="og:url" content="https://primemcp.github.io/mcplake/">
+<meta property="og:image" content="https://primemcp.github.io/mcplake/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="mcplake: per-caller tool access and field-level response filtering for MCP, decided by your OIDC claims.">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="mcplake — the identity-aware MCP gateway">
+<meta name="twitter:description" content="Your IdP decides what every AI agent can call — and what it gets to see. Open-source MCP gateway, Apache-2.0.">
+<meta name="twitter:image" content="https://primemcp.github.io/mcplake/og-image.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://primemcp.github.io/mcplake/#website",
+      "url": "https://primemcp.github.io/mcplake/",
+      "name": "mcplake",
+      "description": "Open-source, identity-aware gateway for the Model Context Protocol (MCP).",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://primemcp.github.io/mcplake/#software",
+      "name": "mcplake",
+      "alternateName": ["mcplake MCP gateway", "mcplake gateway"],
+      "url": "https://primemcp.github.io/mcplake/",
+      "description": "An open-source MCP gateway that authenticates AI agents with OIDC JWTs, authorizes each MCP server and tool from the token's claims, serves a per-caller filtered tool catalogue, and removes response fields the caller may not see (field-level filtering, fail-closed). Single Go binary with embedded SQLite, suitable for air-gapped networks.",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "MCP gateway",
+      "operatingSystem": "Linux, macOS, Docker",
+      "softwareRequirements": "An OIDC identity provider (e.g. Keycloak, Okta, Microsoft Entra ID) and one or more MCP servers",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "codeRepository": "https://github.com/primemcp/mcplake",
+      "downloadUrl": "https://github.com/primemcp/mcplake",
+      "softwareHelp": "https://primemcp.github.io/mcplake/latest/",
+      "keywords": "MCP gateway, Model Context Protocol, MCP access control, MCP authorization, OIDC, JWT, claims-based access control, field-level filtering, PII redaction, AI agent security, air-gapped",
+      "featureList": [
+        "OIDC / JWT authentication of every caller",
+        "Claims-based access policies per MCP server and per tool (JSONPath + regular expressions)",
+        "Per-caller filtered MCP tools/list",
+        "Field-level response filtering by caller claims, fail-closed",
+        "Downstream MCP servers over stdio, Streamable HTTP and SSE",
+        "Serves MCP over Streamable HTTP (/v1/mcp) and SSE (/v1/sse), plus REST (POST /v1/call)",
+        "Runtime admin via REST API, web UI and an MCP control server",
+        "Policy explainer: paste a token, see which stage allows or denies a call",
+        "Automatic reconnection and periodic schema refresh of downstream MCP servers",
+        "Single Go binary, embedded SQLite or PostgreSQL, no telemetry"
+      ],
+      "programmingLanguage": ["Go", "TypeScript"],
+      "author": { "@type": "Organization", "name": "mcplake contributors", "url": "https://github.com/primemcp/mcplake" }
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://primemcp.github.io/mcplake/#source",
+      "name": "mcplake",
+      "codeRepository": "https://github.com/primemcp/mcplake",
+      "programmingLanguage": "Go",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "targetProduct": { "@id": "https://primemcp.github.io/mcplake/#software" }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://primemcp.github.io/mcplake/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is an MCP gateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "An MCP gateway is a reverse proxy that sits between AI agents (MCP clients) and the MCP servers that give them tools. Instead of every agent connecting to every server directly, they connect to the gateway, which authenticates the caller, decides which servers and tools it may use, forwards the call, and returns the result. mcplake is an open-source MCP gateway focused on identity: your OIDC provider's token claims decide both access and what data comes back." }
+        },
+        {
+          "@type": "Question",
+          "name": "How is mcplake different from Bifrost, MCPX or agentgateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "mcplake is a dedicated MCP gateway, not an LLM gateway. Its distinguishing feature is identity-aware, field-level response filtering: the same claim rules that grant a tool also decide which fields of that tool's answer the caller receives, applied to every copy of the payload and failing closed. Everything, including OIDC-based access control, is Apache-2.0 open source with no enterprise tier." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does mcplake work with Claude Code, Cursor and other MCP clients?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. mcplake is itself an MCP server: point any MCP client that can send an Authorization header at /v1/mcp (Streamable HTTP) or /v1/sse. The client sees one tool catalogue, namespaced as <mcp>__<tool> and filtered to exactly what its token grants." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which identity providers does mcplake support?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Any OIDC provider that publishes a JWKS endpoint, such as Keycloak, Okta, Microsoft Entra ID, Auth0, Google, Dex or Authentik. mcplake validates the JWT signature, expiry, issuer and audience, then evaluates JSONPath and regular-expression rules against any claim in the token." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can mcplake run in an air-gapped network?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. It is one Go binary with embedded SQLite by default, sends no telemetry, and makes no outbound calls except to your OIDC provider's JWKS endpoint and the MCP servers you register." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is mcplake free?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. mcplake is fully open source under the Apache License 2.0. There is no paid tier, no enterprise edition and no feature gating." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<style>
+:root {
+  --bg: #f6f9fb;
+  --bg-2: #eef3f7;
+  --surface: #ffffff;
+  --surface-2: #f2f6f9;
+  --ink: #0b1d2a;
+  --ink-2: #3a5061;
+  --ink-3: #6a7f8f;
+  --line: #d9e3ea;
+  --accent: #0b8f86;
+  --accent-ink: #ffffff;
+  --accent-soft: #d7f3ef;
+  --gate: #c98a0b;
+  --gate-soft: #fbefd3;
+  --drop: #c2362b;
+  --drop-soft: #fbe3e0;
+  --ok: #1f8a4c;
+  --code-bg: #0b1d2a;
+  --code-ink: #d8e6ef;
+  --code-dim: #7d95a6;
+  --code-key: #7fdcd2;
+  --code-str: #f4c86a;
+  --code-num: #b7a4ff;
+  --shadow: 0 1px 2px rgb(11 29 42 / .06), 0 8px 24px rgb(11 29 42 / .06);
+  --radius: 14px;
+  --max: 1140px;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #06121b; --bg-2: #0a1a26; --surface: #0c1d2a;
+    --surface-2: #112636; --ink: #e6f0f5; --ink-2: #a9bccb; --ink-3: #7890a2; --line: #1c3446;
+    --accent: #43d9cb; --accent-ink: #04221f; --accent-soft: #0f3a38;
+    --gate: #f4b740; --gate-soft: #3a2c0c; --drop: #ff7a6e; --drop-soft: #3d1714; --ok: #5ad48b;
+    --code-bg: #040d14; --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 10px 30px rgb(0 0 0 / .25);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #06121b; --bg-2: #0a1a26; --surface: #0c1d2a;
+  --surface-2: #112636; --ink: #e6f0f5; --ink-2: #a9bccb; --ink-3: #7890a2; --line: #1c3446;
+  --accent: #43d9cb; --accent-ink: #04221f; --accent-soft: #0f3a38;
+  --gate: #f4b740; --gate-soft: #3a2c0c; --drop: #ff7a6e; --drop-soft: #3d1714; --ok: #5ad48b;
+  --code-bg: #040d14; --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 10px 30px rgb(0 0 0 / .25);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); overflow-x: hidden; }
+a { color: var(--accent); text-underline-offset: 3px; }
+code, pre, kbd { font-family: var(--mono); font-size: .9em; }
+:not(pre) > code { background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: .08em .38em; }
+h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; margin: 0 0 .5em; }
+h2 { font-size: clamp(1.7rem, 3.2vw, 2.4rem); }
+h3 { font-size: 1.12rem; letter-spacing: -.01em; }
+p { margin: 0 0 1em; }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 28px; } }
+.skip { position: absolute; left: -999px; top: 8px; background: var(--surface); padding: 8px 12px; border-radius: 8px; z-index: 100; }
+.skip:focus { left: 8px; }
+.eyebrow { display: inline-flex; align-items: center; gap: .5em; font: 600 .78rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 1rem; }
+.lede { font-size: 1.12rem; color: var(--ink-2); max-width: 46rem; }
+section { padding: 88px 0; }
+section.alt { background: var(--bg-2); border-block: 1px solid var(--line); }
+.section-head { max-width: 50rem; margin-bottom: 44px; }
+
+/* nav */
+header.nav { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--line); }
+.nav .wrap { display: flex; align-items: center; gap: 20px; height: 62px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.12rem; color: var(--ink); text-decoration: none; letter-spacing: -.01em; }
+.brand img { width: 28px; height: 28px; }
+.nav ul { display: none; list-style: none; margin: 0 0 0 auto; padding: 0; gap: 22px; }
+.nav ul a { color: var(--ink-2); text-decoration: none; font-size: .94rem; }
+.nav ul a:hover { color: var(--ink); }
+.nav-actions { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+@media (min-width: 900px) { .nav ul { display: flex; } .nav-actions { margin-left: 8px; } }
+.icon-btn { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.icon-btn:hover { color: var(--ink); }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: .55em; padding: .78em 1.2em; border-radius: 11px; font-weight: 600; text-decoration: none; border: 1px solid transparent; font-size: .98rem; white-space: nowrap; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-ghost { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.btn-ghost:hover { border-color: var(--ink-3); }
+.btn-sm { padding: .5em .85em; font-size: .88rem; border-radius: 9px; }
+.btn svg { width: 18px; height: 18px; }
+
+/* hero */
+.hero { padding: 72px 0 56px; position: relative; overflow: hidden; }
+.hero::before { content: ""; position: absolute; inset: -30% -10% auto; height: 520px; background: radial-gradient(60% 60% at 70% 30%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%), radial-gradient(40% 50% at 15% 10%, color-mix(in srgb, var(--gate) 12%, transparent), transparent 70%); pointer-events: none; }
+.hero .wrap { position: relative; }
+.hero h1 { font-size: clamp(2.3rem, 6vw, 4.1rem); max-width: 21ch; letter-spacing: -.035em; margin-bottom: .35em; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .lede { font-size: clamp(1.05rem, 1.6vw, 1.22rem); }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 22px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0; }
+.pills li { font: 500 .8rem/1 var(--mono); color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); padding: .5em .7em; border-radius: 999px; }
+.pills li b { color: var(--ok); font-weight: 700; }
+
+/* demo */
+.demo { margin-top: 52px; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+.demo-top { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.demo-top h2 { font-size: 1.05rem; margin: 0; letter-spacing: -.01em; }
+.demo-top p { margin: 2px 0 0; color: var(--ink-3); font-size: .9rem; }
+.callers { display: flex; flex-wrap: wrap; gap: 6px; }
+.callers button { font: 600 .86rem/1 var(--sans); padding: .62em .85em; border-radius: 9px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2); cursor: pointer; }
+.callers button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.demo-grid { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .demo-grid { grid-template-columns: 1fr 1.25fr 1.25fr; } }
+.pane { padding: 18px 20px; min-width: 0; border-bottom: 1px solid var(--line); }
+@media (min-width: 900px) { .pane { border-bottom: 0; border-right: 1px solid var(--line); } .pane:last-child { border-right: 0; } }
+.pane-label { font: 600 .72rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; display: flex; justify-content: space-between; gap: 8px; }
+.code { background: var(--code-bg); color: var(--code-ink); border-radius: 11px; padding: 14px 16px; font: 13px/1.65 var(--mono); overflow-x: auto; margin: 0; white-space: pre; }
+.code .k { color: var(--code-key); } .code .s { color: var(--code-str); } .code .n { color: var(--code-num); } .code .d { color: var(--code-dim); }
+.code .gone { color: var(--drop); text-decoration: line-through; text-decoration-thickness: 1.5px; background: color-mix(in srgb, var(--drop) 14%, transparent); border-radius: 3px; }
+.code .note { color: var(--code-dim); font-style: italic; }
+.tools { list-style: none; margin: 12px 0 0; padding: 0; font: 13px/1.5 var(--mono); }
+.tools li { padding: 5px 0; border-top: 1px dashed var(--line); color: var(--ink-2); overflow-wrap: anywhere; }
+.tools li:first-child { border-top: 0; }
+.tools .empty { color: var(--ink-3); font-style: italic; font-family: var(--sans); }
+.verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 14px 20px; border-top: 1px solid var(--line); background: var(--surface-2); font-size: .93rem; color: var(--ink-2); }
+.tag { font: 700 .74rem/1 var(--mono); padding: .45em .6em; border-radius: 6px; }
+.tag.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.tag.no { background: var(--drop-soft); color: var(--drop); }
+.tag.cut { background: var(--gate-soft); color: var(--gate); }
+
+/* problem */
+.grid-3 { display: grid; gap: 18px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+.grid-2 { display: grid; gap: 18px; grid-template-columns: 1fr; }
+@media (min-width: 860px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+.card p { color: var(--ink-2); margin: 0; font-size: .97rem; }
+.card .num { font: 700 .8rem/1 var(--mono); color: var(--gate); margin-bottom: 12px; display: block; }
+
+/* pipeline */
+.pipeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: 1fr; counter-reset: step; }
+@media (min-width: 980px) { .pipeline { grid-template-columns: repeat(5, 1fr); } }
+.pipeline li { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 18px 18px; counter-increment: step; }
+.pipeline li::before { content: counter(step); display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font: 700 .85rem/1 var(--mono); margin-bottom: 12px; }
+.pipeline li.gate::before { background: var(--gate-soft); color: var(--gate); }
+.pipeline h3 { margin-bottom: .3em; }
+.pipeline p { margin: 0; color: var(--ink-2); font-size: .93rem; }
+.pipeline .fail { display: block; margin-top: 10px; font: 600 .78rem/1.3 var(--mono); color: var(--drop); }
+
+/* features */
+.features { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .features { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1020px) { .features { grid-template-columns: repeat(3, 1fr); } }
+.feature { background: var(--surface); padding: 24px 22px; }
+.feature svg { width: 26px; height: 26px; color: var(--accent); margin-bottom: 12px; }
+.feature p { color: var(--ink-2); font-size: .95rem; margin: 0; }
+
+/* unique */
+.unique { display: grid; gap: 18px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .unique { grid-template-columns: 1fr 1fr; } }
+.unique .card { border-left: 3px solid var(--accent); }
+.unique .card h3 { display: flex; gap: 10px; align-items: baseline; }
+
+/* compare */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 780px; font-size: .92rem; }
+th, td { padding: 13px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th { font-size: .82rem; color: var(--ink-3); font-weight: 600; background: var(--surface-2); white-space: nowrap; }
+tbody th { font-weight: 600; color: var(--ink); max-width: 260px; }
+tbody tr:last-child > * { border-bottom: 0; }
+td.us, th.us { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+thead th.us { color: var(--accent); }
+.y { color: var(--ok); font-weight: 700; }
+.p { color: var(--gate); font-weight: 600; }
+.x { color: var(--ink-3); }
+.fine { color: var(--ink-3); font-size: .86rem; margin-top: 14px; }
+
+/* config + quickstart */
+.split { display: grid; gap: 28px; grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 960px) { .split { grid-template-columns: .9fr 1.1fr; gap: 48px; } }
+.checks { list-style: none; padding: 0; margin: 18px 0 0; }
+.checks li { position: relative; padding-left: 28px; margin-bottom: 12px; color: var(--ink-2); }
+.checks li::before { content: ""; position: absolute; left: 2px; top: .45em; width: 14px; height: 8px; border-left: 2.5px solid var(--accent); border-bottom: 2.5px solid var(--accent); transform: rotate(-45deg); }
+.term { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
+.term-bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px; background: var(--code-bg); border-bottom: 1px solid rgb(255 255 255 / .06); }
+.term-bar i { width: 11px; height: 11px; border-radius: 50%; background: #3a4b57; display: block; }
+.term-bar span { margin-left: 8px; font: 12px/1 var(--mono); color: var(--code-dim); }
+.term-bar button { margin-left: auto; font: 600 12px/1 var(--sans); background: transparent; border: 1px solid #2a3c49; color: var(--code-ink); padding: 6px 9px; border-radius: 7px; cursor: pointer; }
+.term .code { border-radius: 0; }
+.tabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+.tabs button { font: 600 .88rem/1 var(--sans); padding: .6em .9em; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* use cases */
+.uses { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .uses { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1020px) { .uses { grid-template-columns: repeat(3, 1fr); } }
+.use { display: block; text-decoration: none; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; transition: border-color .15s, transform .15s; }
+.use:hover { border-color: var(--accent); transform: translateY(-2px); }
+.use h3 { color: var(--ink); }
+.use p { color: var(--ink-2); font-size: .94rem; margin: 0; }
+.use span { display: inline-block; margin-top: 12px; font-weight: 600; color: var(--accent); font-size: .9rem; }
+
+/* roadmap */
+.roadmap { display: grid; gap: 18px; grid-template-columns: 1fr; }
+@media (min-width: 860px) { .roadmap { grid-template-columns: 1fr 1fr; } }
+.roadmap ul { list-style: none; margin: 0; padding: 0; }
+.roadmap li { padding: 10px 0; border-top: 1px solid var(--line); color: var(--ink-2); font-size: .95rem; display: flex; gap: 10px; }
+.roadmap li:first-child { border-top: 0; }
+.roadmap li b { color: var(--ink); font-weight: 600; }
+.roadmap .mk { flex: none; font: 700 .8rem/1.6 var(--mono); width: 1.3em; }
+.done .mk { color: var(--ok); } .next .mk { color: var(--gate); }
+
+/* faq */
+.faq { max-width: 52rem; }
+.faq details { border-bottom: 1px solid var(--line); padding: 4px 0; }
+.faq summary { cursor: pointer; list-style: none; padding: 16px 36px 16px 0; font-weight: 600; font-size: 1.06rem; position: relative; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; position: absolute; right: 6px; top: 12px; font: 400 1.5rem/1 var(--mono); color: var(--ink-3); }
+.faq details[open] summary::after { content: "−"; }
+.faq details p { color: var(--ink-2); padding-bottom: 8px; }
+
+/* cta band + footer */
+.band { text-align: center; }
+.band .lede { margin: 0 auto 26px; }
+.band .cta { justify-content: center; }
+footer { border-top: 1px solid var(--line); padding: 40px 0 56px; color: var(--ink-3); font-size: .9rem; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 18px 36px; justify-content: space-between; }
+footer ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+footer a { color: var(--ink-2); text-decoration: none; }
+footer a:hover { color: var(--ink); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="mcplake home"><img src="favicon.svg" alt="" width="28" height="28">mcplake</a>
+    <nav aria-label="Primary">
+      <ul>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#compare">Compare</a></li>
+        <li><a href="#quickstart">Quickstart</a></li>
+        <li><a href="https://primemcp.github.io/mcplake/latest/">Docs</a></li>
+      </ul>
+    </nav>
+    <div class="nav-actions">
+      <button class="icon-btn" id="theme" type="button" aria-label="Toggle dark mode" title="Toggle theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <a class="btn btn-ghost btn-sm" href="https://github.com/primemcp/mcplake" rel="noopener">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="top">
+  <div class="wrap">
+    <span class="eyebrow">Open-source MCP gateway · Apache-2.0</span>
+    <h1>Your identity provider decides what every AI agent can call — <em>and what it gets to see.</em></h1>
+    <p class="lede"><strong>mcplake</strong> is an identity-aware gateway for the Model Context Protocol. It authenticates every agent with your OIDC provider, grants MCP servers and individual tools from the token's claims, and strips the response fields a caller isn't allowed to see — <em>before</em> they reach the model's context window.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#quickstart">Run the demo in 5 minutes
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <a class="btn btn-ghost" href="https://github.com/primemcp/mcplake" rel="noopener">View source on GitHub</a>
+    </div>
+    <ul class="pills" aria-label="Highlights">
+      <li><b>✓</b> 100% open source, no paid tier</li>
+      <li><b>✓</b> Works with any OIDC IdP</li>
+      <li><b>✓</b> One Go binary + SQLite</li>
+      <li><b>✓</b> No telemetry, air-gap ready</li>
+      <li><b>✓</b> stdio · Streamable HTTP · SSE</li>
+    </ul>
+
+    <!-- Interactive demo -->
+    <div class="demo" id="demo">
+      <div class="demo-top">
+        <div>
+          <h2>One tool. Four callers. Four different answers.</h2>
+          <p>Every caller invokes <code>employee-directory__get_employee</code> with the same arguments. Pick one.</p>
+        </div>
+        <div class="callers" role="group" aria-label="Choose a caller">
+          <button type="button" data-caller="hr" aria-pressed="false">HR partner</button>
+          <button type="button" data-caller="staff" aria-pressed="true">Engineer</button>
+          <button type="button" data-caller="bot" aria-pressed="false">Support bot</button>
+          <button type="button" data-caller="guest" aria-pressed="false">Contractor</button>
+        </div>
+      </div>
+      <div class="demo-grid">
+        <div class="pane">
+          <div class="pane-label"><span>JWT claims (from your IdP)</span></div>
+          <pre class="code" id="d-claims"><span class="d">{</span>
+  <span class="k">"sub"</span>: <span class="s">"sam"</span>,
+  <span class="k">"role"</span>: <span class="s">"staff"</span>,
+  <span class="k">"groups"</span>: [<span class="s">"platform"</span>]
+<span class="d">}</span></pre>
+          <div class="pane-label" style="margin-top:18px"><span>tools/list the agent sees</span></div>
+          <ul class="tools" id="d-tools">
+            <li>employee-directory__get_employee</li>
+            <li>employee-directory__list_employees</li>
+          </ul>
+        </div>
+        <div class="pane">
+          <div class="pane-label"><span>MCP server returned</span></div>
+          <pre class="code" id="d-raw"></pre>
+        </div>
+        <div class="pane">
+          <div class="pane-label"><span>Agent received</span></div>
+          <pre class="code" id="d-out"></pre>
+        </div>
+      </div>
+      <div class="verdict" id="d-verdict" aria-live="polite">
+        <span class="tag cut">200 · 2 fields removed</span>
+        <span>Access policy <code>staff</code> granted the tool; filter policy <code>staff-hide-pay</code> dropped <code>$.salary_usd</code> and <code>$.ssn_last4</code>.</span>
+      </div>
+      <noscript><p style="padding:0 20px 16px;color:var(--ink-3)">An engineer's token gets the record with <code>salary_usd</code> and <code>ssn_last4</code> removed; HR gets it whole; a contractor gets <code>403 forbidden</code> and never sees the tool at all.</p></noscript>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PROBLEM ================= -->
+<section class="alt" id="why">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Why it exists</span>
+      <h2>MCP servers were built for one user. Your organisation has thousands.</h2>
+      <p class="lede">An MCP server usually runs with one set of credentials and hands every tool, and every field, to whoever connects. That is fine on a laptop. It is not fine when agents act for hundreds of people with different jobs, clearances and data rights.</p>
+    </div>
+    <div class="grid-3">
+      <div class="card"><span class="num">01 · over-privilege</span><h3>Every agent gets every tool</h3><p>A support bot that only needs lookups can also call <code>drop_table</code>. Prompt injection turns that from a risk into an incident.</p></div>
+      <div class="card"><span class="num">02 · data leakage</span><h3>Whatever the tool returns, the model reads</h3><p>Salaries, SSNs, API keys and home addresses land in the context window, in logs and in the provider's hands — whether the user was entitled to them or not.</p></div>
+      <div class="card"><span class="num">03 · a second identity system</span><h3>Yet another place to manage users</h3><p>Most gateways want their own users, API keys or "virtual keys" — and put SSO behind an enterprise licence. Your IdP already knows who everyone is.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOW ================= -->
+<section id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">How it works</span>
+      <h2>One pipeline, one rule engine, applied twice.</h2>
+      <p class="lede">Every call — MCP <code>tools/call</code> or plain <code>POST /v1/call</code> — runs the same five steps. The claim rules that decide <em>whether</em> you may call a tool are evaluated again to decide <em>what you get back</em>.</p>
+    </div>
+    <ol class="pipeline">
+      <li><h3>Authenticate</h3><p>Verify the JWT's signature against your IdP's JWKS, plus expiry, issuer and audience.</p><span class="fail">✗ 401 unauthorized</span></li>
+      <li class="gate"><h3>Authorize</h3><p>Access policies match claims with JSONPath + regex and grant exact <code>(mcp, tool)</code> pairs.</p><span class="fail">✗ 403 — before revealing whether the tool exists</span></li>
+      <li><h3>Route</h3><p>The MCP must be registered, enabled and connected, and must advertise the tool.</p><span class="fail">✗ 403 mcp_disabled · 404</span></li>
+      <li><h3>Call</h3><p>Forward over stdio (a supervised subprocess), Streamable HTTP or SSE.</p></li>
+      <li class="gate"><h3>Filter</h3><p>Filter policies matching the caller drop fields from <em>every</em> copy of the payload.</p><span class="fail">✗ fails closed if it can't enforce</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================= UNIQUE ================= -->
+<section class="alt" id="different">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">What makes it different</span>
+      <h2>Governance that goes all the way down to the field — for free.</h2>
+      <p class="lede">Plenty of gateways decide which tools an agent may call. mcplake also decides what an allowed tool's answer contains, per caller, using the identity you already have.</p>
+    </div>
+    <div class="unique">
+      <div class="card">
+        <h3>Identity-aware field-level filtering</h3>
+        <p>Not pattern-matching for things that look like PII — deterministic JSONPath removal of the fields <em>this caller</em> may not see. One <code>get_employee</code> tool serves HR (with salaries) and everyone else (without), with no duplicate servers and no trust in the agent to "ignore" data.</p>
+      </div>
+      <div class="card">
+        <h3>No leak through the copy you forgot</h3>
+        <p>MCP results often carry the same data twice: <code>structuredContent</code> and JSON text in <code>content</code> blocks. mcplake applies every path to every copy — and if a filter applies but the payload is unparseable, it refuses to return it rather than pass it through.</p>
+      </div>
+      <div class="card">
+        <h3>Your IdP is the only source of truth</h3>
+        <p>No gateway user database, no virtual keys to rotate. Move someone between groups in Keycloak, Okta or Entra ID and their tools — and their fields — change on the next call. OIDC isn't an enterprise add-on; it's the whole model.</p>
+      </div>
+      <div class="card">
+        <h3>Explainable decisions</h3>
+        <p>The admin UI's request-path view takes a token's claims and shows, stage by stage, which policy granted or denied a call and which fields each filter removes — the same pipeline, the same status codes, before you ship a policy change.</p>
+      </div>
+      <div class="card">
+        <h3>A gateway agents can operate</h3>
+        <p>Every admin operation — register an MCP, create a policy, flip a kill switch — is available as REST, in the web UI, <em>and</em> as MCP tools on an optional control server, gated by the same claim rules.</p>
+      </div>
+      <div class="card">
+        <h3>Built for networks with no way out</h3>
+        <p>One Go binary, embedded SQLite, no telemetry, no phone-home. The only outbound traffic is to your IdP's JWKS endpoint and the MCP servers you register. PostgreSQL when you need it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FEATURES ================= -->
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Features</span>
+      <h2>Everything included. Nothing behind a licence key.</h2>
+    </div>
+    <div class="features">
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><h3>OIDC / JWT authentication</h3><p>Signature, expiry, issuer and audience checked on every call; JWKS cached.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h6"/><circle cx="18" cy="16" r="3"/></svg><h3>Claims-based access policies</h3><p>JSONPath + RE2 rules on any claim — roles, groups, tenant, region. Grant whole servers or single tools.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><h3>Field-level response filtering</h3><p>Drop fields per caller, across every payload copy, fail-closed. Dead paths are logged.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7M17.5 14v7"/></svg><h3>Per-caller tool catalogue</h3><p>One MCP endpoint aggregating every server as <code>&lt;mcp&gt;__&lt;tool&gt;</code>, filtered to exactly what the token grants.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M4 17h16M18 4l3 3-3 3M8 14l-3 3 3 3"/></svg><h3>MCP in, MCP out</h3><p>Serve Streamable HTTP and SSE; reach servers over stdio, HTTP or SSE. REST <code>POST /v1/call</code> too.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg><h3>Self-healing connections</h3><p>Health-check loop reconnects servers that restart or start late; periodic schema refresh.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M7 9h4M7 13h10"/></svg><h3>Admin web UI</h3><p>React UI with OIDC PKCE login: servers, tools, policies, users — plus the request-path explainer.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg><h3>Live changes, instant kill switches</h3><p>Change policies at runtime; disable any server or policy reversibly, effective on the next call.</p></div>
+      <div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><h3>SQLite or PostgreSQL</h3><p>Embedded by default; Postgres for shared state. Config-as-code in a single TOML file.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONFIG ================= -->
+<section class="alt" id="config">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">Policy as configuration</span>
+      <h2>The engineer's view above is twenty lines of TOML.</h2>
+      <p class="lede">A rule is a JSONPath into the token and a regular expression. Policies are additive, filters are unioned, and anything not granted is denied.</p>
+      <ul class="checks">
+        <li>Validated at load time — a broken rule stops the gateway, naming the entry.</li>
+        <li>Manage the same policies later through REST, the web UI or MCP tools.</li>
+        <li>No per-user state: the token carries everything.</li>
+      </ul>
+    </div>
+    <div class="term">
+      <div class="term-bar"><i></i><i></i><i></i><span>config.toml</span></div>
+<pre class="code"><span class="d"># Engineers may use the employee directory…</span>
+[[access_policies]]
+name = <span class="s">"staff"</span>
+[[access_policies.match]]
+path    = <span class="s">"$.role"</span>
+pattern = <span class="s">"^(staff|hr)$"</span>
+[[access_policies.grants]]
+mcp   = <span class="s">"employee-directory"</span>
+tools = [<span class="s">"*"</span>]
+
+<span class="d"># …but never see pay or SSNs.</span>
+[[filter_policies]]
+name        = <span class="s">"staff-hide-pay"</span>
+mcp         = <span class="s">"employee-directory"</span>
+tool        = <span class="s">"get_employee"</span>
+drop_fields = [<span class="s">"$.salary_usd"</span>, <span class="s">"$.ssn_last4"</span>]
+[[filter_policies.match]]
+path    = <span class="s">"$.role"</span>
+pattern = <span class="s">"^staff$"</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ================= COMPARE ================= -->
+<section id="compare">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">How it compares</span>
+      <h2>Where mcplake fits among MCP gateways.</h2>
+      <p class="lede">Bifrost, MCPX, agentgateway, ContextForge and Docker's MCP Gateway are all good projects with different goals — LLM routing, container isolation, Kubernetes-native traffic, API federation. mcplake does one thing: identity-driven governance of MCP, down to the field.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <caption class="sr-only">Comparison of open-source MCP gateways</caption>
+        <thead>
+          <tr><th scope="col">Capability</th><th scope="col" class="us">mcplake</th><th scope="col">Bifrost</th><th scope="col">MCPX (Lunar)</th><th scope="col">agentgateway</th><th scope="col">IBM ContextForge</th><th scope="col">Docker MCP Gateway</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Tool access decided by your OIDC IdP's JWT claims</th><td class="us y">✓</td><td class="p">Enterprise (IdP sync, access profiles)</td><td class="p">Enterprise (IdP / SSO)</td><td class="y">✓ (CEL rules)</td><td class="p">◐ own users, teams &amp; RBAC</td><td class="x">—</td></tr>
+          <tr><th scope="row">Per-caller filtered <code>tools/list</code></th><td class="us y">✓</td><td class="y">✓ per virtual key</td><td class="y">✓ per profile</td><td class="y">✓</td><td class="y">✓ virtual servers</td><td class="x">—</td></tr>
+          <tr><th scope="row">Response fields removed per caller identity</th><td class="us y">✓ JSONPath, fail-closed</td><td class="p">Guardrails (Enterprise), content-based</td><td class="x">—</td><td class="x">—</td><td class="p">◐ PII plugin, pattern-based</td><td class="x">—</td></tr>
+          <tr><th scope="row">Everything open source, no paid tier</th><td class="us y">✓ Apache-2.0</td><td class="p">Open core</td><td class="p">Open core</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+          <tr><th scope="row">Primary focus</th><td class="us">MCP identity &amp; data governance</td><td>LLM + MCP gateway</td><td>MCP governance platform</td><td>Agent / MCP / A2A proxy</td><td>MCP, A2A &amp; REST federation</td><td>Containerised MCP servers</td></tr>
+          <tr><th scope="row">Footprint</th><td class="us">One Go binary + SQLite</td><td>Go binary</td><td>Container</td><td>Rust binary</td><td>Python service</td><td>Docker CLI plugin</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine">✓ included · ◐ partial · Enterprise / open core = requires a paid tier · — not found in public docs. Based on each project's public documentation as of September 2026. Something wrong or out of date? <a href="https://github.com/primemcp/mcplake/issues">Open an issue</a> and we'll fix it.</p>
+  </div>
+</section>
+
+<!-- ================= QUICKSTART ================= -->
+<section class="alt" id="quickstart">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">Quickstart</span>
+      <h2>See it deny, allow and redact in five minutes.</h2>
+      <p class="lede">One command starts Keycloak, PostgreSQL, the gateway, the admin UI, MCP Inspector and several MCP servers — with demo users whose tokens get different tools and different fields.</p>
+      <ul class="checks">
+        <li>Docker (Compose) or Podman, plus <code>curl</code> and <code>jq</code>.</li>
+        <li>Admin UI at <code>localhost:8082</code> — sign in as <code>mcplake-admin</code>.</li>
+        <li>Point Claude Code, Cursor or any MCP client at <code>localhost:9090/v1/mcp</code>.</li>
+      </ul>
+      <p style="margin-top:22px"><a class="btn btn-ghost" href="https://primemcp.github.io/mcplake/latest/getting-started/quickstart.html">Full quickstart guide →</a></p>
+    </div>
+    <div>
+      <div class="tabs" role="tablist" aria-label="Quickstart steps">
+        <button type="button" role="tab" aria-selected="true" aria-controls="qs-run" id="t-run">1 · Run</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="qs-call" id="t-call">2 · Call</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="qs-client" id="t-client">3 · Connect a client</button>
+      </div>
+      <div class="term" role="tabpanel" id="qs-run" aria-labelledby="t-run">
+        <div class="term-bar"><i></i><i></i><i></i><span>bash</span><button type="button" data-copy>Copy</button></div>
+<pre class="code">git clone https://github.com/primemcp/mcplake.git
+cd mcplake
+docker compose up -d --build   <span class="d"># or: podman compose up -d --build</span>
+
+curl -s http://localhost:9090/healthz   <span class="d"># → ok</span></pre>
+      </div>
+      <div class="term" role="tabpanel" id="qs-call" aria-labelledby="t-call" hidden>
+        <div class="term-bar"><i></i><i></i><i></i><span>bash</span><button type="button" data-copy>Copy</button></div>
+<pre class="code">TOKEN=$(curl -s -X POST \
+  http://localhost:8080/realms/mcplake/protocol/openid-connect/token \
+  -d grant_type=password -d client_id=mcplake-demo \
+  -d username=alice -d password=alice -d scope=openid \
+  | jq -r .access_token)
+
+curl -s -X POST http://localhost:9090/v1/call \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mcp":"employee-directory","tool":"get_employee",
+       "arguments":{"employee_id":2}}' | jq .structuredContent
+<span class="d"># salary_usd and ssn_last4 are gone. Try username=bob → 403.</span></pre>
+      </div>
+      <div class="term" role="tabpanel" id="qs-client" aria-labelledby="t-client" hidden>
+        <div class="term-bar"><i></i><i></i><i></i><span>bash</span><button type="button" data-copy>Copy</button></div>
+<pre class="code"><span class="d"># Claude Code</span>
+claude mcp add --transport http mcplake http://localhost:9090/v1/mcp \
+  --header "Authorization: Bearer $TOKEN"
+
+<span class="d"># Any client with a JSON config (Cursor, VS Code, …)</span>
+{ "mcpServers": { "mcplake": {
+    "url": "http://localhost:9090/v1/mcp",
+    "headers": { "Authorization": "Bearer &lt;token&gt;" } } } }</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= USE CASES ================= -->
+<section id="use-cases">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Use cases</span>
+      <h2>What people put mcplake in front of their MCP servers to do.</h2>
+    </div>
+    <div class="uses">
+      <a class="use" href="https://primemcp.github.io/mcplake/latest/use-cases/redact-sensitive-fields.html"><h3>Redact sensitive fields</h3><p>Serve HR and everyone else from one tool; salaries and SSNs never reach the wrong context window.</p><span>Read the guide →</span></a>
+      <a class="use" href="https://primemcp.github.io/mcplake/latest/use-cases/read-only-and-read-write.html"><h3>Read-only vs read-write</h3><p>Analysts get the read replica, on-call engineers get writes — decided by a group claim.</p><span>Read the guide →</span></a>
+      <a class="use" href="https://primemcp.github.io/mcplake/latest/use-cases/per-user-and-per-server-access.html"><h3>Per-user, per-server access</h3><p>Grant one team one server, another team another, and a single tool to a service account.</p><span>Read the guide →</span></a>
+      <a class="use" href="https://primemcp.github.io/mcplake/latest/use-cases/stdio-server-behind-sso.html"><h3>Put a stdio server behind SSO</h3><p>Turn a local-only stdio MCP server into a shared, authenticated network service.</p><span>Read the guide →</span></a>
+      <a class="use" href="https://primemcp.github.io/mcplake/latest/use-cases/air-gapped-deployment.html"><h3>Air-gapped deployment</h3><p>Run AI tooling in regulated, classified or offline networks with zero egress.</p><span>Read the guide →</span></a>
+      <a class="use" href="https://primemcp.github.io/mcplake/latest/use-cases/agent-operated-gateway.html"><h3>Let an agent run the gateway</h3><p>Expose admin operations as MCP tools so an authorised agent can register servers and policies.</p><span>Read the guide →</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ROADMAP ================= -->
+<section class="alt" id="roadmap">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Roadmap</span>
+      <h2>Honest about what's done and what's next.</h2>
+      <p class="lede">mcplake is young and moving fast. Every design decision is written down as an ADR, so you can see not just what it does but why.</p>
+    </div>
+    <div class="roadmap">
+      <div class="card done">
+        <h3>Shipped</h3>
+        <ul>
+          <li><span class="mk">✓</span><span><b>Data plane</b> — OIDC auth, claims-based authorization, per-caller MCP endpoint</span></li>
+          <li><span class="mk">✓</span><span><b>Field-level filtering</b> across every payload copy, fail-closed</span></li>
+          <li><span class="mk">✓</span><span><b>stdio, Streamable HTTP, SSE</b> downstream, with health checks and reconnection</span></li>
+          <li><span class="mk">✓</span><span><b>Control plane</b> — REST + OpenAPI, admin web UI, MCP control server</span></li>
+          <li><span class="mk">✓</span><span><b>SQLite / PostgreSQL</b> persistence, TOML config seeding</span></li>
+        </ul>
+      </div>
+      <div class="card next">
+        <h3>Next — help wanted</h3>
+        <ul>
+          <li><span class="mk">→</span><span><b>Audit trail</b> and OpenTelemetry tracing of every decision</span></li>
+          <li><span class="mk">→</span><span><b>Argument-level</b> validation and policies on tool inputs</span></li>
+          <li><span class="mk">→</span><span><b>Outbound credentials</b> for downstream MCP servers</span></li>
+          <li><span class="mk">→</span><span><b>MCP OAuth</b> protected-resource metadata for client discovery</span></li>
+          <li><span class="mk">→</span><span><b>Live pipeline visualisation</b> of real traffic</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq">
+  <div class="wrap">
+    <div class="section-head"><span class="eyebrow">FAQ</span><h2>Questions people ask.</h2></div>
+    <div class="faq">
+      <details open><summary>What is an MCP gateway?</summary><p>A reverse proxy between AI agents (MCP clients) and the MCP servers that give them tools. Instead of every agent connecting to every server, they connect to the gateway, which authenticates the caller, decides what it may use, forwards the call and returns the result. mcplake is an MCP gateway focused on identity: your OIDC provider's token claims decide both access and what data comes back.</p></details>
+      <details><summary>How is mcplake different from Bifrost, MCPX or agentgateway?</summary><p>mcplake is a dedicated MCP gateway, not an LLM gateway. Its distinguishing feature is identity-aware, field-level response filtering: the same claim rules that grant a tool also decide which fields of that tool's answer the caller receives — applied to every copy of the payload, failing closed. And everything, including OIDC-based access control, is Apache-2.0 with no enterprise tier. If you need LLM routing, run mcplake alongside an LLM gateway.</p></details>
+      <details><summary>Does it work with Claude Code, Cursor and other MCP clients?</summary><p>Yes. mcplake is itself an MCP server: point any client that can send an <code>Authorization</code> header at <code>/v1/mcp</code> (Streamable HTTP) or <code>/v1/sse</code>. The client sees one catalogue, named <code>&lt;mcp&gt;__&lt;tool&gt;</code> and filtered to its token.</p></details>
+      <details><summary>Which identity providers are supported?</summary><p>Any OIDC provider that publishes a JWKS endpoint — Keycloak, Okta, Microsoft Entra ID, Auth0, Google, Dex, Authentik and so on. Rules can match any claim, including nested ones such as Keycloak's <code>realm_access.roles</code>.</p></details>
+      <details><summary>Is it the same as PII detection?</summary><p>No, and that is deliberate. Detection guesses what looks sensitive; mcplake removes exactly the fields you name, for exactly the callers you name. It is deterministic, testable and explainable. You can still run a detector behind it.</p></details>
+      <details><summary>Can it run in an air-gapped network?</summary><p>Yes. One Go binary, embedded SQLite by default, no telemetry, and no outbound calls except to your IdP's JWKS endpoint and the MCP servers you register.</p></details>
+      <details><summary>Is it really free? What's the catch?</summary><p>No catch. Apache-2.0, no paid tier, no enterprise edition, no feature gating, no telemetry. The goal is a gateway the MCP community can trust and build on.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA ================= -->
+<section class="alt band" id="contribute">
+  <div class="wrap">
+    <span class="eyebrow">Get involved</span>
+    <h2>Help build the MCP gateway you'd want to run.</h2>
+    <p class="lede">Star the repo so others find it, try the demo and tell us what broke, or pick something from the roadmap. Every change starts from an issue and every decision is an ADR — it's an easy codebase to join.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/primemcp/mcplake" rel="noopener">Star on GitHub</a>
+      <a class="btn btn-ghost" href="https://github.com/primemcp/mcplake/issues">Browse issues</a>
+      <a class="btn btn-ghost" href="https://primemcp.github.io/mcplake/latest/development/contributing.html">Contributing guide</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a class="brand" href="#top"><img src="favicon.svg" alt="" width="24" height="24">mcplake</a>
+      <p style="margin:10px 0 0">The identity-aware MCP gateway. Apache-2.0.</p>
+    </div>
+    <ul>
+      <li><a href="https://primemcp.github.io/mcplake/latest/">Documentation</a></li>
+      <li><a href="https://github.com/primemcp/mcplake">GitHub</a></li>
+      <li><a href="https://primemcp.github.io/mcplake/latest/architecture/decisions/index.html">Design decisions</a></li>
+      <li><a href="https://github.com/primemcp/mcplake/blob/develop/LICENSE">License</a></li>
+      <li><a href="llms.txt">llms.txt</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // Theme toggle: follows the system until the visitor picks one.
+  const root = document.documentElement;
+  try { const t = localStorage.getItem("mcplake-theme"); if (t) root.dataset.theme = t; } catch {}
+  document.getElementById("theme").addEventListener("click", () => {
+    const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("mcplake-theme", root.dataset.theme); } catch {}
+  });
+
+  // Interactive demo.
+  const record = [
+    ["id", 2], ["name", "Marcus Webb"], ["title", "Staff Engineer"],
+    ["email", "marcus.webb@example.com"], ["phone", "+1 555 0142"],
+    ["home_address", "12 Birch Lane"], ["salary_usd", 198000], ["ssn_last4", "0193"],
+  ];
+  const callers = {
+    hr: {
+      claims: { sub: "hana", role: "hr", groups: ["people-ops"] },
+      tools: ["employee-directory__get_employee", "employee-directory__list_employees", "payroll__get_payslip"],
+      drop: [], status: "ok",
+      verdict: 'Access policies grant the directory (and, for HR, the payroll server). No filter policy matches <code>role=hr</code>, so the record passes through whole.',
+    },
+    staff: {
+      claims: { sub: "sam", role: "staff", groups: ["platform"] },
+      tools: ["employee-directory__get_employee", "employee-directory__list_employees"],
+      drop: ["salary_usd", "ssn_last4"], status: "cut",
+      verdict: 'Access policy <code>staff</code> granted the tool; filter policy <code>staff-hide-pay</code> dropped <code>$.salary_usd</code> and <code>$.ssn_last4</code>.',
+    },
+    bot: {
+      claims: { sub: "svc-support", role: "support-agent", azp: "support-bot" },
+      tools: ["employee-directory__get_employee"],
+      drop: ["home_address", "salary_usd", "ssn_last4"], status: "cut",
+      verdict: 'Policy <code>support-lookup</code> grants one tool only. Filters <code>staff-hide-pay</code> and <code>bots-no-address</code> both match — their fields are unioned.',
+    },
+    guest: {
+      claims: { sub: "gus", role: "guest" },
+      tools: [], drop: null, status: "no",
+      verdict: 'No access policy grants <code>role=guest</code> this tool, so the gateway refuses before it even checks the tool exists — and never forwards the call.',
+    },
+  };
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+  const val = (v) => typeof v === "number" ? `<span class="n">${v}</span>` : `<span class="s">"${esc(v)}"</span>`;
+  const obj = (entries, mark) => {
+    const lines = entries.map(([k, v], i) => {
+      const body = `<span class="k">"${k}"</span>: ${Array.isArray(v) ? "[" + v.map(val).join(", ") + "]" : val(v)}${i < entries.length - 1 ? "," : ""}`;
+      return "  " + (mark && mark.includes(k) ? `<span class="gone">${body}</span>` : body);
+    });
+    return `<span class="d">{</span>\n${lines.join("\n")}\n<span class="d">}</span>`;
+  };
+  const $ = (id) => document.getElementById(id);
+  function show(name) {
+    const c = callers[name];
+    document.querySelectorAll("[data-caller]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.caller === name)));
+    $("d-claims").innerHTML = obj(Object.entries(c.claims));
+    $("d-tools").innerHTML = c.tools.length ? c.tools.map((t) => `<li>${t}</li>`).join("") : '<li class="empty">Empty — the agent is never offered a tool it would only get 403 from.</li>';
+    if (c.drop === null) {
+      $("d-raw").innerHTML = '<span class="note">// never called —\n// the request stopped at step 2.</span>';
+      $("d-out").innerHTML = '<span class="k">HTTP 403</span> <span class="s">forbidden</span>\n\n<span class="note">// same answer whether or not the\n// server or tool exists.</span>';
+    } else {
+      $("d-raw").innerHTML = obj(record, c.drop);
+      $("d-out").innerHTML = obj(record.filter(([k]) => !c.drop.includes(k)));
+    }
+    const label = c.status === "no" ? "403 · denied" : c.drop.length ? `200 · ${c.drop.length} fields removed` : "200 · unfiltered";
+    $("d-verdict").innerHTML = `<span class="tag ${c.status}">${label}</span><span>${c.verdict}</span>`;
+  }
+  document.querySelectorAll("[data-caller]").forEach((b) => b.addEventListener("click", () => show(b.dataset.caller)));
+  show("staff");
+
+  // Quickstart tabs.
+  const tabs = document.querySelectorAll('[role="tab"]');
+  tabs.forEach((t) => t.addEventListener("click", () => {
+    tabs.forEach((o) => { o.setAttribute("aria-selected", String(o === t)); $(o.getAttribute("aria-controls")).hidden = o !== t; });
+  }));
+
+  // Copy buttons copy the command text without the comments.
+  document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+    const pre = b.closest(".term").querySelector("pre").cloneNode(true);
+    pre.querySelectorAll(".d").forEach((d) => d.remove());
+    try { await navigator.clipboard.writeText(pre.textContent.replace(/[ \t]+$/gm, "").trim()); b.textContent = "Copied"; }
+    catch { b.textContent = "Select & copy"; }
+    setTimeout(() => (b.textContent = "Copy"), 1600);
+  }));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens lifted from the Claude Design mockup (`MCP Gateway UI
+ * (standalone).html`, project mcplake) — the single source of truth for
+ * this app's palette/type, so Tailwind utilities (bg-ink, text-accent,
+ * border-border, font-mono, ...) and any hand-written CSS both read from
+ * the same values instead of hardcoded hex scattered through components.
+ */
+@theme {
+  --color-ink: #14161a;
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-accent: #2f4bd8;
+  --color-accent-hover: #1f37ad;
+  /* Two distinct soft-blue tints in the mockup's own color constants (its
+     `const C = {...}` block), not one — collapsing them into a single
+     token was the bug behind the sidebar/selection highlight looking
+     wrong: select-soft is C.accentSoft (nav active pill, selected list
+     row); form-soft is the separate, more saturated tint used for every
+     "you're editing this" inline panel (add/edit endpoint, add/edit
+     filter). Don't merge them back — they read as different colors. */
+  --color-select-soft: #eef1fe;
+  --color-form-soft: #f7f9ff;
+  --color-border: #e4e7ec;
+  --color-border-soft: #eef1f4;
+  --color-line: #cfd6e0;
+  /* The mockup's recessed/inset gray: search boxes, and non-selectable
+     placeholder tiles. Distinct from --color-bg (page) and --color-surface
+     (cards) — see #fbfbfc in the source, used 9x for exactly this. */
+  --color-well: #fbfbfc;
+  --color-muted: #98a2b3;
+  --color-subtle: #667085;
+  --color-body: #384252;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdecea;
+  --color-danger-border: #f3c9c5;
+  --color-success: #0b7a4b;
+  --color-success-soft: #e9f6ef;
+  /* Sensitive-field flag color (schema field annotations) and the
+     endpoint on/off toggle's "in between" state — from the mockup's
+     `const C = {...}`: warn: '#9a5b06', warnSoft: '#fdf4e5'. */
+  --color-warn: #9a5b06;
+  --color-warn-soft: #fdf4e5;
+  /* The schema-field toggle's "off" (dropped) track color — distinct from
+     --color-line, per the source's literal '#dfe3ea'. */
+  --color-track-off: #dfe3ea;
+
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  height: 100vh;
+  min-height: 760px;
+}
+
+/* Request path tab (Users & access): the mockup's own three animations,
+   verbatim -- traffic flowing along a live edge, and the soft/alert
+   pulses on the node currently deciding the request. */
+@keyframes dashflow {
+  to {
+    stroke-dashoffset: -32px;
+  }
+}
+@keyframes softpulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 75, 216, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(47, 75, 216, 0);
+  }
+}
+@keyframes rejectpulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.24);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(179, 38, 30, 0);
+  }
+}
